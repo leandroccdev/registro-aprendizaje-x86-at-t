@@ -1274,7 +1274,28 @@ O sea: `0x00F000F0`
 Entonces, después del `andl %ebx, %eax`, `%eax` queda con el valor: `eax = 0x00F000F0`
 
 #### Flags afectados por AND
-TODO: preguntar a gpt y repetir para las otras 3 operaciones bit a bit
+
+- ZF (Zero Flag):
+Se pone a 1 si el resultado es cero (todos los bits del resultado son 0).
+Ejemplo: si `eax & 0xFF` da 0, entonces ZF = 1.
+- SF (Sign Flag):
+Indica el signo del resultado (bit más alto del resultado).
+Si el bit más significativo es 1, SF = 1 (resultado negativo si es valor con signo).
+- PF (Parity Flag):
+Se activa si el número de bits a 1 en el resultado es par.
+- CF (Carry Flag):
+Siempre se limpia (CF = 0) después de un `and`.
+- OF (Overflow Flag):
+Siempre se limpia (OF = 0) después de un `and`.
+
+**Resumen**
+| Flag | Efecto con `and`         |
+| ---- | ------------------------ |
+| ZF   | 1 si resultado = 0       |
+| SF   | 1 si bit más alto = 1    |
+| PF   | 1 si paridad bits es par |
+| CF   | Siempre 0                |
+| OF   | Siempre 0                |
 
 #### Ejemplo OR
 ```asm
@@ -1307,6 +1328,29 @@ Esto es `0x0FFF0FFF`
 
 Entonces, tras el `orl %ebx, %eax`: `eax = 0x0FFF0FFF`
 
+#### Flags afectados por OR
+
+- ZF (Zero Flag):
+Se pone a 1 si el resultado es cero (todos los bits del resultado son 0).
+- SF (Sign Flag):
+Indica el signo del resultado (bit más alto del resultado).
+- PF (Parity Flag):
+Se activa si la cantidad de bits a 1 en el resultado es par.
+- CF (Carry Flag):
+Siempre se limpia (CF = 0) después de un `or`.
+- OF (Overflow Flag):
+Siempre se limpia (OF = 0) después de un `or`.
+
+**Resumen**
+
+| Flag | Efecto con `or`          |
+| ---- | ------------------------ |
+| ZF   | 1 si resultado = 0       |
+| SF   | 1 si bit más alto = 1    |
+| PF   | 1 si paridad bits es par |
+| CF   | Siempre 0                |
+| OF   | Siempre 0                |
+
 #### Ejemplo XOR
 ```asm
     movl $0xFF00FF00, %eax    # Carga 0xFF00FF00 en eax
@@ -1337,6 +1381,30 @@ Concatenando bytes (MSB a LSB):
 O sea: `0xF00FF00F`
 Entonces, después de `xorl %ebx, %eax`: `eax = 0xF00FF00F`
 
+
+#### Flags afectados por XOR
+
+- ZF (Zero Flag):
+Se pone a 1 si el resultado es cero (todos los bits son 0).
+- SF (Sign Flag):
+Indica el signo del resultado (bit más alto).
+- PF (Parity Flag):
+Se activa si el número de bits a 1 en el resultado es par.
+- CF (Carry Flag):
+Siempre se limpia (CF = 0) después de un `xor`.
+- OF (Overflow Flag):
+Siempre se limpia (OF = 0) después de un `xor`.
+
+**Resumen**
+
+| Flag | Efecto con `xor`         |
+| ---- | ------------------------ |
+| ZF   | 1 si resultado = 0       |
+| SF   | 1 si bit más alto = 1    |
+| PF   | 1 si paridad bits es par |
+| CF   | Siempre 0                |
+| OF   | Siempre 0                |
+
 #### Ejemplo NOT
 ```asm
     movl $0x0F0F0F0F, %eax   # Carga un valor en eax
@@ -1365,3 +1433,21 @@ NOT invierte cada bit, es decir:
 Concatenando bytes (MSB a LSB): ```11110000 11110000 11110000 11110000```
 Que en hexadecimal es: `0xF0F0F0F0`
 Entonces, después de ejecutar `notl %eax`, el valor de `%eax` será: `eax = 0xF0F0F0F0`
+
+#### Flags afectados por NOT
+
+- `not` es una operación de complemento bit a bit (bitwise NOT), que invierte todos los bits del operando.
+
+**Importante:**
+La instrucción `not` NO modifica ningún flag en el procesador. Todos los flags permanecen igual después de ejecutar `not`.
+
+**Resumen**
+| Flag | Efecto con `not` |
+| ---- | ---------------- |
+| ZF   | No cambia        |
+| SF   | No cambia        |
+| PF   | No cambia        |
+| CF   | No cambia        |
+| OF   | No cambia        |
+
+Por lo tanto si necesitas invertir bits pero conservar el estado de los flags para operaciones condicionales posteriores, not es adecuado porque no altera los flags.
