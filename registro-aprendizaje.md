@@ -7,7 +7,7 @@ No pretende ser una guía manual para aprender x86, mas bien es una forma de doc
 **Propósito**
 - Asimilar conocimientos durante la creación.
 - Ser una ayuda de memoria a modo de torpedo de consula rápida.
-- Organizar el conocimiento en de una menera en lo pueda entender mas fácilmente a como lo explica los expertos.
+- Organizar el conocimiento en de una menera en lo pueda entender mas fácilmente a como lo explican los expertos.
 
 ### Sintaxis
 
@@ -1451,3 +1451,5 @@ La instrucción `not` NO modifica ningún flag en el procesador. Todos los flags
 | OF   | No cambia        |
 
 Por lo tanto si necesitas invertir bits pero conservar el estado de los flags para operaciones condicionales posteriores, not es adecuado porque no altera los flags.
+
+todo: ahora mirar comparaciones lógicas
