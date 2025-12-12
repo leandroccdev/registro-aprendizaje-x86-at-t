@@ -1,4 +1,4 @@
-# ASM X86 - Registro de aprendizaje (con sintaxis AT&T)
+# ASM X86 - Registro de aprendizaje (con sintaxis AT&T e Intel)
 
 **Nota**
 La presente es una guía que voy elaborando en el tiempo. Me baso en todos los recursos disponibles que tengo a mano (internet, IA, libros, vídeos, etc). Por lo que (y dado que no soy experto en el área), podría ser inexacta y tener conceptos errados.
@@ -254,15 +254,25 @@ En este proceso se reciben uno o mas archivos objeto y se produce un archivo eje
 - Inserta el código de arranque. En un binario compilado desde C: agrega `_start`, prepara la pila, maneja argumentos, llama a main, etc. En ensamblador puro, `_start` lo provee el programador.
 - Se produce el ejecutable final. Es decir, un archivo que se puede ejecutar en el SO donde fue enlazado.
 
+### Instruir a `as` para generar sintaxis Intel
+
+Por defecto AS (ensamblador del proyecto GNU), genera sintaxis AT&T, no obstante, puede generar sintaxis intel si se agrega una directiva al inicio del archivo que será enlazado.
+
+```asm
+.intel_syntax noprefix
+```
+
 ## Memoria
 
 En x86 existen distintas maneras de direccionar la memoria.
 
-#### ¿Cómo funciona la copia de memoria entre registros?
+### ¿Cómo funciona la copia de memoria entre registros?
 
 Existen instrucciones como `mov` que copian información desde una **fuente** a un **destino**. Entre registros del mismo tamaño, es posible realizar copias sin mayor problema especificando una instrucción `mov` para el tamaño dado agregando un sufijo.
 
-`mov{b|w|l|q} fuente destino`
+#### Sintaxis AT&T
+
+`mov{b|w|l|q} fuente, destino`
 
 El sufijo indica el tipo de datos a copiar
 - **b:** byte (8 bits)
@@ -270,7 +280,7 @@ El sufijo indica el tipo de datos a copiar
 - **l:** long (32 bits)
 - **q:** quad (64 bits)
 
-Ejemplos
+**Ejemplos**
 
 ```asm
 # 8 bits
@@ -287,8 +297,39 @@ movl %eax, %ebx # copia 32 bits de EAX a EBX
 Para copias entre registros de distinto tamaño es necesario especificar:
 - Porción de bits a copiar
 
+### Sintaxis Intel
 
-#### Registros del CPU
+`mov destino, fuente`
+
+A diferencia de la sintaxis AT&T, Intel no usa postfiojs en los OP codes.
+
+Ejemplos
+
+```asm
+# Registro a registro
+mov eax, ebx
+
+# Inmediato a registro
+mov eax, 123
+
+# Memoria a registro
+mov eax, DWORD PTR [variable]
+
+# Registro a memoria
+mov DWORD PTR [variable, eax]
+
+# Inmediato a Memoria
+mov BYTE PTR [buffer], 10
+mov DWORD PTR [value], 1000
+```
+
+#### Algunas reglas para la sintaxis Intel
+
+- Los inmediatos no llevan `$`: `mov eax, 5`.
+- Los registros no levan `%`: `mov rax, rbx`.
+- La memoria se escribe con `[]`: `mov eax, [var]` `mov rax, [rbp - 8]`.
+
+### Registros del CPU
 
 ##### De propósito general
 
