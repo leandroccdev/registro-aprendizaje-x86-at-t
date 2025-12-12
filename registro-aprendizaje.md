@@ -196,7 +196,7 @@ Permite ejecutar código de 16/32 bits en un sistema de 64 bits.
 - Windows NT/XP/7/10/11 y Linux modernos: usan modo protegido o long mode
 - Sistemas de 64 bits modernos: usan modo long x86-64
 
-## Tamaño de dados comunes en x86
+## Tamaño de datos comunes en x86
 
 | Nombre   | Tamaño (bits) | Tamaño (bytes) | Descripción                                        |
 | --------- | ------------- | -------------- | -------------------------------------------------- |
@@ -220,6 +220,39 @@ as -32 -o test.o test.asm # Ensambla el programa test.asm
 ld -m elf_i386 -o hola hola.o # Enlaza el programa objeto en un ejecutable elf
 ./hola # Ejecuta el programa hola
 ```
+
+### Ensamblado
+
+Se produce un archivo objeto (con extensión `.o`) a partir del código fuente del programa. El archivo generado tiene las siguientes características:
+
+- No es un ejecutable (aún).
+- No tiene todas las direcciones resueltas.
+- Contiene los OP codes (Códigos de operación).
+- Contiene las tablas de símbolos.
+- Contiene secciones como:
+  - `.text`: Código.
+  - `.data`: Datos inicializados.
+  - `.bss`: Datos sin inicializar.
+  - `.rodata`: Constantes.
+
+El archivo en sí está en la mitad del proceso. Aún faltan vínculos externos tales como: funciones de C, syscalls wrappers, direcciones definitivas, etc.
+
+### Enlazado
+
+En este proceso se reciben uno o mas archivos objeto y se produce un archivo ejecutable. Se realizan las siguientes operaciones:
+
+- Resolución de símbolos como labels internos en direcciones finales, llamadas externas resueltas desde libc o librerías dinámicas.
+- Se aplican reubicaciones.  El proceso de ensamblado deja huecos en donde no se sabía aún la dirección final, el linker calcula la dirección real de cada símbolo y parcha los opcodes y punteros.
+- Combina secciones. Si varios archivos objeto tenían secciones `.text`, el linker las combina generando un solo bloque de código ejecutable.
+- Construcción de la estructura del ejecutable: se genera un archivo ELF final (en Linux) con:
+  - Cabecera ELF
+  - Tabla de secciones
+  - Tabla de segmentos
+  - Tabla dinámica (si corresponde)
+  - Entrada `_start`
+  - Reubicaciones para la carga dinámica (si aplica)
+- Inserta el código de arranque. En un binario compilado desde C: agrega `_start`, prepara la pila, maneja argumentos, llama a main, etc. En ensamblador puro, `_start` lo provee el programador.
+- Se produce el ejecutable final. Es decir, un archivo que se puede ejecutar en el SO donde fue enlazado.
 
 ## Memoria
 
