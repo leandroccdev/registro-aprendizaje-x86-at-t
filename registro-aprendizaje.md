@@ -100,12 +100,11 @@ No pretende ser una guía manual para aprender x86, mas bien es una forma de doc
 **Licencia:**: Propietaria (distribuído con Turbo C++, Turbo Pascal y otros software de Borland)
 **Licencia:** Libre Open Source
 **Formatos binarios:**
-- bin
-- mz (ejecutables DOS .COM, .EXEC)
-- PE y PE64 (Win32/64)
-- ELF
-- COFF
-- MACH-0
+- [mz](https://en.wikipedia.org/wiki/DOS_MZ_executable) (ejecutables DOS .COM, .EXEC)
+- [PE](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format) y PE64 (Win32/64)
+- [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+- [COFF](https://wiki.osdev.org/COFF)
+- [MACH-O](https://en.wikipedia.org/wiki/Mach-O)
 
 **Modos de operación:**
 - Real mode 16 bits
