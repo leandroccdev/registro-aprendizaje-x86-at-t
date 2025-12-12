@@ -528,7 +528,7 @@ ES: Segmento Extra (Extra segment)
 FS: General (propósito especial)
 GS: General (usado por sistemas operativos)
 
-En OS modernos como linux `fs` y `gs` se usan a menudo para Thread Local Storage (TLS) o estructuras internas del kernel por hilo. Se puede acceder con instrucciones como `%fs:0x10` sin que el sistema reclame, porque linyx y otros sistemas modernos cargan selectores válidos en `fs`/`gs`.
+En OS modernos como linux `fs` y `gs` se usan a menudo para Thread Local Storage (TLS) o estructuras internas del kernel por hilo. Se puede acceder con instrucciones como `%fs:0x10` sin que el sistema reclame, porque linux y otros sistemas modernos cargan selectores válidos en `fs`/`gs`.
 Estos registros no se usan automáticamente, así que el programador tiene control.
 
 Para los demas registros de segmento (`ds`, `es`, `ss`, etc), su uso explícito es innecesario o problemático porque:
@@ -540,7 +540,52 @@ En el caso del registro `cs`, no se puede modificar directamente porque se cambi
 
 Por lo tanto, los registros `ds`, `es` y `ss` deben ser evitados, ya que el sistema los maneja y su uso explícito no es común.
 
+##### ¿Qué es un segmento?
+
+En **ensamblador (ASM)**, un **segmento** es una **región lógica de memoria** que el programa utiliza para almacenar distintos tipos de datos o instrucciones. Se usan mucho en arquitecturas x86 clásicas (como 16 bits, modo real) y en programas que necesitan organizar la memoria de manera estructurada. La idea básica es separar las instrucciones, los datos y la pila en áreas distintas para evitar conflictos y facilitar la administración de la memoria.
+
+| Segmento       | Qué contiene                                 | Registro asociado  |
+| -------------- | -------------------------------------------- | ------------------ |
+| **Code (CS)**  | Instrucciones del programa                   | CS (Code Segment)  |
+| **Data (DS)**  | Variables estáticas, constantes              | DS (Data Segment)  |
+| **Stack (SS)** | Pila (funciones, llamadas, return addresses) | SS (Stack Segment) |
+| **Extra (ES)** | Segmento adicional para datos                | ES (Extra Segment) |
+
+###### ¿Cómo se usan?
+
+En ensamblador x86 de 16 bits, la memoria se direcciona mediante **segmento:offset**. Por ejemplo:
+
+```asm
+# Intel
+MOV AX, DS    ; Carga el registro de segmento de datos
+MOV BX, 0x100 ; Offset dentro del segmento
+MOV AL, [BX]  ; Accede a la dirección DS:0x100
+```
+
+Aquí, `DS` indica **el segmento donde está el dato**, y `0x100` es el **offset** dentro de ese segmento. La CPU combina ambos para obtener la dirección física real:
+
+```asm
+Dirección física = (segmento << 4) + offset
+```
+
+Por ejemplo, si `DS = 0x2000` y `offset = 0x100`, la dirección física sería:
+
+```asm
+0x20000 + 0x100 = 0x20100
+```
+
+###### ¿Por qué existen los segmentos?
+
+1. **Organización:** separar código, datos y pila evita sobrescribir instrucciones con variables.
+2. **Compatibilidad:** en modo real de x86 (16 bits) no hay suficiente espacio de direccionamiento lineal; los segmentos permiten acceder a más memoria (hasta 1 MB).
+3. **Seguridad relativa:** aunque básica, permite que la pila no sobrescriba el código accidentalmente.
+
+###### En modos modernos (32/64 bits)
+
+En **modo protegido** y **modo largo (64 bits)**, la segmentación clásica es menos importante, y se usa **paginación y direcciones lineales**. Sin embargo, los registros de segmento todavía existen, aunque muchos apuntan todos al mismo segmento de datos para simplificar.
+
 ##### Global Descriptor Table (GDT)
+
 La GDT es una estructura en memoria que contiene descriptores que definen los segmentos de memoria usados por el procesador en modo protegido (protected mode).
 Características:
 - Cada descriptor describe un segmento (código, datos, stack, etc.).
