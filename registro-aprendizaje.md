@@ -303,7 +303,7 @@ Para copias entre registros de distinto tamaño es necesario especificar:
 
 A diferencia de la sintaxis AT&T, Intel no usa postfiojs en los OP codes.
 
-Ejemplos
+**Ejemplos**
 
 ```asm
 # Registro a registro
@@ -329,6 +329,21 @@ mov DWORD PTR [value], 1000
 - Los registros no levan `%`: `mov rax, rbx`.
 - La memoria se escribe con `[]`: `mov eax, [var]` `mov rax, [rbp - 8]`.
 
+#### Keyword `PTR`.
+
+Como la sintaxis Intel no infiere el tamaño del operando desde el postfijo del OP code (`mv` es un OP code), se usa la palabra clave `PTR` (es una referencia a **pointer**) para decirle explícitamente al ensamblador el tamaño del operando cuando se accesa a memoria.
+
+```asm
+.section .data
+	a: .int 1
+_start:
+	# Carga la dirección de a en eax
+	mov eax, DWORD PTR a
+	# Carga el valor de a en ebx
+	mov ebx, DWORD PTR [a]
+	
+```
+
 ### Registros del CPU
 
 ##### De propósito general
@@ -337,6 +352,18 @@ mov DWORD PTR [value], 1000
 **8 bits (bits altos):** AH, BH, CH, DH
 **16 bits:** AX, BX, CX, DX
 **32 bits:** EAX, EBX, ECX, EDX
+**64 bits:** RAX, RBX, RCX, RDX
+
+##### Registros separados
+
+- No comparten bits ni espacio con los otros registros (de arriba).
+- No tienen partes altas ni bajas.
+- No se subdividen con nombres como AL/AX/EAX/RAX.
+- Son arquitecturas paralelas dentro del mismo procesador. (Pertenecen a un grupo independiente de registros).
+
+**128 bits:** XMM0 al XMM31 (SSE / SSE2)
+**256 bits:** YMM0 al YMM31
+**512 bits:** ZMM0 al ZMM31 (AVX-512)
 
 #### División de registros AX, BX, CX y DX
 
@@ -377,30 +404,43 @@ ECX: 11111111 11111111 11111111 11111111
 EDX: 11111111 11111111 11111111 11111111
 ```
 
+Visualización de los registros de 64 bits e ngrupos de 8 bits
+
+```
+RAX: 11111111 11111111 11111111 11111111 11111111 11111111 11111111 11111111
+RBX: 11111111 11111111 11111111 11111111 11111111 11111111 11111111 11111111
+RCX: 11111111 11111111 11111111 11111111 11111111 11111111 11111111 11111111
+RDX: 11111111 11111111 11111111 11111111 11111111 11111111 11111111 11111111
+```
+
 Dentro de un registro X-- un registro -X se ubica en su parte baja. En el ejemplo siguiente podemos visualizarlo a mas detalle.
 
 ```
 Grupos de 8 bits
 
-EAX: 11111111 11111111 11111111 11111111
- AX: -------- -------- 11111111 11111111
- AH: -------- -------- 11111111 --------
- AL: -------- -------- -------- 11111111
+RAX: 11111111 11111111 11111111 11111111 11111111 11111111 11111111 11111111
+EAX: -------- -------- -------- -------- 11111111 11111111 11111111 11111111
+ AX: -------- -------- -------- -------- -------- -------- 11111111 11111111
+ AH: -------- -------- -------- -------- -------- -------- 11111111 --------
+ AL: -------- -------- -------- -------- -------- -------- -------- 11111111
 
-EBX: 11111111 11111111 11111111 11111111
- BX: -------- -------- 11111111 11111111
- BH: -------- -------- 11111111 --------
- BL: -------- -------- -------- 11111111
+RBX: 11111111 11111111 11111111 11111111 11111111 11111111 11111111 11111111
+EBX: -------- -------- -------- -------- 11111111 11111111 11111111 11111111
+ BX: -------- -------- -------- -------- -------- -------- 11111111 11111111
+ BH: -------- -------- -------- -------- -------- -------- 11111111 --------
+ BL: -------- -------- -------- -------- -------- -------- -------- 11111111
 
-ECX: 11111111 11111111 11111111 11111111
- CX: -------- -------- 11111111 11111111
- CH: -------- -------- 11111111 --------
- CL: -------- -------- -------- 11111111
+RCX: 11111111 11111111 11111111 11111111 11111111 11111111 11111111 11111111
+ECX: -------- -------- -------- -------- 11111111 11111111 11111111 11111111
+ CX: -------- -------- -------- -------- -------- -------- 11111111 11111111
+ CH: -------- -------- -------- -------- -------- -------- 11111111 --------
+ CL: -------- -------- -------- -------- -------- -------- -------- 11111111
 
-EDX: 11111111 11111111 11111111 11111111
- DX: -------- -------- 11111111 11111111
- DH: -------- -------- 11111111 --------
- DL: -------- -------- -------- 11111111
+RDX: 11111111 11111111 11111111 11111111 11111111 11111111 11111111 11111111
+EDX: -------- -------- -------- -------- 11111111 11111111 11111111 11111111
+ DX: -------- -------- -------- -------- -------- -------- 11111111 11111111
+ DH: -------- -------- -------- -------- -------- -------- 11111111 --------
+ DL: -------- -------- -------- -------- -------- -------- -------- 11111111
 ```
 
 Lo mismo aplicaría para registros de 64 y mas bits
@@ -410,40 +450,61 @@ Lo mismo aplicaría para registros de 64 y mas bits
 Como ya se vió, un registro grande puede ser subdividido en registros mas pequeños, esto se debe a que la memoria es compartida físicamente entre registros. Por lo tanto, el mismo registro A en sus diferentes versiones (respecto al tamaño), puede accesar a distintas regiones de la memoria compartida.
 
 ```
-     (A)      (B)      (C)      (D)
-EAX: 11111111 11111111 11111111 11111111
- AX: -------- -------- 11111111 11111111
- AH: -------- -------- 11111111 --------
- AL: -------- -------- -------- 11111111
+     (A)      (B)      (C)      (D)      (E)      (F)      (G)      (H)
+RAX: 11111111 11111111 11111111 11111111 11111111 11111111 11111111 11111111
+EAX: -------- -------- -------- -------- 11111111 11111111 11111111 11111111
+ AX: -------- -------- -------- -------- -------- -------- 11111111 11111111
+ AH: -------- -------- -------- -------- -------- -------- 11111111 --------
+ AL: -------- -------- -------- -------- -------- -------- -------- 11111111
 ```
 
 De acuerdo a esto, registros mas pequeños acceden a diferentes partes de la memoria respecto del registro mas grande.
 
-Si por ejemplo se quisiera accesar a la porción C o D se haría lo siguiente:
+Si por ejemplo se quisiera accesar a la porción G o H se haría lo siguiente:
 
 ```asm
+# AT&T
 movl $5, %eax  # Copia el valor inmediato $5 en el registro eax
-movb %al, %bl # Copia la porción D de EAX accesando por medio de AL a BL
+movb %al, %bl # Copia la porción H de EAX accesando por medio de AL a BL
+
+# Intel
+# El postfijo l (long de 32 bits) desaparece en intel
+mov eax, 5
+mov bl, al
+# Nótece que solo se usa [Palabra] PTR cuando hay memoria involucrada 
 ```
 
-En cambio para copiar la sección C sería así:
+En cambio para copiar la sección G sería así:
 
 ```asm
+# AT&T
 movl $5, %eax # copia el valor inmediato $5 en el registro eax
-mob %ah, %bl  # copia la porción C de EAX accesando por medio de ah a bl
+mob %ah, %bl  # copia la porción G de EAX accesando por medio de ah a bl
+
+# Intel
+mov eax, 5
+mov bl, ah
 ```
 
 #### Valores inmediatos
 
-Los valores inmediatos en sintaxis AT&T comienzan con $. Se insertan directamente en la instrucción como operandos fuente. Como no cambian se puede decir que son valores literales que se mantienen durante la ejecución.
+Los valores inmediatos en sintaxis AT&T comienzan con $, en cambio, en la sintaxis Intel no tienen prefijo. Se insertan directamente en la instrucción como operandos fuente. Como no cambian se puede decir que son valores literales que se mantienen durante la ejecución.
 
 En el siguiente ejemplo se ven algunos valores literales.
 
 ```asm
+# AT&T
 movb $10, %al     # Copia el inmediato $10 decimal en el registro al
 movb $0xA, %al    # copia el inmediato $0xA hexadecimal en el registro al
 movb $012, %al    # copia el inmediato $012 octal en el registro al
 movb $0b1010, %al # copia el inmediato $0b1010 binario en el registro al
+
+# Intel
+mov al, 10
+mov al, 0xA
+mov al, 012o # A diferencia de AT&T, se requiere el postfijo 0. No asume que un número comenzado por 0 es octal.
+mov al, 1010b # En Intel se usa el postfijo b, mientras que en AT&T el prefijo 0b.
+
 ```
 
 ##### 0b no soportado en GAS
