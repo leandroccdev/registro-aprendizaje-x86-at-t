@@ -165,7 +165,7 @@ Dependiendo del modo, el procesador cambia su forma de trabajar: cambia el tama�
 
 #### Real Mode (Modo Real)
 
-Es el modo original del CPU intel 8086 que funcionaba con 16 bits, está presente en todos los procesadores x86. Fué el primer modo diseñado que fue usado por muchos sistemas operativos antes del nacimiento del modo protegido (Protected Mode).
+Es el modo original del CPU intel [8086](https://en.wikipedia.org/wiki/Intel_8086) que funcionaba con 16 bits, está presente en todos los procesadores x86. Fué el primer modo diseñado que fue usado por muchos sistemas operativos antes del nacimiento del modo protegido (Protected Mode).
 
 [Descripción del modo (en inglés)](http://wiki.osdev.org/Real_Mode)
 
