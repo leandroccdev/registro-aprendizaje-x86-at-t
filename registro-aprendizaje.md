@@ -187,7 +187,7 @@ Emula el modo real dentro del modo protegido. Es usado para ejecutar programas D
 
 #### Modo compatibilidad (Compatibility Mode 16/32 bits)
 
-Permite ejecutar código de 16/32 bits en un sistema de bits.
+Permite ejecutar código de 16/32 bits en un sistema de 64 bits.
 
 ### Compatibilidad de Sistemas Operativos con Modos de operación
 
