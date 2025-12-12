@@ -171,7 +171,7 @@ Es el modo original del CPU intel [8086](https://en.wikipedia.org/wiki/Intel_808
 
 #### Modo Protegido (Protected Mode)
 
-Fué introducido en el intel 80286/80386. Éste modo permite multitarea, memoria protegida y segmentación avanzada. Funciona con 32 bits. Es el modo predominando en todos los procesadores de 32 bits (en la era de Windows XP). Permite un máximo de 4GB de memoria ram direccionable.
+Fué introducido en el intel [80286](https://es.wikipedia.org/wiki/Intel_80286)/[80386](https://es.wikipedia.org/wiki/Intel_80386). Éste modo permite multitarea, memoria protegida y segmentación avanzada. Funciona con 32 bits. Es el modo predominando en todos los procesadores de 32 bits (en la era de Windows XP). Permite un máximo de 4GB de memoria ram direccionable.
 
 [Descripción del modo protegido (en inglés)](https://wiki.osdev.org/Protected_Mode)
 
