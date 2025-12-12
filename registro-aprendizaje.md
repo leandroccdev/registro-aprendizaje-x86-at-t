@@ -256,7 +256,7 @@ En este proceso se reciben uno o mas archivos objeto y se produce un archivo eje
 
 ## Memoria
 
-En x86 esten distintas maneras de direccionar la memoria.
+En x86 existen distintas maneras de direccionar la memoria.
 
 #### ¿Cómo funciona la copia de memoria entre registros?
 
