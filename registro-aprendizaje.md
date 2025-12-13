@@ -986,6 +986,8 @@ Nótece que se ha usado el término escala o factor para mejorar la explicación
 La estructura básica de un programa en ensablador es como la siguiente:
 
 ```asm
+# Comentario para sintaxis AT&T
+; Comentario para sintaxis Intel
 # AT&T
 .section .data
      mensaje .asciz "hola mundo\n" # Cadena terminada en NULL
@@ -1274,6 +1276,7 @@ En 32 bits se llama `iretl` y en 64 `iretq`, `iret` corresponde a 16 bits.
 **Sintaxis**
 
 ```asm
+# AT&T
 movl $<número_syscall>, %eax    # número de la syscall
 movl $<arg1>, %ebx              # primer argumento
 movl $<arg2>, %ecx              # segundo argumento
@@ -1284,6 +1287,7 @@ int $0x80                       # llamada al sistema
 **Ejemplo: salir del programa**
 
 ```asm
+# AT&T
 .section .text
 .globl _start
 
@@ -1402,6 +1406,7 @@ La instrucción `lahf` en x86 significa Load AH from Flags, y su función es: **
 No copia el Overflow Flag (OF) — eso lo puedes recuperar con otras instrucciones como `seto`.
 
 **Ejemplo de uso práctico en AT&T**
+
 ```asm
 # AT&T
 .section .text
@@ -1448,8 +1453,9 @@ En x86 que significa **MOVe with Zero-extend Byte to Long**.
 
 **Ejemplo práctico**
 ```asm
-movb $0xFF, %al       # AL = 0xFF (11111111 en binario, que es 255 decimal)
-movzbl %al, %ebx      # EBX = 0x000000FF, el byte 0xFF se extiende a 32 bits con ceros a la izquierda
+# AT&T
+movb $0xFF, %al  # AL = 0xFF (11111111 en binario, que es 255 decimal)
+movzbl %al, %ebx # EBX = 0x000000FF, el byte 0xFF se extiende a 32 bits con ceros a la izquierda
 ```
 **El resultado:**
 - `%al` tiene 8 bits: 11111111 (255 decimal)
@@ -1460,6 +1466,8 @@ movzbl %al, %ebx      # EBX = 0x000000FF, el byte 0xFF se extiende a 32 bits con
 `movsbl` extiende con signo (preserva el bit más alto, útil para números negativos en complemento a dos).
 
 ### Instrucción `movsbl`
+
+> En sintaxis Intel no existe esta instrucción. Un equivalente sería: `mov ecx, byte ptr [eax]`.
 
 Significa **Move with Sign-extend Byte to Long**
 Copia un byte (8 bits) a un registro de 32 bits, pero a diferencia de `movzbl`, **extiende el signo** (bit más significativo del byte) para rellenar los bits más altos del destino.
@@ -1477,8 +1485,9 @@ Cuando el byte original representa un número con signo en complemento a dos:
 
 **Ejemplo**
 ```asm
-movb $0xFF, %al        # AL = 0xFF (11111111 en binario, que es -1 en signed byte)
-movsbl %al, %ebx       # EBX = 0xFFFFFFFF (extendido con signo, es -1 en 32 bits)
+# AT&T
+movb $0xFF, %al  # AL = 0xFF (11111111 en binario, que es -1 en signed byte)
+movsbl %al, %ebx # EBX = 0xFFFFFFFF (extendido con signo, es -1 en 32 bits)
 ```
 - El byte 0xFF representa -1 (en complemento a dos).
 - Al hacer `movsbl`, el valor se extiende a 32 bits preservando el signo, por eso ebx termina con 0xFFFFFFFF (que es -1 en 32 bits).
@@ -1492,14 +1501,30 @@ movsbl %al, %ebx       # EBX = 0xFFFFFFFF (extendido con signo, es -1 en 32 bits
 Tambien conocidas como instrucciones bit a bit u operaciones bitwise. Son operaciones que trabajan a nivel de bits entre registros, memoria o valores inmediatos. Se usan para manipular bits directamente y para operaciones lógicas básicas que son muy comunes en programación de bajo nivel.
 
 **Principales instrucciones lógicas en x86**
-| Instrucción | Descripción                                                   |
-| ----------- | ------------------------------------------------------------- |
-| `AND`       | Realiza una operación lógica **AND** bit a bit.               |
-| `OR`        | Realiza una operación lógica **OR** bit a bit.                |
+
+| Instrucción | Descripción                                                  |
+| ----------- | ------------------------------------------------------------ |
+| `AND`       | Realiza una operación lógica **AND** bit a bit.              |
+| `OR`        | Realiza una operación lógica **OR** bit a bit.               |
 | `XOR`       | Realiza una operación lógica **XOR** (o exclusivo) bit a bit. |
 | `NOT`       | Realiza una operación lógica **NOT** (complemento) bit a bit. |
+| `SHL`       | Desplazamiento lógico a la izquierda.                        |
+| `SAL`       | Desplazamiento lógico a la izquierda. Originalmente para operaciones aritméticas con números con signo, aunque en el X86 moderno son es idéntica a `SHL`. |
+| `SHR`       | Desplazamiento lógico a la derecha.                          |
+| `SAR`       | Desplazamiento lógico a la derecha preservando el signo.     |
+| `ROL`       | Rotación a la izquierda (circular).                          |
+| `ROR`       | Rotación a la derecha (circular).                            |
+| `RCL`       | Rotación a la izquierda incluyendo acarreo.                  |
+| `RCR`       | Rotación a la derecha incluyendo acarreo.                    |
+| `BT`        | Prueba un bit específico.                                    |
+| `BTS`       | Setea un bit específico.                                     |
+| `BTR`       | Resetea un bit específico.                                   |
+| `BTC`       | Complementa un bit específico.                               |
+| `TEST`      | Realiza un `AND` entre dos operandos sin guardar el resultado, afectando solamente a los flags del CPU. |
+| `CMP`       | Realiza una resta entre dos operandos sin guardar el resultado, afectando solamente a los flags del CPU. |
 
 **¿Qué hacen?**
+
 - `AND` Cada bit del resultado es 1 solo si ambos bits correspondientes de los operandos son 1; sino 0.
 - `OR` Cada bit del resultado es 1 si al menos uno de los bits correspondientes es 1.
 - `XOR` Cada bit del resultado es 1 solo si los bits correspondientes son diferentes.
@@ -1507,10 +1532,41 @@ Tambien conocidas como instrucciones bit a bit u operaciones bitwise. Son operac
 
 **Ejemplo sencillo**
 ```asm
+# 1100: 12
+# 1010: 10
+
+# AT&T
 movl $0b1100, %eax   # eax = 1100 binario (decimal 12)
 andl $0b1010, %eax   # eax = eax AND 1010 binario = 1000 binario (decimal 8)
+
+; Intel
+mov eax, 12 ; Intel no tiene un literal binario, para este caso se uso el decimal
+; Pero se pueden usar tambien octales y hexadecimales
+and eax, 10
 ```
 Aquí `eax` pasa de 1100 a 1000 porque solo el bit que está en ambas posiciones como 1 queda en 1.
+
+**Instrucciones inválidas**
+
+Dado que las instrucciones tienen una fuente y un destino es inválido lo siguiente:
+
+```asm
+# 1100: 12
+# 1000: 8
+
+# AT&T
+andl $0b1100, $0b1000
+andl 1100, 1000 
+
+; Intel
+and 12, 8
+and dword ptr [1000], dword ptr [1100]
+```
+
+No se permiten:
+
+- `OP inmediato, inmediato`
+- `OP memoria, memoria`
 
 **¿Para qué se usan?**
 
@@ -1523,10 +1579,16 @@ Aquí `eax` pasa de 1100 a 1000 porque solo el bit que está en ambas posiciones
 
 #### Ejemplo AND
 ```asm
-    # Supongamos que queremos hacer AND entre dos registros
-    movl $0xF0F0F0F0, %eax   # Carga el valor 0xF0F0F0F0 en eax
-    movl $0x0FF00FF0, %ebx   # Carga el valor 0x0FF00FF0 en ebx
-    andl %ebx, %eax          # Realiza AND bit a bit entre eax y ebx, resultado queda en eax
+# AT&T
+# Supongamos que queremos hacer AND entre dos registros
+movl $0xF0F0F0F0, %eax   # Carga el valor 0xF0F0F0F0 en eax
+movl $0x0FF00FF0, %ebx   # Carga el valor 0x0FF00FF0 en ebx
+andl %ebx, %eax          # Realiza AND bit a bit entre eax y ebx, resultado queda en eax
+
+; Intel
+mov eax, 0xF0F0F0F0
+mov eabx, 0x0FF00FF0
+and eax, ebx
 ```
 **Explicación**
 - `andl %ebx, %eax` significa: `eax = eax & ebx` (bit a bit)
@@ -1539,15 +1601,16 @@ Aquí `eax` pasa de 1100 a 1000 porque solo el bit que está en ambas posiciones
 | `%ebx`   | 0x0FF00FF0        | 00001111 11110000 00001111 11110000 |
 
 **Operación AND bit a bit (byte por byte)**
-| Byte         | `%eax` (binario) | `%ebx` (binario) | Resultado AND (binario) | Resultado AND (hex) |
-| ------------ | ---------------- | ---------------- | ----------------------- | ------------------- |
-| Byte 3 (MSB) | 11110000         | 00001111         | 00000000                | 0x00                |
-| Byte 2       | 11110000         | 11110000         | 11110000                | 0xF0                |
-| Byte 1       | 11110000         | 00001111         | 00000000                | 0x00                |
-| Byte 0 (LSB) | 11110000         | 11110000         | 11110000                | 0xF0                |
+| Byte         | `%eax`   | `%ebx`   | Resultado AND | Resultado AND (hex) |
+| ------------ | -------- | -------- | ------------- | ------------------- |
+| Byte 3 (MSB) | 11110000 | 00001111 | 00000000      | 0x00                |
+| Byte 2       | 11110000 | 11110000 | 11110000      | 0xF0                |
+| Byte 1       | 11110000 | 00001111 | 00000000      | 0x00                |
+| Byte 0 (LSB) | 11110000 | 11110000 | 11110000      | 0xF0                |
 
 **Resultado final**
 Concatenando bytes (de MSB a LSB)
+
 ```
 0x00 (Byte 3) | 0xF0 (Byte 2) | 0x00 (Byte 1) | 0xF0 (Byte 0)
 ```
@@ -1565,11 +1628,12 @@ Si el bit más significativo es 1, SF = 1 (resultado negativo si es valor con si
 - PF (Parity Flag):
 Se activa si el número de bits a 1 en el resultado es par.
 - CF (Carry Flag):
-Siempre se limpia (CF = 0) después de un `and`.
+Siempre se limpia (CF = 0) después de un `and`. (Puesto que `and` no genera acarreos).
 - OF (Overflow Flag):
-Siempre se limpia (OF = 0) después de un `and`.
+Siempre se limpia (OF = 0) después de un `and`. (Puesto que `and` no genera overflow).
 
 **Resumen**
+
 | Flag | Efecto con `and`         |
 | ---- | ------------------------ |
 | ZF   | 1 si resultado = 0       |
@@ -1580,9 +1644,15 @@ Siempre se limpia (OF = 0) después de un `and`.
 
 #### Ejemplo OR
 ```asm
-    movl $0x0F0F0F0F, %eax   # Carga el valor 0x0F0F0F0F en eax
-    movl $0x00FF00FF, %ebx   # Carga el valor 0x00FF00FF en ebx
-    orl %ebx, %eax           # Realiza OR bit a bit entre eax y ebx, resultado queda en eax
+# AT&T
+movl $0x0F0F0F0F, %eax   # Carga el valor 0x0F0F0F0F en eax
+movl $0x00FF00FF, %ebx   # Carga el valor 0x00FF00FF en ebx
+orl %ebx, %eax           # Realiza OR bit a bit entre eax y ebx, resultado queda en eax
+
+; Intel
+mov eax, 0x0F0F0F0F
+mov ebx, 0x0F0F0F0F
+or eax, ebx
 ```
 Esto hace que en `%eax` queden los bits que estaban en `%eax` o en `%ebx` (operación OR bit a bit) (`eax = eax | ebx`).
 
@@ -1618,9 +1688,9 @@ Indica el signo del resultado (bit más alto del resultado).
 - PF (Parity Flag):
 Se activa si la cantidad de bits a 1 en el resultado es par.
 - CF (Carry Flag):
-Siempre se limpia (CF = 0) después de un `or`.
+Siempre se limpia (CF = 0) después de un `or`. (Puesto que `or` no genera acarreos).
 - OF (Overflow Flag):
-Siempre se limpia (OF = 0) después de un `or`.
+Siempre se limpia (OF = 0) después de un `or`. (Puesto que `or` no genera overflow).
 
 **Resumen**
 
@@ -1634,9 +1704,15 @@ Siempre se limpia (OF = 0) después de un `or`.
 
 #### Ejemplo XOR
 ```asm
-    movl $0xFF00FF00, %eax    # Carga 0xFF00FF00 en eax
-    movl $0x0F0F0F0F, %ebx    # Carga 0x0F0F0F0F en ebx
-    xorl %ebx, %eax           # Hace XOR bit a bit entre eax y ebx, resultado en eax
+# ATT&T
+movl $0xFF00FF00, %eax    # Carga 0xFF00FF00 en eax
+movl $0x0F0F0F0F, %ebx    # Carga 0x0F0F0F0F en ebx
+xorl %ebx, %eax           # Hace XOR bit a bit entre eax y ebx, resultado en eax
+
+; Intel
+mov eax, 0xFF00FF00
+mov ebx, 0x0F0F0F0F
+xor eax, ebx
 ```
 La instrucción `xorl %ebx, %eax` hace que `%eax` sea `%eax` XOR `%ebx`. (`eax = eax ^ ebx`).
 
@@ -1672,9 +1748,9 @@ Indica el signo del resultado (bit más alto).
 - PF (Parity Flag):
 Se activa si el número de bits a 1 en el resultado es par.
 - CF (Carry Flag):
-Siempre se limpia (CF = 0) después de un `xor`.
+Siempre se limpia (CF = 0) después de un `xor`. (Puesto que `xor` no genera acarreo).
 - OF (Overflow Flag):
-Siempre se limpia (OF = 0) después de un `xor`.
+Siempre se limpia (OF = 0) después de un `xor`. (Puesto que `xor` no genera overflow).
 
 **Resumen**
 
@@ -1688,8 +1764,13 @@ Siempre se limpia (OF = 0) después de un `xor`.
 
 #### Ejemplo NOT
 ```asm
-    movl $0x0F0F0F0F, %eax   # Carga un valor en eax
-    notl %eax                # Aplica la negación bit a bit (NOT) sobre eax
+# AT&T
+movl $0x0F0F0F0F, %eax   # Carga un valor en eax
+notl %eax                # Aplica la negación bit a bit (NOT) sobre eax
+
+; Intel
+mov eax, 0x0F0F0F0F
+not eax
 ```
 `notl %eax` hace un complemento a uno: cada bit de `%eax` se invierte (0 → 1, 1 → 0) (`eax = ~eax`).
 
@@ -1720,7 +1801,7 @@ Entonces, después de ejecutar `notl %eax`, el valor de `%eax` será: `eax = 0xF
 - `not` es una operación de complemento bit a bit (bitwise NOT), que invierte todos los bits del operando.
 
 **Importante:**
-La instrucción `not` NO modifica ningún flag en el procesador. Todos los flags permanecen igual después de ejecutar `not`.
+La instrucción `not` **no modifica** ningún flag en el procesador. Todos los flags permanecen igual después de ejecutar `not`. Tampoco genera acarreo u overflow. A pesar de que si involucra a la ALU (unidad )
 
 **Resumen**
 | Flag | Efecto con `not` |
@@ -1733,4 +1814,234 @@ La instrucción `not` NO modifica ningún flag en el procesador. Todos los flags
 
 Por lo tanto si necesitas invertir bits pero conservar el estado de los flags para operaciones condicionales posteriores, not es adecuado porque no altera los flags.
 
-todo: ahora mirar comparaciones lógicas
+**Operación `SHL` (shift logical left).**
+
+Desplaza todos los bits de un operando hacia la izquierda un número específico de posiciones. Los bits que salen por la izquierda se pierden. Los bits que ingresan por la derecha son rellenados con ceros.
+
+**Sintaxis**
+
+```asm
+; Intel
+shl destino, cantidad
+; Cantidad empieza en 1
+
+; Ejemplos
+mov al, 0x03 ; al = 0000 0011b
+shl al, 1    ; al = 0000 0110b (multiplicado por 2)
+shl al, 2    ; al = 0001 1000b (múltiplicado por 4)
+```
+
+**Efectos sobre los flags**
+
+| Flag               | Descripción                                                  |
+| ------------------ | ------------------------------------------------------------ |
+| CF (Carry Flag)    | Se establece con el último bit desplazado hacia afuera (el que “se perdió” por la izquierda). |
+| OF (Overflow Flag) | Solo se actualiza si el desplazamiento es **1 bit**; indica si el resultado cambió el signo. |
+| SF (Sign Flag)     | Indica el bit más significativo del resultado (0=positivo, 1=negativo). |
+| ZF (Zero Flag)     | 1 si el resultado es 0.                                      |
+| PF (Parity Flag)   | 1 si el número de bits 1 en el resultado es par.             |
+
+**Usos títpico**
+
+1. Multiplicación rápida por 2
+
+   ```asm
+   shl eax, 1 ; eax *= 2
+   shl eax, 2 ; eax *= 4
+   ```
+
+2. Manipulación de bits
+
+   Encender o mover bits hacia la izquierda
+
+   ```asm
+   mov al, 0x01 ; al = 0000 0001b
+   shl al, 3    ; al = 0000 1000b
+   ```
+
+3. Preparar máscaras o índices
+
+   Desplazamientos para ajustar posiciones de bits en flags, máscaras o estructuras de datos.
+
+   ```asm
+   mov al, 0x01 ; al = 0000 0001b
+   shl al, 1    ; al = 0000 0010b (0x02) se desplaza 1 bit a la izquierda
+   ```
+
+Casos especiales y advertencias
+
+- Si cantidad = 0, el resultado no cambia y los flags CF y OF no se modifican.
+
+  ```asm
+  ; Ejemplo
+  mov al, 0x01 ; al = 0000 0001b
+  shl al, 0    ; al = 0000 0001b CF y OF permanecen intactos.
+  ```
+
+  - `SHL` genera acarreo porque expulsa bits por la izquierda. El flag CF captura el último bit que sale por la izquierda.
+  - También puede generar overflow pero solamente cuando la cantidad de bits desplazada es 1. Para `cantidad > 1` en x86 el flag OF no tiene un valor definido y no se puede confiar en el.
+  - `SHL` genera overflow porque puede cambiar el signo del número (que originalmente tenía signo) cuando se desplaza 1 bit.
+
+- Desplazar más bits que el tamaño del registro tiene un comportamiento indefinido.
+
+- `SHL` solo modifica los bits del operando, no toca la memoria adyacente ni extiende más allá del tamaño del registro.
+
+Paso a paso en un desplazamiento de 4 bits a la izquierda
+
+```asm
+; Intel
+mov al, 0xDA ; al = 1101 1010b
+shl al, 4    ; al = 1010 0000b
+
+; inmediato original 1101 1010b 
+; Salida de bits por la izquierda
+Paso 1: [1] 1011 010- # Sale un bit 1; CF: 1
+Paso 2: [1] 0110 10-- # Sale un bit 1; CF: 1; CF anterior: 1
+Paso 3: [0] 1101 0--- # Sale un bit 0; CF: 0; CF anterior 1 
+Paso 4: [1] 1010 ---- # Sale un bit 1; CF: 1; CF anterior 0
+
+; Entrada de bits en 0 por la derecha
+Paso 1: 1011 010[0] # Entra un 0 por la derecha
+Paso 2: 0110 10[00] # Entra un 0 por la derecha
+Paso 3: 1101 0[000] # Entra un 0 por la derecha
+Paso 4: 1010 [0000] # Entra un 0 por la derecha
+
+; CF: 1 (el último bit que salio por la izquierda)
+; ZF: 0 (resultado distinto de 0)
+; OF ignorado por ser un desplazamiento de > 1 bit
+; MSB: [1]010 0000b (delimitado como [x])
+```
+
+Paso a paso en un desplazamiento de 1 bits a la izquierda
+
+```asm
+; Intel
+mov al, 0xDA ; al = 1101 1010b
+shl al, 1    ; al = 1011 01000b
+
+; ZF: 0 (resultado distinto de 0)
+; OF: 0 (ver fórmula mas abajo)
+; CF: 1 (el último bit que salió por la izquierda)
+; MSB: [1]011 01000b (delimitado como [x])
+```
+
+**Cálculo del flag OF en desplazamientos de 1 bit**
+
+Formula: `OF = nuevo MSB ⊕ CF` (`XOR( nuevo MSB, CF )`)
+
+El overflow flag (OF) se calcula con un xor del nuevo msb y el CF.
+
+**Tabla de verdad para XOR**
+
+| A    | B    | A XOR B |
+| ---- | ---- | ------- |
+| 0    | 0    | 0       |
+| 0    | 1    | 1       |
+| 1    | 0    | 1       |
+| 1    | 1    | 0       |
+
+**Operación `SAL` (shift arithmetic left)**
+
+Desplaza todos los bits de un operando hacia la izquierda, igual que SHL. En la práctica moderna de x86, `SAL` y `SHL` son exactamente iguales.
+
+Históricamente  `SAL` existió para operaciones aritméticas con signo, pero actualmente el procesador trata ambas operaciones por igual, cambiando solo la semántica conceptual. Por lo que **solo usas `SAL` para enfatizar que estás operando sobre un signed integer**.
+
+**Ejemplo**
+
+Multiplicación rápida de enteros con signo.
+
+```asm
+sal eax, 1; eax *= 2
+```
+
+**Operación `SHR` (shift logical right)**
+
+Desplaza todos los bits del operando hacia la derecha. Los bits que ingresan por la izquierda se rellenan con ceros sin importar el signo, y los que salen por la derecha se pierden.
+El desplazamiento a la derecha corresponde con una división por potencia de dos (para enteros sin signo).
+
+**Sintaxis:** `shr destino, cantidad`
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 0xDO ; al = 1101 0000b
+shr al, 1    ; al = 0110 1000b (Se dividió al en 2)
+shr al, 2    ; al = 0011 0111b
+```
+
+**Efectos sobre los flags del CPU**
+
+| Flag | Qué indica                                                   |
+| ---- | ------------------------------------------------------------ |
+| CF   | Último bit desplazado hacia afuera (bit menos significativo, LSB) |
+| OF   | Solo se modifica si cantidad = 1: indica si el MSB cambió (para números signed, pero SHR = lógico) |
+| SF   | Signo del resultado (MSB)                                    |
+| ZF   | 1 si resultado = 0                                           |
+| PF   | Paridad de bits 1 en resultado                               |
+
+**Importante**
+
+- `SHR` no preserva el signo. Para signed integers, se usaría `SAR` (shift arithmetic right).
+- El flag CF captura el bit que se pierde por la derecha (LSB).
+
+**Usos típicos de `SHR`**
+
+1. División rápida por potencias de dos (para enteros sin signo).
+
+   ```asm
+   shr eax, 1 ; eax /= 2
+   shr eax, 3 ; eax /= 8
+   ```
+
+2. Manipulación de bits:
+
+   Se utiliza para extraer ciertos bits hacia la posición LSB.
+
+   ```asm
+   mov al, 0xAC ; al = 1010 1100b
+   shr al, 4    ; al = 0000 1010b
+   ; Ingresaron 4 bits por la izquierda en cero, y se perdieron 4 bits por la derecha
+   ; CF: Contiene el último bit perdido por la derecha, un 1
+   ; ZF: 0; El resultado es distinto a 0
+   ; OF: Ignorado (solo se toma en cuenta para desplazamientos de 1 bit)
+   ```
+
+   Paso a paso en la salida de bits por la derecha
+
+   ```asm
+   ; Inmediato original: 1010 1100
+   Paso 1: -101 0110   ; Bit que sale: 0; CF: 0
+   Paso 2: --10 1011   ; Bit que sale: 0; CF: 0; CF anterior: 0
+   Paso 3: ---1 0101   ; Bit que sale: 1; CF: 1; CF anterior: 0
+   Paso 4: ---- 1010   ; Bit que sale: 1; CF: 1; CF anterior: 1
+   ```
+
+   Paso a paso en la entrada de bits por la izquierda
+
+   ```asm
+   ; Inmediato original: 1010 1100
+   Paso 1: [0]101 0110 ; Entra un bit puesto a 0 por la izquierda
+   Paso 2: [00]10 1011 ; Entra un bit puesto a 0 por la izquierda
+   Paso 3: [000]1 0101 ; Entra un bit puesto a 0 por la izquierda
+   Paso 4: [0000] 1010 ; Entra un bit puesto a 0 por la izquierda
+   ```
+
+   Desplazamientos de 1 bit
+
+   Ahora se verá como opera el flag OF en desplazamientos de 1 bit a la derecha.
+
+   ```asm
+   ; Intel
+   mov al, 0x80 ; al = 1000 0000b
+   shr al, 1    ; Desplaza 1 bit a la derecha
+   ; al = 0100 0000b
+   ; Bit que sale por la derecha: 0
+   ; Bit que entra por la derecha; 0
+   ; CF: 0
+   ; ZF: 0 (resultado distinto a 0)
+   ; OF: 1 (MSB ⊕ CF: xor(1, 0))
+   ; MSB: 0[1]00 0000b (delimitado como [x])
+   ```
+
+   
