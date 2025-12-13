@@ -1381,12 +1381,13 @@ Las instrucciones de salto condicional usan estos flags:
 
 Además, están las comparaciones con signo (`jl`, `jg`, etc.) y sin signo (`jb`, `ja`, etc.) que usan combinaciones de `SF`, `ZF`, `CF`, y `OF`.
 
-### Instrucción `lahf`
+### Instrucción `lahf` (AT&T e Intel)
 
-La instrucción lahf en x86 significa Load AH from Flags, y su función es: **Cargar en el registro AH (parte alta de AX) una copia de ciertos flags del procesador.**
+La instrucción `lahf` en x86 significa Load AH from Flags, y su función es: **Cargar en el registro AH (parte alta de AX) una copia de ciertos flags del procesador.** Su inversa es `sahf`.
 
 **¿Qué flags copia exactamente lahf?**
-lahf copia los bits de estado bajos del registro EFLAGS (bits 0–7) al registro AH:
+`lahf` copia los bits de estado bajos del registro EFLAGS (bits 0–7) al registro AH:
+
 | Bit en `AH` | Flag     | Significado           |
 | ----------- | -------- | --------------------- |
 | 0           | `CF`     | Carry Flag            |
@@ -1402,6 +1403,7 @@ No copia el Overflow Flag (OF) — eso lo puedes recuperar con otras instruccion
 
 **Ejemplo de uso práctico en AT&T**
 ```asm
+# AT&T
 .section .text
 .globl _start
 
@@ -1429,7 +1431,10 @@ _start:
 **Importante**
 Ten en cuenta que lahf funciona solo en modo real o modo protegido de 16/32 bits. En modo de 64 bits, está desactivada por defecto a menos que actives la compatibilidad explícitamente.
 
-### Instrucción `mvzbl`
+### Instrucción `mvzbl` (AT&T)
+
+> En sintaxis intel no existe esta instrucción. Un equivalente sería `mov destino, fuente`. 
+
 En x86 que significa **MOVe with Zero-extend Byte to Long**.
 
 **¿Qué hace exactamente?**
