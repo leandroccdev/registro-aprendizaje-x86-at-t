@@ -728,7 +728,8 @@ Por lo tanto, el CPU internamente realiza esta verificación cada vez que se int
 
 Cuando la condición no se cumple, el CPU lanza una **excepción de protección general** (`#GP`, General Protection Fault).
 
-**¿Por qué importa?
+**¿Por qué importa?**
+
 - Permite que el sistema operativo confíe en el hardware para mantener la protección de memoria y privilegios.
 - Si un proceso malicioso intenta hacer un jmp a código privilegiado del kernel, el CPU lo detiene automáticamente, sin intervención del kernel.
 
@@ -777,35 +778,107 @@ Para mas registros visitar: [Oracle Assembly Language Reference Manual](https://
 
 Éste método no acede a la memoria, solo al valor.
 
-`movl $5, %eax # eax = 5 (valor inmediato)`
+```asm
+#AT&T
+movl $5, %eax # eax = 5 (valor inmediato)
+
+#Intel
+mov eax, 5
+```
 
 #### Direccionamiento por registro
 
 En éste método ambos operandos son registros, por lo tanto, la operación se raliza desde el registro a al b.
 
-`movl %eax, %ebx`
+```asm
+# AT&T
+movl %eax, %ebx
+
+# Intel
+mov ebx, eax
+```
 
 #### Direccionamiento directo
 
 Éste método usa una dirección de memoria fija.
 
-`movl (0x12345678), %eax # Carga el contenido de la dirección 0x12345678 en el registro eax`
+```asm
+# AT&T
+movl (0x12345678), %eax # Carga el contenido de la dirección 0x12345678 en el registro eax
+
+# Intel
+# Versión para 32 bits
+mov eax, DWORD PTR [0x12345678]
+
+# En 64 bits no existe el direccionamiento absolute directo
+# Opciones
+# a) Acceso relativo a RIP
+mov eax, DWORD PTR [rip + 0x12345678]
+# o usando rel
+mov eax, DWORD PTR [rel 0x12345678]
+# se traduce a
+mov eax, DWORD PTR [rip + 0x12345678]
+# y el desplazamiento lo calcula asm
+# b) Cargar la dirección en un registro
+mov rax, 0x12345678
+mov eax, DWORD PTR [rax]
+```
+
+`rel` es un modificador del asm que significa "dirección relativa". Sirve para decirle a asm que se debe calcular la dirección relativa al punto actual, que normalmente es `rip`.
+
+¿Qué es `RIP` relative addressing?
+
+Es el instruction pointer de X86-64. **No es escribible**. Es un registro que indica qué instrucción se está ejecutando ahora y cuál viene después. Al terminar una instrucción, `rip` avanza en automático a la siguiente. En saltos y llamados, `rip` es modificado automáticamente.
+
+| Modo       | Registro  |
+| ---------- | --------- |
+| x86 16-bit | `IP`      |
+| x86 32-bit | `EIP`     |
+| x86-64     | **`RIP`** |
+
+Todos cumplen la misma función: ser un puntero de instrucción.
 
 #### Direccionamiento indirecto por registro
 
 Éste método usa un registro que contiene una dirección de memoria
 
-`movl %eax, (%ebx) # eax contiene la dirección de memoria`
+```asm
+# AT&T
+movl %eax, (%ebx) # eax contiene la dirección de memoria
 
-El operador `[registro]` se usa para acceder al contenido de la dirección contenida en `registro`.
+# Intel
+mov DWORD PTR [ebx], eax # Escribe en el puntero [ebx]
+```
+
+**Equivalente en C**
+
+```C
+*(uint32_t *)ebx = eax;
+```
+
+`uint32_t`: Tipo de C que representa un entero sin signo de exactamente 32 bits.
+
+El operador `[registro]` se usa para acceder al contenido de la dirección contenida en `registro`. Recordar que la keyword `PTR` se usa en sintaxis intel.
 
 #### Direccionamiento con desplazamiento
 
 Éste método usa un registro base y un desplazamiento constante.
 
-`movl 4(%eax), %ebx # se copia el valor de eax + 4 en el registro ebx`
+```asm
+# AT&T
+movl 4(%eax), %ebx # se copia el valor de eax + 4 en el registro ebx
 
-La operación `4(%eax)` indica la dirección de memoria desde donde comenzar a leer. El registro `eax` contiene una dirección de memoria, luego se le suma 4 y de esa dirección resultante, se copia la información en el registro `ebx`.
+# Intel
+mov ebx, DWORD PTR [eax + 4]
+```
+
+**Equivalente en C**
+
+```C
+ebx = *(uint32_t *)(eax + 4);
+```
+
+La operación `4(%eax)` indica la dirección de memoria desde donde comenzar a leer en sintaxis AT&T, en sintaxis Intel, simplemente se usa `PALABRA PTR [registro + offset]`. El registro `eax` contiene una dirección de memoria, luego se le suma 4 y de esa dirección resultante, se copia la información en el registro `ebx`.
 
 #### Direccionamiento segmentado (modo real 16 bits)
 
@@ -818,10 +891,21 @@ La dirección es calculada entonces como:
 `dirección = (segmento x 16) + offset`
 
 ```asm
-# DS = 0x1000 (registro de segmento de datos)
-# BX = 0x0020 (registro offset)
+# DS = 0x1000 (registro de segmento de datos) (base de memoria)(segmento)
+# BX = 0x0020 (registro offset) (offset)
 
+# Fórmula: dirección física = (DS << 4) + BX
+# Dirección física = 0x10020
+# DS:BX == base + desplazamiento
+# valor << 4 = valor × 16
+
+# AT&T
 movw %ds:(%bx), %ax # suma bx en ds, lee la dirección resultante y la carga en el registro ax
+
+# Intel
+mov ax, WORD PTR ds:[bx]
+# Alternativa (ds es implícito)
+mov ax, WORD PTR [bx]
 ```
 
 #### Direccionamiento indexado (Base + Index * Escala + Desplazamiento)
@@ -829,8 +913,19 @@ movw %ds:(%bx), %ax # suma bx en ds, lee la dirección resultante y la carga en 
 Éste modo se utiliza para accesar a estructura, arreglos o memoria compleja.
 
 ```asm
+# AT&T
 # movl despazamiento(dirección base, índice, escala o factor), destino 
 movl 8(%ebx, %esi, 4), %eax
+
+# Intel
+mov eaxm DWORD PTR [ebx + esi*4 + 8]
+
+# desplazamiento = offset
+# [base + índice * escala + desplazamiento]
+# base: ebx
+# índice: esi
+# escala: 4
+# desplazamiento: 8
 ```
 
 **Nótece:** que si `esi` permite el acceso a memoria que está mas allá de la estructura (lo que en lenguajes de alto nivel ocasionaría un error), ningún error será notificado al programador, salvo que la dirección a la que se intenta accesar fuera una región de memoria protegida (dando el error violación de segmento de memoria).
@@ -846,7 +941,11 @@ Es un número constante (inmediato) que se suma al resultado del calculo. Puede 
 Es un registro que contiene la dirección base desde donde se empieza a contar(comienzo del arreglo o estructura). Es omitible dejando la dirección vacía.
 
 ```asm
-desplazamiento(, índice, escala o factor)
+# AT&T
+desplazamiento(base, índice, escala o factor)
+
+# Intel
+[base + indice * escala + desplazamiento]
 ```
 ##### Índice (index, registro índice)
 
@@ -858,6 +957,8 @@ desplazamiento(base)
 ```
 
 Cuando es omitido, tambien el valor de escala o factor debe ser omitido.
+
+**En sintaxis Intel, todas las partes son opcionales, pero alguna debe existir.**
 
 ##### Escala o factor (scale)
 
@@ -885,6 +986,7 @@ Nótece que se ha usado el término escala o factor para mejorar la explicación
 La estructura básica de un programa en ensablador es como la siguiente:
 
 ```asm
+# AT&T
 .section .data
      mensaje .asciz "hola mundo\n" # Cadena terminada en NULL
 
@@ -969,15 +1071,8 @@ Las directivas permiten definir datos en la sección `.data`, las mas comunes so
 
 #### Interrupciones
 
-Una interrupción se define como un mecanismo que detiene temporalmente la ejecución normal del procesador, ya sea para atender un evento urgente/importante y luego retormar la ejecución en donde se quedó previo a la interrupción.
-
-Cuando el CPU recibe una interrupción ejecuta una rutina especial llamada **manejador de interrupción** (interrupt handler).
-
-Las interrupciones son generadas por componentes del hardware (dispositivo, timer, teclado) o del software (llamadas al sistema, excepciones).
-
-Permiten al CPU reaccionar rápidamente a eventos externos sin necesidad de estar revisando constantemente (lo que se conoce como polling: consultar contínuamente el estado de un dispositivo o bandera en un bucle, hasta que cambia a un valor esperado).
-
-Un ejemplo de ésto es por ejemplo, cuando una tecla del teclado es presionada, una interrupción es generada, y al CPU se le indica que hay datos para leer.
+Una interrupción se define como un mecanismo que detiene temporalmente la ejecución normal del procesador, ya sea para atender un evento urgente/importante y luego retormar la ejecución en donde se quedó previo a la interrupción. Cuando el CPU recibe una interrupción ejecuta una rutina especial llamada **manejador de interrupción** (interrupt handler).
+Las interrupciones son generadas por componentes del hardware (dispositivo, timer, teclado) o del software (llamadas al sistema, excepciones). Permiten al CPU reaccionar rápidamente a eventos externos sin necesidad de estar revisando constantemente (lo que se conoce como polling: consultar contínuamente el estado de un dispositivo o bandera en un bucle, hasta que cambia a un valor esperado). Un ejemplo de ésto es por ejemplo, cuando una tecla del teclado es presionada, una interrupción es generada, y al CPU se le indica que hay datos para leer.
 
 En ensamblador x86 de 32 bits, para hacer una llamada al sistema (syscall) se usa la instrucción:
 
@@ -1012,6 +1107,7 @@ El programador tambien puede definir y manejar interrupciones personalizadas, ta
 Para definir una se utiliza la instrucción `int n` con un número que **no esté reservado** por el sistema. Luego debe verificarse que ese número esté correctamente apuntado en la tabla `IDT` (interrupt descriptor table) hacia su propia rutina de manejo.
 
 ```asm
+# AT&T e Intel
 int $0x21 # interrupción personalizada
 ```
 
@@ -1025,7 +1121,7 @@ En el modo protegido y en sistemas operativos modernos, la `IDT` no es modificab
 
 Para crear una interrupción propia, se necesita cumplir algún punto de los siguientes:
 
-- Usar modo real (bootloader por ej)
+- Usar modo real (bootloader por ejemplo)
 - Tener acceso en modo kernel
 - Trabajar en un OS propio o código que se ejecuta en hardware directamente
 
@@ -1048,6 +1144,7 @@ En el siguiente ejemplo se escribirá la entrada 0x21 de la `IVT` (interrupt vec
 **Importante:** El ejercicio usa el modo real.
 
 ```asm
+# AT&T
 .code16 # Modo real 16 bits
 .globl _start
 
