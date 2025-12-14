@@ -1577,7 +1577,14 @@ No se permiten:
 - Control de flags y lógica en condiciones
 - Cálculos rápidos a nivel binario
 
-#### Ejemplo AND
+#### **Instrucción `AND**`
+
+Operación lógica bit a bit que se usa para enmascarar bits, limpiar valores y probar condiciones a nivel binario.
+
+**Sintaxis:** `and destino, fuente`
+
+**Ejemplo**
+
 ```asm
 # AT&T
 # Supongamos que queremos hacer AND entre dos registros
@@ -1642,7 +1649,14 @@ Siempre se limpia (OF = 0) después de un `and`. (Puesto que `and` no genera ove
 | CF   | Siempre 0                |
 | OF   | Siempre 0                |
 
-#### Ejemplo OR
+#### Instrucción `OR`
+
+Operación lógica bit a bit que se usa principalmente para activar bits, combinar flags y forzar estados sin perder los bits ya activos.
+
+**Sintaxis:** `or destino, fuente`
+
+**Ejemplo**
+
 ```asm
 # AT&T
 movl $0x0F0F0F0F, %eax   # Carga el valor 0x0F0F0F0F en eax
@@ -1702,7 +1716,14 @@ Siempre se limpia (OF = 0) después de un `or`. (Puesto que `or` no genera overf
 | CF   | Siempre 0                |
 | OF   | Siempre 0                |
 
-#### Ejemplo XOR
+#### **Instrucción `XOR`**
+
+Operación lógica bit a bit muy especial porque alterna bits y, además, tiene usos "hacky" clásicos en bajo nivel, reversing y optimización.
+
+**Sintaxis:** `xor destino, fuente`
+
+**Ejemplo**
+
 ```asm
 # ATT&T
 movl $0xFF00FF00, %eax    # Carga 0xFF00FF00 en eax
@@ -1762,7 +1783,14 @@ Siempre se limpia (OF = 0) después de un `xor`. (Puesto que `xor` no genera ove
 | CF   | Siempre 0                |
 | OF   | Siempre 0                |
 
-#### Ejemplo NOT
+#### **Instrucción `NOT`**
+
+Operación lógica mas simple, invierte bits y no toca ningún flag.
+
+**Sintaxis:** `not operando`
+
+**Ejemplo**
+
 ```asm
 # AT&T
 movl $0x0F0F0F0F, %eax   # Carga un valor en eax
@@ -1990,6 +2018,7 @@ shr al, 2    ; al = 0011 0111b
 1. División rápida por potencias de dos (para enteros sin signo).
 
    ```asm
+   ; Intel
    shr eax, 1 ; eax /= 2
    shr eax, 3 ; eax /= 8
    ```
@@ -1999,16 +2028,18 @@ shr al, 2    ; al = 0011 0111b
    Se utiliza para extraer ciertos bits hacia la posición LSB.
 
    ```asm
+   ; Intel
    mov al, 0xAC ; al = 1010 1100b
    shr al, 4    ; al = 0000 1010b
    ; Ingresaron 4 bits por la izquierda en cero, y se perdieron 4 bits por la derecha
    ; CF: Contiene el último bit perdido por la derecha, un 1
    ; ZF: 0; El resultado es distinto a 0
    ; OF: Ignorado (solo se toma en cuenta para desplazamientos de 1 bit)
+   ; SF: 0 (MSB del resultado)
    ```
-
+   
    Paso a paso en la salida de bits por la derecha
-
+   
    ```asm
    ; Inmediato original: 1010 1100
    Paso 1: -101 0110   ; Bit que sale: 0; CF: 0
@@ -2016,9 +2047,9 @@ shr al, 2    ; al = 0011 0111b
    Paso 3: ---1 0101   ; Bit que sale: 1; CF: 1; CF anterior: 0
    Paso 4: ---- 1010   ; Bit que sale: 1; CF: 1; CF anterior: 1
    ```
-
+   
    Paso a paso en la entrada de bits por la izquierda
-
+   
    ```asm
    ; Inmediato original: 1010 1100
    Paso 1: [0]101 0110 ; Entra un bit puesto a 0 por la izquierda
@@ -2026,22 +2057,340 @@ shr al, 2    ; al = 0011 0111b
    Paso 3: [000]1 0101 ; Entra un bit puesto a 0 por la izquierda
    Paso 4: [0000] 1010 ; Entra un bit puesto a 0 por la izquierda
    ```
-
+   
    Desplazamientos de 1 bit
-
+   
    Ahora se verá como opera el flag OF en desplazamientos de 1 bit a la derecha.
-
+   
    ```asm
    ; Intel
    mov al, 0x80 ; al = 1000 0000b
    shr al, 1    ; Desplaza 1 bit a la derecha
    ; al = 0100 0000b
    ; Bit que sale por la derecha: 0
-   ; Bit que entra por la derecha; 0
+   ; Bit que entra por la izquierda; 0
    ; CF: 0
+   ; SF: 0 (MSB del resultado despues de aplicar shr)
    ; ZF: 0 (resultado distinto a 0)
-   ; OF: 1 (MSB ⊕ CF: xor(1, 0))
-   ; MSB: 0[1]00 0000b (delimitado como [x])
+   ; OF: 1 (MSB original antes de aplicar shr)
+   ; MSB (resultado): [0]100 0000b (delimitado como [x])
    ```
 
-   
+**Instrucción `SAR` (shift arithmetic right)**
+
+Desplaza un operando a la derecha manteniendo el signo del número original (bit MSB), evitando así que se reemplace por cero (preservándolo en enteros con signo). Los bits que salen por la derecha se pierden. Y el último bit desplazado se almacena en el flag CF.
+
+**Sintaxis:** `SAR destino, cantidad`
+
+**Ejemplo**
+
+```asm
+; Intel
+sar al, 1  ; desplaza 1 bit a la derecha en registro al
+sar eax, 3 ; desplaza 3 bits a la derecha en registro eax
+
+; Ejemplo con 8 bits (signed)
+mov al, 0xF4 ; al = 1111 0100b; -12 en signed 8-bit (complemento a dos)
+sar al, 1
+
+; al = 1111 0100b
+; Corrimiento de 1 bit a la derecha
+Paso 1: -111 1010 ; Sale bit 0 por la derecha; CF: 0
+Paso 2: [1]111 1010 ; Se replica el bit MSB preservando el signo (8-bit signed)
+; Paso 1 y 2 ocurren en la misma operación (tratándose de un corrimiento de solo 1 bit)
+; CF: 0
+; OF: Reseteado a cero (el desplazamiento aritmético no ocasiona overflow)
+; ZF: 0 (resultado distinto a cero)
+; SF: 1 (MSB dle resultado)
+```
+
+**Efecto sobre los flags del CPU**
+
+| Flag | Comportamiento                                               |
+| ---- | ------------------------------------------------------------ |
+| CF   | Se pone con el último bit desplazado (bit que “sale” por la derecha). |
+| OF   | Se **resetea** a 0 en SAR (porque el desplazamiento aritmético no puede causar overflow). |
+| SF   | Se actualiza según el nuevo MSB (signo del resultado).       |
+| ZF   | Se actualiza si el resultado es cero.                        |
+| PF   | Se actualiza según la paridad del resultado (pares de 1’s).  |
+| AF   | No afectado.                                                 |
+
+**Instrucción `TEST`**
+
+Realiza una operación `AND` a nivel de bits, pero **no guarda el resultado**. Tiene por finalidad el consultar cosas al CPU como: ¿el valor es cero?, ¿está encendido cierto bit?, ¿el valor es negativo (signed)?, ¿un flag lógico se cumple sin destruir el registro?, etc. Es una instrucción de control, no de cálculo.
+
+**Sintaxis:** `test op1, op2`
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 0x1 ; al = 0000 0001b
+test al, 0x1 ; No se almacena ningún resultado en al
+; 0000 0001
+; 0000 0001
+; --------- (AND)
+; 0000 0001 (resultado interno)
+; ZF: 0 (resultado es distinto de 0)
+; SF: 0 (MSB del resultado interno)
+; PF: 0 (nro. de bits 1: 1 (impar))
+```
+
+**Flags del CPU afectados por `TEST`**
+
+| Flag   | Estado                              |
+| ------ | ----------------------------------- |
+| **ZF** | Se activa si `(op1 & op2) == 0`     |
+| **SF** | Copia el MSB del resultado          |
+| **PF** | Paridad del byte bajo del resultado |
+
+**Flags del CPU que siempre limpia**
+
+| Flag   | Valor |
+| ------ | ----- |
+| **CF** | 0     |
+| **OF** | 0     |
+
+Flags del CPU indefinidos
+
+| Flag   | Valor |
+| ------ | ----- |
+| **AF** | Indefinido (no usado)     |
+
+`Test` nunca genera acarreo ni overflow, porque no hay suma ni resta, solo lógica. 
+
+**Instrucción `CMP` (compare)**
+
+Realiza una comparación entre dos operando, restando internamente el segundo del primero sin almacenar el resultado. Se usa únicamente para actualizar los flags del CPU. Afecta principalmente a **ZF** (si el resultado es cero, los operandos son iguales), **CF** (si hubo acarreo, indicando comparación unsigned) y **OF** (si ocurrió overlow en una comparación signed)). De esta forma, `CMP` permite que las instrucciones de saldo condicional tomen decisiones basadas en comparaciones tanto con signo como sin signo, actuando conceptualmente como una resta fantasma orientada al control de flujo.
+
+**Sintaxis:** `CMP op1, op2`
+
+**Ejemplo**
+
+```asm
+; Intel
+
+; Igualdad
+mov al, 5 ; al = 0000 0101b
+cmp al, 5 ; Se compara 5 - 5 (no se guarda el resultado)
+
+; Resultado conceptual: 0
+; ZF: 1 (resultado es cero)
+; SF: 0
+; CF: 0
+; OF: 0
+
+; Desigualdad
+mov al, 3 ; al = 0000 0011b
+cmp al, 5 ; Se compara 3 - 5
+
+; Resultado conceptual: -2 (0000 0010b)
+; ZF: 0 (resultado es distinto de cero)
+; SF: 1 (resultado negativo)
+; CF: 1 (borrow en 3 < 5 en unsigned)
+; OF: 0
+```
+
+**Borrow (préstamo) en la resta binaria**
+
+El acarreo o préstamo (en inglés ***borrow***) ocurre cuando no hay suficientes bits para restar, y por lo tanto se debe pedir prestado al bit mas significativo. En x86 dicho borrow se refleja en el flag CF (Carry Flag) cuanod se realiza una resta o un CMP.
+
+Cuando `CF = 1`, el minuendo era menor que el sustraendo (en unsigned).
+
+```asm
+; Intel
+mov al, 3 ; 0000 0011b
+cmp al, 5 ; 0000 0101b
+
+; Internamente se hace lo siguiente
+; AL - 5 -> 3 - 5
+```
+
+**Resta binaria (8 bits)**
+
+Es la operación de restar dos números representados en base 2, bit a bit, de derecha a izquierda, igual que en decimal.
+
+**Reglas básicas:**
+
+```
+0 - 0 = 0
+1 - 0 = 1
+1 - 1 = 0
+0 - 1 = ? (No se puede, entonces ocurre un préstamo o borrow)
+```
+
+Como el 0 no tiene, se transforma en 1 (borrow), lo que equivale a 2 en decimal (aludiéndo conceptualmente a 0b10 = 2). Por lo que la resta se transforma en:
+
+```
+10 - 1 = 1
+```
+
+Con lo que CF indica que hubo préstamo o borrow en la resta binaria.
+
+**Paralelismo con la resta decimal**
+
+```
+  20
+-  7
+  --
+```
+
+Como no puedes restar 7 a 0, se transforma en 10 pidiéndole prestado un 1 al 2 de al lado. O mejor dicho, se transforma en 1, y decimos que es 1 equivale a 10. Lo que se conoce como préstamo. Por lo que la operación unaria queda como:
+
+```
+10 - 7 = 3
+
+  20     11
+-  7      7
+  -- ->  --
+   3     13
+```
+
+Otra vez, estableciendo un paralelismo con respecto a la suma binaria en x86, decimos que hubo préstamo o borrow y que por lo tanto el flag CF se establece en 1.
+
+**Propagación del préstamo a la izquierda**
+
+Nótece que el bit en la posición 3 (de derecha a izquierda)  del minuendo está en 0. Como el bit de la posición 4 también está en 0, al producirse el préstamo o borrow, éste se propaga hasta el bit en la posición 8, el préstamo sale afuera del registro y el CPU enciende el flag `CF = 1`.
+
+```asm
+  0000 0011 (3) (minuendo)
+- 0000 0101 (5) (sustraendo)
+  ---------
+  1111 1110 (-2 en signed)
+
+; ¿Cómo quedaría los flags del CPU?
+; SF: 1 (MSB 1)
+; ZF: 0 (resultado distinto de cero)
+```
+
+Para restar `1 - 1`, `0 - 0`, etc, el CPU debe pedir prestado desde un bit que no existe, esto es un préstamo y se le conoce como borrow.
+
+**Nota:** En x86 `CF = 1` indica borrow en restas y carry en sumas.
+
+**Flags del CPU que modifica `CMP**`
+
+| Flag   | Qué indica tras `op1 - op2`    |
+| ------ | ------------------------------ |
+| **ZF** | Resultado = 0 (op1 == op2)     |
+| **SF** | Bit de signo del resultado     |
+| **CF** | Borrow (op1 < op2 en unsigned) |
+| **OF** | Overflow signed                |
+| **PF** | Paridad del byte bajo          |
+| **AF** | Borrow entre bit 3 ↔ 4         |
+
+**¿Como se calcula el flag `OF` del CPU para `CMP`?**
+
+`OF` no depende del resultado final solamente, depende de los signos de los operandos y del resultado.
+`OF` es 1 si:
+
+- `op1` y `op2` tienen signos distintos.
+- Y el signo del resultado es distinto al signo de `op1`.
+
+**Fórmula:** `OF = (sign(op1) ≠ sign(op2)) AND (sign(resultado) ≠ sign(op1))`
+
+**Paso a paso**
+
+```asm
+; Elementos
+op1 = 0000 0011 (3)
+op2 = 0000 0101 (5)
+r   = 1111 1110 (-2 en signed)
+
+; Signos de los elementos
+sign(op1): 0
+sign(op2): 0
+sign(r):   1
+
+; Cálculo del flag OF
+OF = (0 ≠ 0) AND (1 ≠ 0)
+; Interpretación
+0 ≠ 0: false
+1 ≠ 0: true
+false AND true: false
+OF = 0
+```
+
+**Instrucción `SUB`**
+
+Realiza una resta aritmética binaria sobre dos operandos. (Internamente usa la ALU del CPU). Almacena el resultado en el operando destino. Y al igual que `CMP` actualiza los flags del CPU.
+
+**Sintaxis:** `SUB destino, fuente`
+
+**¿Cómo se hace la resta a nivel binario?**
+
+En x86 y en casi todos los CPUs, la resta se implementa como:
+
+`A - B ≡ A + (~B + 1)`
+
+Es decir:
+
+- Se usa complemento a dos
+- Por eso aparecen los conceptos de borrow, carry, overflow, etc
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 2 ; al = 0000 0010b
+sub al, 1 ; 1  = 0000 0001b
+; Resultado: 0000 0001b
+; ZF: 0
+; SF: 0 (MSB es 0)
+; CF: 0 (queda en 1 solo si ocurre borrow cuando op1 < op2)
+; OF: 0
+```
+
+Se pudiera pensar que algo está mal, porque efectivamente el bit de la posición 1 en el primer elemento requiere un préstamo para resolver `0 - 1`, pero y a pesar que sucede, la operación se resuelve de manera interna sin salir del registro porque el bit que realiza el préstamo (el de la posición 2) está en 1 y efectivamente, puede prestar y quedar en 0.
+
+```asm
+  0000 00[1] préstammo -> 0 
+  0000 000                1
+- -------------------------
+
+; Resultado
+
+  0000 000[10] 
+  0000 000  1
+- ------------
+  0000 000  1
+; Porque 0 - 1 -> 10 - 1 = 1
+```
+
+Por lo tanto, se aprecia como el préstamo no se propaga a la izquierda hasta salir del registro y del bits MSB.
+
+**Flags afectados por `SUB`**
+
+| Flag   | Significado                          |
+| ------ | ------------------------------------ |
+| **CF** | Borrow (resta unsigned)              |
+| **OF** | Overflow (resta signed)              |
+| **ZF** | Resultado = 0                        |
+| **SF** | Sign bit del resultado               |
+| **PF** | Paridad del byte menos significativo |
+| **AF** | Borrow entre bit 1 y 2 (BCD)         |
+
+**Cálculo del flag OF del CPU para la instrucción `SUB`**
+
+Es la misma que la instrucción `CMP`.
+
+**Fórmula:** `OF = (sign(op1) ≠ sign(op2)) AND (sign(resultado) ≠ sign(op1))`
+
+**Cálculo del flag AF del CPU para la isntrucción `SUB`**
+
+En una resta `AF = 1` si hay un préstamo entre el nibble alto y bajo, vale decir entre el bit 4 y el bit 3 (contando desde 0).
+
+```asm
+; byte: 0000 0001
+; nibble: 4 bits
+; nibble alto: 0000 (bits 4 al 7)
+; nibble bajo: 0001 (bits 0 al 3)
+  
+  7654 3210 ; <- (posiciones de bits)
+A 0000 0001 
+B 0000 1001
+- ---------
+```
+
+Nótece que la resta del nibble bajo (bits 0–3) requiere un préstamo desde el bit 4 (nibble alto), configurando así el flag AF en 1. AF no observa un bit puntual, sino que indica que el préstamo no pudo resolverse dentro del nibble bajo y debió propagarse hasta el bit 4.
+
+todo: proseguir con la instrucción and
