@@ -365,6 +365,34 @@ _start:
 **256 bits:** YMM0 al YMM31
 **512 bits:** ZMM0 al ZMM31 (AVX-512)
 
+##### Registros de propósito general sin restricciones (64 bits)
+
+R8 al R15
+
+Como en x86-64 cada vez mas aplicaciones requieren un mayor número de registros de propósito general, estos registros adicionales permiten un mejor rendimiento en operaciones intensivas en CPU. Los compiladores modernos pueden utilizar estos registros para evitar el uso de la pila y reducir la necesidad de hacer push/pop en las funciones. Esto mejora la eficiencia en las funciones de llamada, especialmente con muchos parámetros.
+
+Son registros de propósito general como RAX y RBX, pero sin restricciones. Pueden usarse en cualquier operación aritmética, lógica, direcciones o como parámetros en funciones.
+
+| Registro 64-bit | 32-bit   | 16-bit   | 8-bit (bajo) |
+| --------------- | -------- | -------- | ------------ |
+| **R8**          | **R8D**  | **R8W**  | **R8B**      |
+| **R9**          | **R9D**  | **R9W**  | **R9B**      |
+| **R10**         | **R10D** | **R10W** | **R10B**     |
+| **R11**         | **R11D** | **R11W** | **R11B**     |
+| **R12**         | **R12D** | **R12W** | **R12B**     |
+| **R13**         | **R13D** | **R13W** | **R13B**     |
+| **R14**         | **R14D** | **R14W** | **R14B**     |
+| **R15**         | **R15D** | **R15W** | **R15B**     |
+
+###### Convenciones de llamadas en sistemas Linux x86-64
+
+En la convención de llamadas System V AMD64 ABI, los registros R8 al R15 se usan para pasar argumentos a las funciones. Los primeros 6 parámetros deu na función se pasan en los registros RDI, RSI, RDX, RCX, R8 y R9.
+
+- R8 al R15 se usan cuando las funciones necesitan más de 6 parámetros.
+- Si hay más de 6 parámetros, R8 al R15 sirven para pasar del septimo al quinceavo parámetro.
+
+**Nótece** que las versiones de 8 bits no tienen parte alta. Solo existe la parte baja de los registros de 16 bits para R8 al R15. La razón es la misma que con los registros SIL, DIL, BPL y SPL, fueron diseñados para operaciones de 64 bits y uso general, no para compatibilidad histórica con las subdivisiones de 8 bits altas. Lo que dice que AH, BH, CH y DH son reliquias históricas.
+
 #### División de registros AX, BX, CX y DX
 
 Los registros mencionados son de 16 bits, gráficamente se ven de la siguiente manera agrupados en grupos de 4 bits:
@@ -512,10 +540,12 @@ Nótese que GAS no soporta el formato binario, en tal caso se debería usar un e
 
 #### Registros de propósito general con usos específicos
 
-ESI: fuente en copias (string src)
-EDI: destino en copias (string dst)
-EBP: Puntero base (base pointer en stack frame)
-ESP: Puntero de pila (stack pointer)
+RSI/ESI: fuente en copias (string src)
+RDI/EDI: destino en copias (string dst)
+RBP/EBP: Puntero base (base pointer en stack frame)
+RSP/ESP: Puntero de pila (stack pointer)
+
+**Nota:** Se usa el prefijo R para denotar registros de 64 bits y el prefijo E para registros de 32 bits.
 
 #### Registros de segmento
 
@@ -539,6 +569,10 @@ Para los demas registros de segmento (`ds`, `es`, `ss`, etc), su uso explícito 
 En el caso del registro `cs`, no se puede modificar directamente porque se cambia con `jmp` o `call` a otra sección de código.
 
 Por lo tanto, los registros `ds`, `es` y `ss` deben ser evitados, ya que el sistema los maneja y su uso explícito no es común.
+
+**Importante para 64 bits**
+
+En 64 bits, estos registros prácticamente no se utilizan, ya que se trabaja con el modo de memoria lineal y el valor de estos registros se encuentra fijado en 0 (excepto en los registros `FS` y `GS`, que pueden ser utilizados como registros base en el cálculo de direcciones).
 
 ##### ¿Qué es un segmento?
 
@@ -1385,7 +1419,7 @@ Las instrucciones de salto condicional usan estos flags:
 
 Además, están las comparaciones con signo (`jl`, `jg`, etc.) y sin signo (`jb`, `ja`, etc.) que usan combinaciones de `SF`, `ZF`, `CF`, y `OF`.
 
-### Instrucción `lahf` (AT&T e Intel)
+## Instrucción `lahf` (AT&T e Intel)
 
 La instrucción `lahf` en x86 significa Load AH from Flags, y su función es: **Cargar en el registro AH (parte alta de AX) una copia de ciertos flags del procesador.** Su inversa es `sahf`.
 
@@ -1436,7 +1470,7 @@ _start:
 **Importante**
 Ten en cuenta que lahf funciona solo en modo real o modo protegido de 16/32 bits. En modo de 64 bits, está desactivada por defecto a menos que actives la compatibilidad explícitamente.
 
-### Instrucción `mvzbl` (AT&T)
+## Instrucción `mvzbl` (AT&T)
 
 > En sintaxis intel no existe esta instrucción. Un equivalente sería `mov destino, fuente`. 
 
@@ -1465,7 +1499,7 @@ movzbl %al, %ebx # EBX = 0x000000FF, el byte 0xFF se extiende a 32 bits con cero
 `movzbl` extiende con ceros (para valores sin signo).
 `movsbl` extiende con signo (preserva el bit más alto, útil para números negativos en complemento a dos).
 
-### Instrucción `movsbl`
+## Instrucción `movsbl` (AT&T)
 
 > En sintaxis Intel no existe esta instrucción. Un equivalente sería: `mov ecx, byte ptr [eax]`.
 
@@ -1577,7 +1611,7 @@ No se permiten:
 - Control de flags y lógica en condiciones
 - Cálculos rápidos a nivel binario
 
-#### **Instrucción `AND**`
+## Instrucción `AND`
 
 Operación lógica bit a bit que se usa para enmascarar bits, limpiar valores y probar condiciones a nivel binario.
 
@@ -1649,7 +1683,7 @@ Siempre se limpia (OF = 0) después de un `and`. (Puesto que `and` no genera ove
 | CF   | Siempre 0                |
 | OF   | Siempre 0                |
 
-#### Instrucción `OR`
+## Instrucción `OR`
 
 Operación lógica bit a bit que se usa principalmente para activar bits, combinar flags y forzar estados sin perder los bits ya activos.
 
@@ -1716,7 +1750,7 @@ Siempre se limpia (OF = 0) después de un `or`. (Puesto que `or` no genera overf
 | CF   | Siempre 0                |
 | OF   | Siempre 0                |
 
-#### **Instrucción `XOR`**
+## Instrucción `XOR`
 
 Operación lógica bit a bit muy especial porque alterna bits y, además, tiene usos "hacky" clásicos en bajo nivel, reversing y optimización.
 
@@ -1783,7 +1817,7 @@ Siempre se limpia (OF = 0) después de un `xor`. (Puesto que `xor` no genera ove
 | CF   | Siempre 0                |
 | OF   | Siempre 0                |
 
-#### **Instrucción `NOT`**
+## Instrucción `NOT`
 
 Operación lógica mas simple, invierte bits y no toca ningún flag.
 
@@ -1842,7 +1876,7 @@ La instrucción `not` **no modifica** ningún flag en el procesador. Todos los f
 
 Por lo tanto si necesitas invertir bits pero conservar el estado de los flags para operaciones condicionales posteriores, not es adecuado porque no altera los flags.
 
-**Operación `SHL` (shift logical left).**
+## Instrucción `SHL` (shift logical left)
 
 Desplaza todos los bits de un operando hacia la izquierda un número específico de posiciones. Los bits que salen por la izquierda se pierden. Los bits que ingresan por la derecha son rellenados con ceros.
 
@@ -1968,7 +2002,7 @@ El overflow flag (OF) se calcula con un xor del nuevo msb y el CF.
 | 1    | 0    | 1       |
 | 1    | 1    | 0       |
 
-**Operación `SAL` (shift arithmetic left)**
+## Instrucción `SAL` (shift arithmetic left)
 
 Desplaza todos los bits de un operando hacia la izquierda, igual que SHL. En la práctica moderna de x86, `SAL` y `SHL` son exactamente iguales.
 
@@ -1982,7 +2016,7 @@ Multiplicación rápida de enteros con signo.
 sal eax, 1; eax *= 2
 ```
 
-**Operación `SHR` (shift logical right)**
+## Operación `SHR` (shift logical right)
 
 Desplaza todos los bits del operando hacia la derecha. Los bits que ingresan por la izquierda se rellenan con ceros sin importar el signo, y los que salen por la derecha se pierden.
 El desplazamiento a la derecha corresponde con una división por potencia de dos (para enteros sin signo).
@@ -2076,7 +2110,7 @@ shr al, 2    ; al = 0011 0111b
    ; MSB (resultado): [0]100 0000b (delimitado como [x])
    ```
 
-**Instrucción `SAR` (shift arithmetic right)**
+## Instrucción `SAR` (shift arithmetic right)
 
 Desplaza un operando a la derecha manteniendo el signo del número original (bit MSB), evitando así que se reemplace por cero (preservándolo en enteros con signo). Los bits que salen por la derecha se pierden. Y el último bit desplazado se almacena en el flag CF.
 
@@ -2115,7 +2149,7 @@ Paso 2: [1]111 1010 ; Se replica el bit MSB preservando el signo (8-bit signed)
 | PF   | Se actualiza según la paridad del resultado (pares de 1’s).  |
 | AF   | No afectado.                                                 |
 
-**Instrucción `TEST`**
+## Instrucción `TEST`
 
 Realiza una operación `AND` a nivel de bits, pero **no guarda el resultado**. Tiene por finalidad el consultar cosas al CPU como: ¿el valor es cero?, ¿está encendido cierto bit?, ¿el valor es negativo (signed)?, ¿un flag lógico se cumple sin destruir el registro?, etc. Es una instrucción de control, no de cálculo.
 
@@ -2159,7 +2193,7 @@ Flags del CPU indefinidos
 
 `Test` nunca genera acarreo ni overflow, porque no hay suma ni resta, solo lógica. 
 
-**Instrucción `CMP` (compare)**
+## Instrucción `CMP` (compare)
 
 Realiza una comparación entre dos operando, restando internamente el segundo del primero sin almacenar el resultado. Se usa únicamente para actualizar los flags del CPU. Afecta principalmente a **ZF** (si el resultado es cero, los operandos son iguales), **CF** (si hubo acarreo, indicando comparación unsigned) y **OF** (si ocurrió overlow en una comparación signed)). De esta forma, `CMP` permite que las instrucciones de saldo condicional tomen decisiones basadas en comparaciones tanto con signo como sin signo, actuando conceptualmente como una resta fantasma orientada al control de flujo.
 
@@ -2310,7 +2344,164 @@ false AND true: false
 OF = 0
 ```
 
-**Instrucción `SUB`**
+## Instrucción `CLC` (clear carry flag)
+
+Setea el flag `CF` (carry flag) en cero sin afectar otro flag del CPU. No usa operandos y usa 1 µop (una microoperación), por lo que es muy económica.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Suma con overflow 
+mov al, 0xFF ; al = 255
+add al, 1 ; 255 + 1 = 256 → al = 0, CF = 1 (ocurrió overflow)
+; Operación posterior a la suma
+mov bl, 0
+adc bl, 5 ; bl = bl + 5 + CF
+; Si no se limpia CF y CF = 1, bl quedará en 6 y no en 5
+; Corrección
+mov bl, 0
+clc ; limpia CF dejándolo en 0
+adc bl, 5 ; bl = bl + 5 + 0 (CF = 0)
+```
+
+**Usos comunes para `CLC`**
+
+- Inicializar operaciones aritméticas multiprecisión
+
+  Cuando sumas números que ocupan más de un registro, `ADC` propaga el carry. Antes de la primera suma, se limpia CF.
+
+  ```asm
+  ; Intel
+  clc ; CF = 0
+  add rax, rbx ; suma la parte baja
+  adc rdx, rcx ; suma la parte alta + carry
+  ```
+
+- Garantizar resultados correctos en `ADC` o `SBB`
+
+  Cualquier instrucción que use `CF` como entrada requiere de `CLC`.
+
+  ```asm
+  ; Intel
+  clc
+  adc rax, rbx ; asegura que no hay carry previo
+  ```
+
+- Preparar rotaciones a través del carry
+
+  `RCL` Rotate through carry left
+
+  `RCR` Rotate through carry right
+
+  ```asm
+  ; Intel
+  clc
+  rcl al, 1 ; rota AL un bit a la izquierda a través de CF
+  ```
+
+  Si `CF` no se limpia, entra un bit basura en la rotación.
+
+- Preparación antes de multiplicaciones o divisiones que no usan `CF`
+
+  Algunos algoritmos de software usan `CF` para flags temporales. `CLC` asegura un estado conocido antes de empezar.
+
+- Optimización micro-arquitectural (menos común)
+
+  En CPUs modernos, limpiar `CF` explícitamente puede romper dependencias falsas de `CF` de instrucciones anteriores, permitiendo que el pipeline se ejecute más rápido.
+
+## Instrucción `STC` (set carry flag)
+
+Setea el flag `CF` (carry falg) en uno. No afecta ningún otro flag del CPU, tampoco requiere operandos y es muy barata a nivel de ejecución.
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 10 ; al = 10 (0000 1010b)
+mov bl, 5 ; bl = 5 (0000 0101b)
+stc ; Fuerza CF = 1
+; Resta bl de al, considerando el borrow 
+sbb al, bl ; al = al - bl - CF
+; Resultado
+; al = 10 - 5 - 1 = 4
+; stc inicializó CF y afectó la resta
+```
+
+**Usos de `STC`:**
+
+- Preparar operaciones con `SBB`. A veces quieres empezar con CF = 1.
+
+- Preparar rotaciones a través del carry.
+
+  ```asm
+  ; Intel
+  stc
+  rcr al, 1 ; rota al un bit a la derecha a través de CF = 1
+  ```
+
+- Inicializar CF para pruebas o flags
+
+  A veces en algoritmos de bajo nivel quieres forzra `CF` a 1 para luego usar saltos condicionales (`JC/JNC`) o loops de bitmask.
+
+- Comparaciones con `CF`
+
+  Si usas `ADC` o `SBB` en cadenas de operaciones, `STC` te permite agregar un 1 inicial. Útil en sumas/restas con borrow/carry predefinido.
+
+  ```asm
+  ; Intel
+  stc
+  adc rax, rbx ; suma con CF = 1 inicial
+  ```
+
+## Instrucción `CMC` (complement carry flag)
+
+Invierte el flag `CF` del CPU en el registro de estado (EFLAGS/RFLAGS). Si `CF` estaba en cero, después de ejecutar `CMC` queda en uno y viceversa. No afecta otros flags.
+
+**Ejemplo**
+
+```asm
+; Intel
+; CF = 0 inicialmente
+cmc ; CF ahora es uno
+adc al, bl ; suma con acarreo, usando el nuevo valor de CF
+; al = al + bl + CF
+```
+
+Invirtiendo `CF` con `CMC` podemos forzar que la suma incluya o ignore el carry anterior según convenga.
+
+**Usos comunes de `CMC`**
+
+- Ajuste rápido de `CF`.
+
+  `CMC` se usa para invertir el carry antes de instrucciones como `ADC` o `SBB`.
+
+- Aritmética de precisión múltiple.
+  En operaciones de big integers (mas grandes que 64 bits) o en cripto, cada palabra (32/64 bits) se suma/resta con carry. `CMC` permite alternar el carry de manera rápida sin afectar a otros flags. 
+
+- Optimización de código.
+
+  Algunos compiladores y código crítico de rendimiento lo usan para manipular flags sin instrucciones condicionales (`JNC`, `JC`) que podrían introducir saltos. Evita instrucciones adicionales como `STC` o `CLC` cuando simplemente necesitas invertir `CF`.
+
+- Implementación de operaciones de complemento.
+
+  Al hacer operaciones de negación o complemento de números en ensamblador, `CMC` puede formar parte de la secuencia.
+
+- Implementación de operaciones de complemento.
+
+  Al ahcer operaciones de negación o complemento de números en ensamblador, `CMC` puede formar parte de la secuencia.
+
+  ```asm
+  ; Intel
+  ; Negar un número (equivalente a -num)
+  not al ; complementa todos los bits
+  cmc ; complementa el carry para sbb
+  sbb al, al ; resultado final -al
+  ```
+
+  Este patrón se ve en rutinas de aritmética de bajo nivel o en rutinas de bootloader/firmware donde cada ciclo cuenta.
+
+## Instrucción `SUB` (substract)
 
 Realiza una resta aritmética binaria sobre dos operandos. (Internamente usa la ALU del CPU). Almacena el resultado en el operando destino. Y al igual que `CMP` actualiza los flags del CPU.
 
@@ -2393,4 +2584,772 @@ B 0000 1001
 
 Nótece que la resta del nibble bajo (bits 0–3) requiere un préstamo desde el bit 4 (nibble alto), configurando así el flag AF en 1. AF no observa un bit puntual, sino que indica que el préstamo no pudo resolverse dentro del nibble bajo y debió propagarse hasta el bit 4.
 
-todo: proseguir con la instrucción and
+## Instrucción `SBB` (subtract with borrow)
+
+Realiza una resta teniendo en cuenta el flag de acarreo `CF`. Su finalidad es dar soporte a las operaciones cuando se trabaja con registros mas grandes que los soportados. `SBB` permite encadenar restas usando a `CF` como estado intermedio.
+
+**Sintaxis:** `SBB dest, src`
+**Equivale a:** `dest = dest - src - CF`
+
+**Ejemplo (sin borrow)**
+
+```asm
+; Intel
+mov rax, 10 ; rax = 0000 1010b
+mov rbx, 3  ; rbx = 0000 0011b
+clc ; Pone a 0 el flag CF
+sbb rax, rbx ; rax = 10 - 3 - 0 = 7 (0000 0111b)
+
+; Resultado
+; rax = 7
+; CF = 0
+```
+
+**Ejemplo (con borrow)**
+
+```asm
+; Intel
+mov rax, 10 ; rax = 0000 1010b
+mov rbx, 3  ; rbx = 0000 0011b
+stc ; Pone el flag CF a 1
+sbb rax, rbx ; rax = 10 - 3 - 1 = 6 (0000 0110b)
+
+; Resultado
+; rax = 6
+; CF = 0
+```
+
+**Uso real: resta de 128 bits con dos registros**
+
+A continuación se realiza una resta con dos números de 128 bits, para los cuales se utilizan cuatro registros (dos por número).
+
+```asm
+; Intel
+; A = 0x0000000000000001_FFFFFFFFFFFFFFFF
+; B = 0x0000000000000000_0000000000000001
+; RDX:RAX = A (Parte alta : Parte baja)
+; RCX:RBX = B (Parte alta : Parte baja)
+mov rdx, 0x0000000000000001
+mov rax, 0xFFFFFFFFFFFFFFFF
+mov rcx, 0x0000000000000000
+mov rbx, 0x0000000000000001
+sub rax, rbx ; Resta ambas partes bajas de 64 bits
+sbb rdx, rcx ; Resta las partes altas de 64 bits usando el borrow
+; rdx = rdx - rcx - CF
+; 1 - 0 - 1 = 0
+; Resultado final: RDX:RAX = 0x0000000000000000_FFFFFFFFFFFFFFFE
+```
+
+Sin `SBB` el borrow no se propagaría afectando la operación.
+
+**Flags del CPU afectados por `SBB`**
+
+| Flag | Significado             |
+| ---- | ----------------------- |
+| CF   | Borrow (muy importante) |
+| ZF   | Resultado es cero       |
+| SF   | Signo del resultado     |
+| OF   | Overflow con signo      |
+| AF   | Ajuste BCD (histórico)  |
+| PF   | Paridad                 |
+
+**Cálculo del flag `OF` del CPU para la instrucción `SBB`**
+
+La única diferencia con `SUB` es que `SBB` resta un bit extra usando `CF`, y ese bit también participa en el cálculo del overflow. 
+
+**Fórmula:** `sign(A) ≠ sign(B) AND sign(result) ≠ sign(A)`
+
+**Usos comunes de `SBB`:**
+
+- Implementaciones de AES, RSA, ECC
+
+- Restas de buffers grandes
+
+- Rutinas de comparación constante-time
+
+- Patrón de comparación que ayuda a evitar saltos a branchless code
+
+  ```asm
+  ; Intel
+  cmp rax, rbx
+  sbb rcx, rcx
+  
+  ; Resultado
+  ; rax < rbx → CF = 1 → rcx = -1 (0xFFFFFFFFFFFFFFFF)
+  ; rax >= rbx → CF = 0 → rcx = 0 (0x0)
+  ```
+
+  **¿Qué es un branch (salto)?**
+  
+  Un branch (del inglés rama o ramificación) es cualquier instrucción que cambia el flujo normal del programa: `jmp`, `je/jne`, `jl/jp/jb/ja`, `call/ret`.
+  
+  ```asm
+  ; Intel
+  cmp rax, rbx
+  jl less ; jump if less, realiza un salto si el resultado de una comparación es 'menor que' usando SF != OF, cuando son distintos salta al tag
+  mov rcx, 0
+  jmp end ; salto incondicional al tag end
+  less:
+  mov rcx, -1
+  end:
+  ```
+  
+  En el ejemplo anterior la CPU no sabe que camino tomar hasta que se realiza la evaluación de la comparación (pero igual elige uno mediante el predictor de saltos). El problema ocurre cuando las CPUs modernas adivinan si el salto se tomará o no antes de saber el resultado, dado que tienen un ***branch predictor*** (predictor de saltos), pipeline y ejecución fuera de orden.
+  
+  Cuando la predicción es correcta, todo fluye normalmente y el pipeline sigue lleno, de lo contrario cuando ocurre una predicción incorrecta (branch misprediction), el pipeline se vacía, se descarta trabajo ya hecho y se pierden entre 10, 20 o mas ciclos (en CPUs modernas se pueden perder incluso 30 a 40 o mas ciclos dependiendo de la profundidad del pipeline). Por lo que un `jmp` mal predicho es carísimo.
+  
+  El **branchless code** es código que no usa saltos condicionales, usa aritmética, máscaras y flags, ejecuta siempre el mismo flujo. y tiene un tiempo de ejecución más predecible, ideal para hot paths y criptografía. 
+  
+  **Ejemplo con branch:**
+  
+  ```c
+  if (a < b)
+      x = y;
+  else
+      x = z;
+  ```
+  
+  **Ejemplo con branchless:**
+  
+  ```C
+  mask = (a < b) ? -1 : 0;
+  x = (y & mask) | (z & ~mask);
+  ```
+  
+  **En x86:**
+  
+  ```asm
+  ; Intel
+  cmp rax, rbx
+  sbb rcx, rcx
+  ```
+  
+  **¿Por qué evitar saltos?**
+  
+  Por el rendimiento, un `cmp + sbb` cuesta entre 1 a 2 ciclos (siempre lo mismo), un `jmp` puede costar 1 ciclo, 10, 20, o mas si se falla en la predicción. En loops y/o código crítico el predictor de saltos mata el rendimiento.
+  
+  **¿Cuando se introdujo el predictor de saltos en Intel?**
+  
+  Aparece a madiados de los años 90, antes de 1995 con los 8086, 80286 y 80836 los saltos se resolvían cuando se evaluaba la condición y el pipeline se vaciaba. (El 80486 tenía pipeline, pero no un predictor dinámico real).
+  
+  En 1995 con el Pentium P5 incorpora un predictor estático muy básico, pero que evitaba muchos vaciados de pipeline. Se considera el primer branch predictor real en x86 Intel. En 1997 el Pentium Pro P6 introduce la predicción dinámica con branch history table (BHT) y branch target buffer (BTB). Tenía un historial de saltos anteriores de 1 a 2 bits y un pipeline mas profundo. Aquí es cuando nace el predictor moderno. De aquí en adelante Intel avanzó en el diseño haciéndolo mas complejo.
+  
+  **¿Qué es el pipeline?**
+  
+  El pipeline es una técnica para solapara la ejecución de instrucciones, de forma parecida a una línea de producción.
+  
+  En vez de ejecutar una instrucción completa a la vez, la CPU la divide en etapas, y cada ciclo de reloj trabaja en varias instrucciones simultáneamente, cada una en una etapa distinta.
+  
+  **Ejemplo**
+  
+  | Etapa | Acción             |
+  | ----- | ------------------ |
+  | 1     | Buscar instrucción |
+  | 2     | Decodificar        |
+  | 3     | Ejecutar           |
+  | 4     | Escribir resultado |
+  
+  Mientras la instrucción A se ejecuta, la B se decodifica y la C se busca. Esto resulta en más instrucciones terminadas por segundo.
+  
+  **µops:** (micro-ops o micro operaciones) son operaciones internas más simples en las que el procesador traduce las instrucciones x86 antes de ejecutarlas realmente. Vale decir que el hardware descompone las instrucciones en varias µops que puede manejar mas fácilmente.
+  
+  **Etapas típicas de un pipeline en x86 (conceptualmente hablando):**
+  
+  1. **Fetch:** trae la instrucción desde memoria (I-cache).
+  2. **Decode:** decodifica x86 a µops.
+  3. **Rename:** renombra registros (para evitar dependencias falsas).
+  4. **Dispatch / Issue:** enviar µops a unidades de ejecución.
+  5. **Execute:** ALU, FPU, load/store.
+  6. **Retire:** confirma resultados (en orden a pesar que la ejecución es fuera de orden).
+
+  **Uso del pipeline**
+  
+  Se usa principalmente para completar mas instrucciones por ciclo (IPC o instructions per cycle), lo que aumenta el rendimiento general del CPU.
+  
+  El CPU especula trayendo y ejecutando instrucciones del destino (en relación a la rama que podría tomar el flujo de ejecución), aunque todavía no sabe si dicho destino será tomado o si es correcto. Si la predicción es incorrecta se descarta todo lo ejecutado especulativamente y el pipeline es vaciado. Luego se reanuda la ejecución en la dirección correcta. Lo que penaliza el rendimiento en ciclos perdidos por core. De aquí la importancia del branchless code en optimización.
+  
+- Para máscaras
+
+  Muy usado en crypto y optimizaciones sin branch.
+  
+  ```asm
+  xor rax, rax
+  cmp rdi, rsi
+  sbb rax, rax
+  ; Resultado
+  ; rax = 0xFFFFFFFFFFFFFFFF si rdi < rsi
+  ; rax = 0 si rdi <= rsi
+  ```
+
+
+## Instrucción `ADD`
+
+Realiza una suma aritmética (internamente se lleva a cabo a nivel binario). Suma dos operandos y almacena el resultado en el primer operando.
+
+**Sintaxis:** `add destino, origen`
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 5 ; al = 0000 0101b
+add al, 3 ; al = 8 (0000 1000b)
+
+; ZF: 0 (resultado distinto de cero)
+; CF: 0 (no hay acarreo)
+; SF: 0 (bit MSB del resultado)
+; AF: 0 (no hubo acarreo entre nibbles)
+; OF: 0 (no hubo overflow)
+```
+
+**Flags del CPU afectados por `ADD`**
+
+| Flag                    | Qué significa y cómo se calcula                              |
+| ----------------------- | ------------------------------------------------------------ |
+| **CF** (Carry Flag)     | 1 si hay acarreo fuera del bit más significativo (útil para sumas sin signo) |
+| **OF** (Overflow Flag)  | 1 si la suma produce overflow en números con signo (signed)  |
+| **SF** (Sign Flag)      | 1 si el resultado es negativo (MSB = 1)                      |
+| **ZF** (Zero Flag)      | 1 si el resultado es cero                                    |
+| **AF** (Auxiliary Flag) | 1 si hay acarreo entre los nibbles bajos y altos (bit 3 y 4) |
+
+**Calculo del flag OF**
+
+El flag OF se activa cuando sumas dos números con el mismo signo y el resultado tiene un signo distinto.
+
+Fórmula: `OF=1 si y sólo si (signo(op1) == signo(op2)) AND (signo(resultado) ≠ signo(op1))`
+
+- Signo operando 1: bit MSB
+- Signo operando 2: bit MSB
+- Signo resultado: bit MSB
+
+**Ejemplo de suma con overflow**
+
+```asm
+mov al, 120 ; al = 0111 1000b
+add al, 10  ; al = 1000 0010b (-126 signed)
+
+; signo operando 1 = 0
+; signo operando 2 = 0
+; signo resultado = 1 (negativo)
+; Mismo signo en operandos, pero en el resultado el signo es negativo. OF cambia a 1
+```
+
+**Suma binaria**
+
+Se realiza de derecha a izquierda (desde el bit LSB al MSB). Lo que trae consigo ***carry in*** (acarreo de entrada) y ***carri out*** (acarreo de salida).
+
+**Carry in (C_in)**
+
+Es el acarreo que viene desde el bit anterior, es decir, cuando se sumó `1 + 1` y se generó un acarreo.
+
+**Ejemplo**
+
+```asm
+  1011 (a)
+  1101 (b)
++ ----
+```
+
+Los bits que se suman por la derecha para **a** y **b** son 1, por lo tanto `1 + 1 = 10`, el resultado es 0 y ***carry out*** es 1. Es decir que ocurre un acarreo hacia el bit de la izquierda. Luego tienes `1 + 0` y ***carry in*** igual 1.
+
+**Carry out (C_out)**
+
+Es el acarreo que se genera al sumar dos bits y el ***Carry in***.
+
+**Fórmula**
+
+`Cout=(A ∧ B) ∨ (Cin ∧ (A ⊕ B))`
+
+O expresado mas legiblemente
+
+`Cout=(A AND B) OR (Cin AND XOR(A, B))`
+
+**Significado:** hay que llegar 1 al siguiente bit si hubo una suma que excede 1 en el bit actual.
+
+**Ejemplo**
+
+```asm
+   1
+   1
++ --
+  10
+```
+
+Como al sumar `1 + 1` da `10` en binario, se genera un ***carry out*** en 1 y se le pasa a la siguiente columna de la izquierda, generando su ***carry in*** respectivo.
+
+**Reglas**
+
+En **binario** solo hay dos dígitos: 0 y 1. La suma se hace bit a bit:
+
+| Bit A | Bit B | Resultado | Carry (acarreo) |
+| ----- | ----- | --------- | --------------- |
+| 0     | 0     | 0         | 0               |
+| 0     | 1     | 1         | 0               |
+| 1     | 0     | 1         | 0               |
+| 1     | 1     | 0         | 1               |
+
+Ahora las reglas extendidas para incluir un acarreo de entrada.
+
+| A    | B    | Carry_in | Resultado (R) |
+| ---- | ---- | -------- | ------------- |
+| 0    | 0    | 0        | 0             |
+| 0    | 0    | 1        | 1             |
+| 0    | 1    | 0        | 1             |
+| 0    | 1    | 1        | 0             |
+| 1    | 0    | 0        | 1             |
+| 1    | 0    | 1        | 0             |
+| 1    | 1    | 0        | 0             |
+| 1    | 1    | 1        | 1             |
+
+**Ejemplo con paso a paso y acarreo**
+
+```asm
+   0101 (5) (op1)
++  0011 (3) (op2)
+   -------
+   1000 (8) (resultado)
+```
+
+**Paso a paso con acarreo:**
+
+De derecha a izquierda en el ejemplo anterior
+
+| Bit  | Op1  | Op2  | Carry_in | Suma | Resultado | Carry_out |
+| ---- | ---- | ---- | -------- | ---- | --------- | --------- |
+| 0    | 1    | 1    | 0        | 2    | 0         | 1         |
+| 1    | 0    | 1    | 1        | 2    | 0         | 1         |
+| 2    | 1    | 0    | 1        | 2    | 0         | 1         |
+| 3    | 0    | 0    | 1        | 1    | 1         | 0         |
+
+Es mejor **de derecha a izquierda** (LSB → MSB):
+
+1. **Bit 0 (LSB)**: 1 + 1 = 0, acarreo 1
+
+2. **Bit 1**: 0 + 1 + 1 (carry) = 0, acarreo 1
+
+3. **Bit 2**: 1 + 0 + 1 (carry) = 0, acarreo 1
+
+4. **Bit 3 (MSB)**: 0 + 0 + 1 (carry) = 1, acarreo 0
+
+**Resultado final:** `1000` → 8 decimal.
+
+## Instrucción `ADC` (add with carry)
+
+Suma dos operandos y el valor del flag `CF` (carry flag). Su función principal es permitir la suma de enteros grandes que exceden el tamaño de registro, trabajando sobre múltiples registros consecutivos.
+
+**Sintaxis:** `ADC destino, fuente`
+
+En destino también se sumará el carry flag `CF`. Su equivalente conceptual es el siguiente:
+
+```
+resultado = destino + fuente + CF
+```
+
+**Ejemplo**
+
+```asm
+; Intel
+
+; Suma dos números de 128 bits
+; RDX:RAX + RBX:RCX (se usan dos registros de 64 bits para representar cada número)
+; RAX y RCX son la parte baja de los números
+; RDX y RBX son la parte alta de los números
+
+mov rax, 0xFFFFFFFFFFFFFFFF ; rax = 18_446_744_073_709_551_615
+mov rdx, 0x0000000000000001 ; rdx = 1
+mov rcx, 0x2 ; rcx = 2
+mov rbx, 0x0 ; rbx = 0
+
+add rax, rcx ; Suma la parte baja
+; CF = 1 debido al overflow en 64 bits 
+adc rdx, rbx ; Suma la parte alta + carry
+; RDX:RAX ahora = 0x0000000000000004 : 0x0000000000000001 + 0x2 con acarreo
+```
+
+`ADC` asegura que si el `ADD` de la parte baja genera un acarreo, se propague a la parte alta.
+
+**Ejemplo (16 bits en dos registros)**
+
+```asm
+; Intel
+
+; Representación de un número de 16 bits en dos registros de 8 bits
+; bl:al
+; bl es la parte alta del número de 16 bits
+; al es la parte baja del número de 16 bits
+; 0x0:0xff
+mov al, 0xff ; al = 255
+mov bl, 0x00 ; bl = 0
+add al, 20   ; al = 0x13 (19)
+; CF: 1
+; OF: 0 (no hubo overflow signed)
+```
+
+¿Qué sucedió, por qué `al` pasó de ser 255 a 13?
+
+Lo que acabas de presenciar es un ***overflow unsigned***. `al` es un registro de 8 bits, no puede representar `255 + 20 (275)`, por lo que vuelve a iniciar desde 0 quedando en 19. 
+Como 275 es un entero de 9 bits, la CPU simplemente activa el flag de acarreo `CF`  perdiendo el resto. Gráficamente es lo siguiente:
+
+```asm
+; 275 (0x113)
+; 1 [0001 0011] -> 8 bits
+; ↑ se pierde
+; Se activan el flag CF
+; Por eso 255 + 20 = 19
+```
+
+¿Cómo se soluciona?
+
+Aquí es donde entra al juego la instrucción `ADC` sumando `CF` a la parte alta de nuestro número de 16 bits.
+
+```asm
+; al = 19 (0x13)
+; bl = 0 (0x0)
+adc bl, 0 ; bl = bl + 0 + CF
+; bl = 0 + 0 + 1 = 1
+```
+
+A simple vista no parece que hubiera algún sentido, hasta que consideras que el número de 16 bits se representa usando dos registros de 8 bits, de la siguiente manera:
+
+```asm
+; bl:al
+; bl: 0x01
+; al: 0x13
+; bl:al = 0x01:0x13 = 0x113 (275)
+; al: [0000 0001] al:[0001 0011]
+```
+
+En la práctica decimos que al es la parte baja del número de 16 bits, es decir que constituye los bits del 0 al 7, y que bl es la parte alta del número, es decir, constituye los bits del 8 al 15, conformando así los 16 bits.
+
+**Flags del CPU afectados por `ADC`**
+
+| Flag                      | Afectación                                                   | Descripción                                                  |
+| ------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| CF (Carry Flag)           | Se establece si hay un **acarreo fuera del bit más significativo** (suma sin signo que excede el tamaño del registro). | Indica overflow en operaciones **unsigned**.                 |
+| OF (Overflow Flag)        | Se establece si hay un **desbordamiento de signo** (suma con signo que excede el rango). | Indica overflow en operaciones **signed**.                   |
+| ZF (Zero Flag)            | Se establece si el **resultado es 0**.                       | Útil para comparar si la suma dio cero.                      |
+| SF (Sign Flag)            | Se establece según el **bit más significativo del resultado**. | Indica si el resultado es negativo en enteros con signo.     |
+| PF (Parity Flag)          | Se establece si el **número de bits en 1 del byte menos significativo es par**. | Se usa raramente, pero es parte del comportamiento estándar de ALU. |
+| AF (Auxiliary Carry Flag) | Se establece si hay un **acarreo desde el nibble inferior (bit 3) al nibble superior (bit 4)**. | Se usa principalmente en operaciones BCD (Binary-Coded Decimal). |
+
+**Usos típicos**
+
+- Arimética multiprecisión: Cuando los registros individuales no son suficientes.
+- Suma de números grandes en cryptografía: como en operaciones de BigInt.
+- Operaciones con flags dependientes: `ADC` respeta el `CF`, por lo que es útil en cadenas de sumas condicionales.
+
+**Cálculo del flag OF**
+
+**Fórmula:** 
+
+```
+R = A + B + CF
+OF = (~(A ⊕ (B+CF)) & (A ⊕ R)) & MSB
+OF = [ NOT( XOR(A, (B + CF)) ) AND XOR(A, R) ] AND MSB
+```
+
+En principio la fórmula es la misma, solo que `ADC` considera B + CF. OF se pregunta lo siguiente: ¿sumé dos números con el mismo signo y el resultado cambió de signo?. Si la respuesta es sí, tienes `OF = 1`, de lo contrario, `OF = 0`. Esto explica por qué en el ejemplo anterior, aunque hubo un overflow unsigned, `OF` no cambió. 
+
+## Instrucción `INC` (increment)
+
+Incrementa en 1 el valor de su operando. Funciona con registros y memoria, pero no con inmediatos.
+Internamente se aplican las reglas normales de suma binaria con acarreo interno.  
+
+**Sintaxis:** `inc op`
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 5 ; al = 0000 0101b
+inc al    ; al = 6 (0000 0110b)
+
+; Equivale conceptualmente a: al += 1
+```
+
+**Flags del CPU afectados por `INC**`
+
+| Flag | ¿Se modifica? | Significado                         |
+| ---- | ------------- | ----------------------------------- |
+| ZF   | Sí            | Resultado es 0                      |
+| SF   | Sí            | Bit más significativo del resultado |
+| OF   | Sí            | Overflow en signed                  |
+| AF   | Sí            | Acarreo entre bit 3 ↔ 4             |
+| PF   | Sí            | Paridad del resultado               |
+| CF   | No            | Se mantiene como estaba             |
+
+**Cálculo del flag overflow en `INC`**
+
+El resultado del flag OF se establece en 1 cuando el operando tenía signo positivo y el resultado tiene signo negativo.
+
+**Fórmula:** `OF=1 ⟺ (signo_antes = 0) ∧ (signo_despues = 1)`
+**Mas legible:** `OF=1 si y solo si (signo_antes = 0) AND (signo_despues = 1)`
+
+**Usos típicos de `INC`**
+
+- Contadores en loops
+
+  ```asm
+  inc ecx
+  cmp ecx, 10
+  jl loop
+  ```
+
+- Iteradores simples
+
+  ```asm
+  inc esi ; avanzar índice
+  ```
+  
+- Cuando no te importa el flag CF
+  
+  Si necesitas preservar CF, `INC` es ideal.
+  
+
+Cuando no usar `INC`
+
+- Cuando dependes del flag CF
+
+## Instrucción `DEC` (decrement)
+
+Decrementa en 1 el valor de su operando. Utiliza una resta binaria (con borrow interno), usando las reglas normales. No modifica el flag CF (a diferencia de `SUB`).
+
+Sintaxis: `dec op`
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 5 ; al = 0000 0101b
+dec al    ; al = 4 (0000 0100b)
+
+; Equivale a: al -= 1
+```
+
+**Flags del CPU afectados por `DEC`**
+
+| Flag | ¿Se modifica? | Significado                         |
+| ---- | ------------- | ----------------------------------- |
+| ZF   | Si            | Resultado es 0                      |
+| SF   | Si            | Bit más significativo del resultado |
+| OF   | Si            | Overflow signed                     |
+| AF   | Si            | Borrow entre bit 3 ↔ 4              |
+| PF   | Si            | Paridad del resultado               |
+
+**Cálculo del flag OF para `DEC`**
+
+El overflow ocurre cuando se pasa del mínimo signed al máximo.
+
+**Fórmula:** `OF=1 ⟺ (signo_antes = 1) ∧ (signo_despues = 0)`
+**Simplificada:** `OF=1 si y solo si (signo_antes = 1) AND (signo_despues = 0)`
+
+**Usos típicos de `DEC`**
+
+- Contadores regresivos
+
+  Muy común en bucles clásicos
+
+  ```asm
+  mov ecx, 10
+  loop:
+      ; código
+      dec ecx
+      jnz loop
+  ```
+
+- Iterar hacia atrás
+
+  ```asm
+  dec esi ; retroceder índice
+  ```
+
+- Cuando quieres preservar CF
+  ```asm
+  ; CF contiene info previa importante
+  dec eax ; CF no se altera
+  ```
+
+Cuando no usar `DEC`
+
+- Cuando dependes del borrow
+
+  ```asm
+  dec eax
+  jc error ; Incorrecto
+  ```
+
+## Instrucción `NEG` (negación aritmética)
+
+Realiza el negado aritmético de un operando, o mejor dicho:
+
+- Convierte un número positivo en negativo.
+- Convierte un número negativo en positivo.
+- Implementa el complemento a dos.
+
+**No admite inmediatos**.
+
+En binario, negar un número es:
+
+- Invertir todos los bits (`not`)
+
+- Sumar 1
+
+**Ejemplo con 8 bits**
+
+```asm
+ 5 = 0000 0101
+~5 = 1111 1010
++1 = 1111 1011 -> -5
+```
+
+  `NEG` hace esto internamente en una sola instrucción.
+
+**Sintaxis:** `NEG op`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Número positivo
+mov al, 5 ; al = 0000 0101b
+neg al    ; al = 1111 1010b (-5)
+
+; Número negativo
+mov al, -5 ; 1111 1011b
+neg al     ; 0000 0101b (5)
+```
+
+**Forma conceptual de entender `NEG`**
+
+```asm
+NEG x: x = 0 - x
+; Mientras que NOT hace lo siguiente
+NOT x: x = ~x
+```
+
+**Flags del CPU afectados por `NEG`**
+
+| Flag | Nombre         | ¿Cómo queda después de `NEG dest`?                           |
+| ---- | -------------- | ------------------------------------------------------------ |
+| CF   | Carry Flag     | **1** si `dest ≠ 0`**0** si `dest = 0`                       |
+| OF   | Overflow Flag  | **1** *solo* si `dest` era el **mínimo representable**(ej: `0x80`, `0x8000`, `0x80000000`, `0x8000000000000000`) |
+| SF   | Sign Flag      | Copia del **bit más significativo** del resultado            |
+| ZF   | Zero Flag      | **1** si el resultado es `0`                                 |
+| AF   | Auxiliary Flag | **1** si hay **préstamo** entre el bit 3 y 4 (nibble bajo)   |
+| PF   | Parity Flag    | Depende de la **paridad** del byte bajo del resultado        |
+
+**Flag OF en `NEG` es un caso especial**
+
+El overflow ocurre solo en un caso puntual para esta instrucción, cuando se niega el valor mínimo representable, observa la siguiente tabla:
+
+| Tamaño  | Valor mínimo |
+| ------- | ------------ |
+| 8 bits  | -128 (0x80)  |
+| 16 bits | -32768       |
+| 32 bits | -2147483648  |
+| 64 bits | -2⁶³         |
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 0x80 ; al = -128
+neg al       ; al = -128
+; OF: 1
+```
+
+No existe el **128 positivo** en 8 bits, es por eso que se produce el overflow.
+
+## Instrucción `MUL` (multiply)
+
+Multiplica sin signo el acumulador implícito por el operando indicado. Por lo que no se indica el destino, el CPU lo decide automáticamente. El resultado siempre ocupa el doble de bits.
+
+**Sintaxis:** `MUL op`
+
+**Registros implícitos según el tamaño**
+
+| Operando | Registro implícito | Resultado |
+| -------- | ------------------ | --------- |
+| `r/m8`   | `AL`               | `AX`      |
+| `r/m16`  | `AX`               | `DX:AX`   |
+| `r/m32`  | `EAX`              | `EDX:EAX` |
+| `r/m64`  | `RAX`              | `RDX:RAX` |
+
+**Ejemplo**
+
+**Multiplicación de 8 bits**
+
+```asm
+; Intel
+mov al, 5 ; al = 0000 0101b
+mov bl, 3 ; bl = 0000 0011b
+mul bl    ; 5 x 3 = 15 (0000 1111b)
+
+; Resultado (cabe en 8 bits)
+; ax = 0000 0000 0000 1111b
+; al = 15
+; ah = 0
+```
+
+**Multiplicación de 16 bits**
+
+```asm
+; Intel
+mov ax, 300 ; ax = 0000 0001 0010 1100b
+mov bx, 200 ; bx = 0000 0000 1100 1000b
+mul bx      ; 300 x 200 = 60000 (sesenta mil)
+
+; Resultado: 60000 (sesenta mil) (0xEA60)
+; Se almacena en 32 bits usando DX:AX
+; DX:AX (0x0000:0xEA60)
+; (Parte alta 0x0000)   (Parte baja 0xEA60)
+; 0000 0000 0000 0000 | 1110 1010 0110 0000
+```
+
+El resultado no cabe en 16 bits, se guarda en 32 bits, es decir, usando dos registros, `DX` y `AX`. Pero si `MUL` realiza una multiplicación sin signo, ¿por qué se usan dos registros siendo que el máximo teórico de 16 bits unsigned es de 65535?.
+La instrucción `MUL` no comprueba si cabe o no, siempre genera el resultado completo aunque los bits altos sean ceros. Es decir, que no hay una optimización al respecto, por lo que para este caso puntual, `DX` igualmente fue sobrescrito con ceros. Si cabe ono, se deduce mirando `DX`.
+
+**¿Cuando se usa `DX`?**
+
+Cuando el resultado supera el límite de 16 bits, es decir 65536 (2¹⁶) (0xFFFF). En otras palabras, el resultado se distribuye en dos registros (`DX`y `AX`).
+
+ **Multiplicación de 32 bits**
+
+```asm
+; Intel
+mov eax, 0xFFFFFFFF ; eax = 4_294_967_295
+; 32 bits
+; 1111 1111 1111 1111 1111 1111 1111 1111
+mov ebx, 2
+mul ebx
+
+; Resultado no cabe en 32 bits
+; Resultado 8_589_934_590 (0x1FFFFFFFE)
+; Se almacena en 64 bit usando EDX:EAX
+; En EDX se almacena la parte alta (0x00000001)
+; En EAX se almacena la parte baja (0xFFFFFFFE)
+; Se genera overflow: OF = 1
+```
+
+**Flags del CPU afectados por `MUL`**
+
+`MUL` solo define dos flags
+
+| Flag | Significado                          |
+| ---- | ------------------------------------ |
+| CF   | 1 si la mitad alta del resultado ≠ 0 |
+| OF   | 1 si la mitad alta del resultado ≠ 0 |
+
+ **Fórmula:** `CF = OF = (parte_alta_del_resultado ≠ 0)`
+
+El flag `CF` no representa un acarreo como en la instrucción `ADD`, al contrario, indica si la mitad alta del resultado es distinta de cero. El flag `OF` copia exactamente el mismo valor. ¿Entonces que significa carry en `MUL`?.
+Históricamente Intel reutilizó el flag `CF` porque necesitaba un indicador de overflow nsigned, no porque hubiese un carry como tal. Por lo que, `CF` solo indica un overflow unsigned y `OF` copia su valor.
+
+**Contexto histórico**
+
+Históricamente el flag `OF` es posterior al flag `CF`. Originalmente el ***carry flag*** `CF` existe desde los primeros diseños aritméticos (antes del Intel 8086). Su razón de ser era eléctrica / matemática, es decir, indicaba acarreo o préstamo en aritmética unsigned y permitía aritmética multiprecisión. Aun no existía el concepto formal de ***signed overflow***.
+El flag `OF` (overflow flag) apareció formalmente con el [intel 8086](https://en.wikipedia.org/wiki/Intel_8086) en 1978. Se consolida el uso intensivo de enteros con signo (complemento a dos) en lenguajes de alto nivel y compiladores. El flag `OF` ayudó a gestionar la precisión (desbordamientos aritméticos) de las operaciones aritméticas a bajo nivel. El hardware necesitaba verificar si el resultado de una operación era o no representable dentro del límite de los bits disponibles, especialmente cuando se trabajaba con números con signo.
+
+todo: agregar operaciones ADC (luego de add), SBB (luego de sub) y IMUL luego de MUL aquí mismo. finalmente abordar DIV e IDIV. Luego proseguir con BT/BTS/BTR/BTC
+
+todo: luego abordar la pila con push/pop
