@@ -3322,7 +3322,6 @@ mov eax, 0xFFFFFFFF ; eax = 4_294_967_295
 ; 1111 1111 1111 1111 1111 1111 1111 1111
 mov ebx, 2
 mul ebx
-
 ; Resultado no cabe en 32 bits
 ; Resultado 8_589_934_590 (0x1FFFFFFFE)
 ; Se almacena en 64 bit usando EDX:EAX
@@ -3350,6 +3349,606 @@ Históricamente Intel reutilizó el flag `CF` porque necesitaba un indicador de 
 Históricamente el flag `OF` es posterior al flag `CF`. Originalmente el ***carry flag*** `CF` existe desde los primeros diseños aritméticos (antes del Intel 8086). Su razón de ser era eléctrica / matemática, es decir, indicaba acarreo o préstamo en aritmética unsigned y permitía aritmética multiprecisión. Aun no existía el concepto formal de ***signed overflow***.
 El flag `OF` (overflow flag) apareció formalmente con el [intel 8086](https://en.wikipedia.org/wiki/Intel_8086) en 1978. Se consolida el uso intensivo de enteros con signo (complemento a dos) en lenguajes de alto nivel y compiladores. El flag `OF` ayudó a gestionar la precisión (desbordamientos aritméticos) de las operaciones aritméticas a bajo nivel. El hardware necesitaba verificar si el resultado de una operación era o no representable dentro del límite de los bits disponibles, especialmente cuando se trabajaba con números con signo.
 
-todo: agregar operaciones ADC (luego de add), SBB (luego de sub) y IMUL luego de MUL aquí mismo. finalmente abordar DIV e IDIV. Luego proseguir con BT/BTS/BTR/BTC
+## Instrucción `IMUL` (integer multiply signed)
 
-todo: luego abordar la pila con push/pop
+Realiza multiplicación con signo. Según la forma usada, el resultado completo se almacena en un par de registros o se trunca al tamaño del registro destino. Los flags `CF` y `OF` indican si el resultado no cabe en el tamaño destino. El resto de los flags quedan indefinidos.
+
+**Flags del CPU**
+
+`CF` y `OF` se activan si el resultado no cabe en el tamaño del operando destino.. Es decir, cuando hay truncamiento del resultado.
+En la forma de un operando, esto ocurre cuando la parte alta del resultado no es extensión del signo de la parte baja. En las formas de dos y tres operandos, ocurre cuando el resultado es truncado.
+
+**Sintaxis:** 
+
+- Un Operando `IMUL src`
+- Dos operandos `IMUL dest, src`
+- Tres operandos `IMUL dest, src, inmediato`
+
+**Ejemplo (forma implícita con un operando)**
+
+Se usa un registro implícito como multiplicando (`AL`, `AX`, `EAX`, `RAX`), el resultado puede ser más grande que el registro original, en cuyo caso la parte alta del resultado va a `DX / EDX / RDX`.
+
+```asm
+; Intel 16 bits
+mov ax, -10 ; ax = 1111 1111 1111 0110b (en complemento a dos)
+mov bx, 3 ; bx = 0000 0000 0000 0011b
+imul bx ; DX:AX = -30
+; La parte alta del número queda en el registro dx, y la baja en ax
+;-30 = 1111 1111 1111 1111 | 1111 1111 1110 0010
+;         ↑ DX = FFFF             ↑ AX = FFE2
+```
+
+En éste caso, el registro DX es una extensión del registro AX. Por lo que `CF` y `OF` quedan en cero.
+
+**Ejemplo (con dos operandos)**
+
+Esta forma guarda solo la parte baja del resultado (no usa registros implícitos). Por lo que el resultado se trunca al tamaño del registro de destino.
+
+```asm
+; Intel 8 bits
+mov al, 50 ; al = 0011 0010b
+mov bl, 5 ; bl = 0000 0101
+imul al, bl
+; Resultado debería ser 250 (50 * 5), pero 250 no cabe en al (8 bits), por lo que se trunca a 8 bits.
+; 250 en 16 bits: 0000 0000 1111 1010
+; 250 truncado a 8 bits: 1111 1010b
+; al es interpretado como un int8 con signo, es decir como -6
+; CF = 1
+; OF = 1
+```
+
+En éste ejemplo, el truncamiento no recuerda el signo (se pierde), por lo que el resultado en 8 bits se interpreta como -6.
+
+**Ejemplo (con tres operandos)**
+
+No existe forma con tres operandos para 8 bits. Pero si está disponible para 16, 32 y 64 bits. Ésta forma se añadió mas tarde en x86, se pensó para optimizaciones de compiladores (en 8 bits no valía la pena).
+
+```asm
+; Intel 16 bits
+; 300 * -3 = -900
+mov bx, 300 ; bx = 0000 0001 0010 1100b
+imul ax, bx, -3 ; ax = (int16)bx * (int16)-3
+; Resultado
+; ax = -900 (1111 1100 0111 1100b en complemento a dos)
+; CF = 0
+; OF = 0
+```
+
+En éste caso el resultado cabe en 16 bits, de lo contrario se hubiera truncado.
+
+**Usos comunes**
+
+- Multiplicación con signo
+
+- Multiplicar por constantes
+
+  ```asm
+  ; Intel (ejemplos)
+  imul eax, ecx, 10
+  imul edx, esi, -4
+  ```
+
+- Cálculo de offsets (array, structs)
+
+  Muy típico en C/C++
+
+  ```asm
+  ; Intel
+  ; C: arr[i]
+  imul eax, ecx, 4 ; i * sizeof (int)
+  add eax, arr
+  ```
+
+- Alternativa a `LEA` (cuando el factor no es potencia de dos)
+
+  Con `LEA` se puede hacer: `1×, 2×, 4×, 8×.`
+
+  Pero si el multiplicador no es uno de esos se usa `IMUL.`
+
+  ```asm
+  ; Intel
+  imul eax, eax, 3
+  ```
+
+- Detección de overflow con signo
+
+  `IMUL` es la forma correcta de detectar overflow en multiplicación con signo.
+
+  ```asm
+  ; Intel
+  imul eax, ebx
+  jo overflow_handler ; jo = jump if overflow
+  ```
+
+  Esta forma es muy usada en: validaciones, código seguro y/o librerías matemáticas.
+
+- Sign extension implícita (forma de un operando)
+
+- Reversing / malware / cracks
+
+  `IMUL` aparece mucho en: ofuscación simple, keygens, checksums, mezclado de valores.
+
+  ```asm
+  ; Intel
+  imul eax, eax, 0x343FD
+  add eax, 0x269EC3
+  ```
+
+  LCG clásico (Linear congruential generator). Una forma muy simple de generar números pseudo-aleatorios.
+  El ejemplo implementa la fórmula del generador congruencial lineal: `Xn + 1 = (a ⋅ Xn + c) mod m`.
+
+## Instrucción `PUSH`
+
+Guarda un valor en la pila y mueve el puntero de pila. No afecta ni lee ningún flag del CPU.
+Siempre realiza dos operaciones:
+
+1. Baja el puntero de pila.
+2. Escribe el valor.
+
+**La pila:** Tiene una estructura **LIFO** (last in, first out), en X86 corre hacia direcciones de memoria bajas. Está controlada por `SP` (16 bits), `ESP` (32 bits) y `RSP` (64 bits).
+
+**Sintaxis:** `PUSH op`
+El operando puede ser registro, memoria o inmediato.
+
+**Ejemplo**
+
+```asm
+; Intel
+
+; 16 bits
+push ax
+; Equivale a
+; sp = sp - 2
+; [sp] = ax
+
+; Con memoria
+push word [var]
+
+; 32 bits
+push eax
+; Equivale a
+; esp = esp - 4
+; [esp] = eax
+
+; Con memoria
+push dword [var]
+
+; 64 bits
+push rax
+; Equivale a
+; rsp = rsp - 8
+; [rsp] = rax
+
+; Con memoria
+push qword [var]
+
+; Con inmediatos (se extienden con signo y se empuja al tamaño de la pila)
+push 10
+push -1 ; empuja 0xFFFF / 0xFFFFFFFF / 0xFFFFFFFFFFFFFFFF
+push 0x1234
+```
+
+**Restricciones**
+
+- El registro `CS` (code segment) no se puede pushear. Controla el flujo de ejecución y no puede modificarse arbitrariamente.
+
+- Instruction pointers no son pusheables (`IP`, `EIP`, `RIP`).
+
+-  Registros de control no son pusheables (`CR0`, `CR2`, `CR3`, `CR4`, `CR8`). Se accede a ellos via mov:
+
+  ```asm
+  ; Intel
+  mov reg, crX
+  mov crX, reg
+  ```
+
+- Registros de depuración no son pusheables (`DR0` a `DR7`).
+- Registros SIMD / FPU no son pusheables. (`MM0` a `MM7`, `XMM0` a `XMM31`, `YMM/ZMM`, `ST0` a `ST7`). Tienen instrucciones específicas para ser guardados.
+
+**Registros que si se pueden pushear a la pila**
+
+- No puedes pushear `CF`, `ZF`, pero si existe: `pushf` (16 bits), `pushfd` (32 bits), `pushfq` (64 bits).
+- Registros generales (`AX`, `EAX`, `RAX`, etc).
+- Segmentos: `DS`, `ES`, `SS`, `FS`, `GS`.
+- Inmediatos.
+- Memoria.
+
+**Consideraciones**
+
+- `PUSH` no modifica ni lee los flags del CPU.
+
+- El tamaño de la pila manda (no el operando). Es decir que el dato empujado siempre coincide con el tamaño de la pila, no con el literal.
+
+  ```asm
+  ; Intel
+  ; Ejemplo en 32 bits
+  push 1 ; Empuja 00000001h   (4 bytes) 
+  ```
+
+- El inmediato se extiende con signo.
+
+  Dado que el signo se indica por le MSB, se extiende.
+
+  ```asm
+  ; Intel
+  ; Ejemplo en 32 bits
+  push 0xFF
+  ; No empuja 0x000000FF si no 0xFFFFFFFF
+  ```
+
+- `PUSH SP / ESP / RSP` es especial.
+
+  ```asm
+  ; Intel
+  push sp
+  ```
+
+  Empuja el valor original de `SP` antes de decrementarlo. (Esto es una fuente clásica de confusión y bugs).
+
+- La pila crece hacia abajo. Siempre `PUSH` incrementa `SP` y `POP` decrementa `SP`. (Nunca al revés).
+
+- `PUSH` no valida alineación. El CPU no se queja si:
+
+  - `ESP` no está alineado.
+  - Se rompe la ABI.
+  - Se desalinea la pila.
+
+  El crash viene después, no en la ejecución de `PUSH`.
+
+- Si ocurre una excepción, el estado de la pila puede quedar parcialmente modificado. Por lo que algunos kernels usan cuidado extra.
+
+- El orden importa.
+
+  ```asm
+  ; Intel
+  push ax
+  push bx
+  push cx
+  
+  ; Luego
+  pop dx ; dx = cx
+  pop bx ; bx = bx
+  pop ax ; ax = ax
+  ```
+
+- `PUSH` guarda temporalmente hasta que se ejecute `POP`, o hasta que la pila se reutilice, por lo que nunca es memoria segura.
+
+## Instrucción `POP`
+
+Saca (extrae) un valor desde la pila y lo carga en un registro o en memoria, ajustando el puntero de pila `SP / ESP / RSP`.
+
+**Sintaxis:** `POP destino`. Lee el valor apuntado por `SP / ESP / RSP`, lo copia en `destino` e incrementa el puntero de pila.
+
+**Incrementos del puntero de pila**
+
+| Modo   | Registro | Tamaño   |
+| ------ | -------- | -------- |
+| 16-bit | `SP`     | +2 bytes |
+| 32-bit | `ESP`    | +4 bytes |
+| 64-bit | `RSP`    | +8 bytes |
+
+**Ejemplo**
+
+```asm
+; Intel
+
+; 16 bits en real mode / DOS
+mov ax, 0x1234
+push ax ; SP = SP - 2, [SP] = 0x1234
+pop bx  ; BX = 0x1234, SP = SP + 2 (SP aumenta 2 bytes)
+; La pila queda como antes del push
+
+; 32 bits
+push 0xDEADBEEF
+pop eax ; ESP aumenta 4 bytes
+
+; 64 bits
+push rax
+pop rbx ; RSP aumenta 7 bytes
+
+; 32 bits con memoria
+pop dword [resultado]
+
+; 64 bits con memoria
+pop qword [resultado]
+```
+
+**Importante**
+
+- No existe `POP` con inmediatos, por lo que `POP 5 / 0x1234`  es inválido.
+- `POP` lee primero e incrementa `SP / ESP / RSP` después. (Útil de saber cuando se realiza análisis o exploits).
+
+## Variantes de la instrucción `PUSH` (`PUSHF / PUSHFD / PUSHFQ`)
+
+Existen tres variantes que permiten empujar los flags del CPU de un tamaño específico a la pila. Ninguna de ellas modifica los flags del CPU. 
+
+| Modo   | Instrucción | Qué empuja  |
+| ------ | ----------- | ----------- |
+| 16-bit | `pushf`     | FLAGS (16)  |
+| 32-bit | `pushfd`    | EFLAGS (32) |
+| 64-bit | `pushfq`    | RFLAGS (64) |
+
+**Sintaxis:** `PUSHF / PUSHFD / PUSHFQ` (sin operandos).
+
+**Ejemplo**
+
+```asm
+; Intel
+pushfd ; Guarda EFLAGS en el stack
+pop eax ; eax = flags
+```
+
+**Usos típicos**
+
+- Guardar estado del CPU.
+- Detectar capacidades (ej: CPUID antiguo)
+- Debug / Reversing
+
+## Variantes de la instrucción `PUSH` (`PUSHA / PUSHAD`)
+
+Ambas instrucciones empujan todos los registros generales en el stack de una sola vez. Su principal diferencia es el tamaño del modo (actualmente existe en 16 y 32 bits pero no en 64 bits). No modifica los flags del CPU.
+
+| Instrucción | Modo    | Tamaño  |
+| ----------- | ------- | ------- |
+| `pusha`     | 16 bits | 16 bits |
+| `pushad`    | 32 bits | 32 bits |
+
+**Sintaxis:** `PUSHA / PUSHAD` (sin operandos).
+
+**Ejemplo**
+
+```asm
+; Intel
+; Modo de 16 bits
+pusha
+; Equivale a
+push ax
+push cx
+push dx
+push bx
+push sp   ; valor ORIGINAL de SP (antes de pusha)
+push bp
+push si
+push di
+; Detalle importante
+; El SP que se guarda no es el SP ya decrementado, sino el valor original antes del pusha.
+; Resultado
+; Empuja 8 registros (2 bytes c/u)
+; 8 x 2 = 16 bytes
+; Decrementa SP en 16 bytes
+
+; Modo de 32 bits
+pushad
+; Equivale a
+push eax
+push ecx
+push edx
+push ebx
+push esp   ; valor ORIGINAL de ESP
+push ebp
+push esi
+push edi
+; Detalle importante
+; El ESP guardado es el valor antes del pushad (no el ESP modificado).
+; Resultado
+; Empuja 8 registros (4 bytes c/u)
+; 8 x 4 = 32 bytes
+; Decrementa ESP en 32 bytes
+```
+
+**¿Por qué guardar el SP/ESP original?**
+
+Porque permite que el par `PUSHA / POPA` o `PUSHAD / POPAD` restaure exactamente el estado anterior del stack, incluso si dentro del bloque se usó el stack.
+
+## Variantes de la instrucción `POP` (`POPF / POPFD / POPFQ`)
+
+Restauran el registro de flags desde la pila (stack).  Y a diferencia de `PUSHF*` si afectan los flags del CPU.
+El CPU filtra qué bits pueden cambiar, dependiendo de:
+
+- Modo (16 / 32 / 64 bits).
+- Nivel de privilegio (CPL).
+- Tipo de Flag (control, estado, reservado).
+
+| Instrucción | Registro | Tamaño  |
+| ----------- | -------- | ------- |
+| `popf`      | FLAGS    | 16 bits |
+| `popfd`     | EFLAGS   | 32 bits |
+| `popfq`     | RFLAGS   | 64 bits |
+
+**Sintaxis:** `POPF / POPFD / POPFQ` (sin operandos).
+
+**Ejemplo**
+
+```asm
+; Intel
+
+; Restaurado del flag DF
+pushfq ; Guarda flags
+cld ; DF = 0
+std ; DF = 1
+popfq ; Restaura DF al valor original
+
+; Donde no funciona como se espera
+pushfq
+popfq ; Intento de cambiar IF desde ring 3
+; Resultado
+; IF permanece igual
+; No hubo excepción
+; El bit simplemente se ignoró
+```
+
+**Flags del CPU que si son restaurados (generalmente)**
+
+- `CF` Carry Flag
+- `PF` Parity Flag
+- `AF` Auxiliar Carry Flag
+- `ZF` Zero Flag
+- `SF` Sign Flag
+- `OF` Overflow Flag
+
+**Flags de control (con restricciones)**
+
+- `DF` Direction Flag
+  - Restaurable con `POPF*`.
+  - Cambia la dirección de `MOVS`, `STOS`, etc. 
+
+- `TF` Trap Flag
+
+  - Es restaurable.
+  - Puede provocar debug exception (`#DB`) inmediatamente.
+
+- `IF` Interrupt Flag
+
+  - En `Ring 0` es restaurado.
+  - En `Ring 1 / 2 / 3` es ignorado.
+
+  En modo usuario `POPF*` no puede habilitar/deshabilitar interrupciones, por lo que el valor del stack se ignora para `IF`.
+
+- `IOPL` I/O Privilege Level
+  - Solo modificable en `Ring 0`.
+  - En `Ring 3` los bits `IOPL` no cambian y se mantienen el valor actual.
+
+**Flags reservados**
+
+- El bit 1 (siempre `1`)
+- Bits no documentados / futuros
+
+Son leídos desde el stack. El CPU fuerza su valor arquitectónico y nunca quedan en estado invalido.
+
+**Caso especial `POPFQ`**
+
+En `RFLAGS` existen bits que jamás se pueden modificar:
+
+| Bit  | Nombre     | Resultado   |
+| ---- | ---------- | ----------- |
+| 1    | Always-1   | Forzado a 1 |
+| 3,5  | Reservados | Forzados    |
+| >21  | Reservados | Ignorados   |
+
+**Aunque metas basura en el stack, el CPU la limpia.**
+
+Usos típicos
+
+- Guardar flags alrededor de código crítico.
+
+- Manipular `DF`.
+
+  ```asm
+  ; Intel
+  pushfq
+  cld
+  ; operaciones string
+  popfq
+  ```
+
+- Debug / Trampas
+
+  ```asm
+  ; Intel
+  pushfq
+  or qword [rsp], 0x100  ; setea TF (bit 8 de RFLAGS)
+  popfq                 ; single-step
+  ; Cuando se setea TF = 1 el CPU entra en single-step mode, Esto significa que después de ejecutar cada instrucción, el CPU lanza una excepcin #DB (Debug Exception).
+  ; No se interrumpe antes de la instrucción, sino después.
+  
+  ; Ejemplo de breakpoint
+  int3
+  ; Trampa especial de debug
+  ; Un solo byte 0xCC
+  ; Usada por gdb, x64dbg, etc
+  ; El programa se detiene justo después de ejecutarla
+  
+  ; Ejemplo de trampa moderna y rápida
+  syscall
+  ; Entrada controlada por kernel (muy usada en x86-64)
+  
+  ; Ejemplo de trampa en x86
+  int 0x80
+  ; Se usa en Linux x86 para llamadas al sistema
+  ; El CPU guarda EIP/RIP, CS y EFLAGS para luego saltar al handler del sistema operativo
+  ```
+  
+  **¿Qué son las trampas?**
+  
+  Son mecanismos de control del CPU que interrumpen el flujo normal de ejecución para que el procesador pase el control al sistema operativo (o a un manejador especial), generalmente de forma sincrónica, justo después de ejecutar una instrucción.
+  
+  **Características**
+  
+  - Ocurren porque el propio programa ejecutó algo específico.
+  - El CPU sabe exactamente en qué instrucción ocurrió.
+  - El control pasa a un handler (manejador) definido por el SO.
+  - Tras manejarla, normalmente se puede continuar la ejecución.
+  
+  **Trampa vs interrupción**
+  
+  | Característica | Trampa                        | Interrupción        |
+  | -------------- | ----------------------------- | ------------------- |
+  | Origen         | Software / instrucción        | Hardware            |
+  | Momento        | Después de la instrucción     | Entre instrucciones |
+  | Predecible     | Sí                            | No                  |
+  | Ejemplo        | `int 0x80`, `syscall`, `int3` | Teclado, reloj, red |
+
+## Variantes de la instrucción `POP` (`POPA / POPAD`)
+
+Son las instrucciones complementarias de `PUSHA / PUSHAD`. Sacan del stack todos los registros generales en bloque. (Existen en modos ed 16 y 32 bits pero no 64 bits). No modifica los flags del CPU.
+
+| Instrucción | Modo    | Tamaño  |
+| ----------- | ------- | ------- |
+| `popa`      | 16 bits | 16 bits |
+| `popad`     | 32 bits | 32 bits |
+
+**Sintaxis:** `POPA / POPAD` (sin operandos).
+
+**Ejemplo**
+
+```asm
+; Intel
+
+; Modo de 16 bits
+popa
+; Equivale a
+pop di
+pop si
+pop bp
+pop sp   ; Se descarta
+pop bx
+pop dx
+pop cx
+pop ax
+; Importante: el valor de SP se lee desde el stack pero no se restaura en SP
+; Resultado
+; Se consumen 16 bytes desde el stack
+; SP incrementa en 16 bytes
+; SP no es restaurado
+
+; Modo de 32 bits
+popad
+; Equivale a
+pop edi
+pop esi
+pop ebp
+pop esp   ; Se descarta
+pop ebx
+pop edx
+pop ecx
+pop eax
+; Importante: ESP no se restaura pése a que si es leído desde el stack.
+; Resultado
+; Se consumen 32 bytes
+; ESP es incrementado en 32 bytes
+```
+
+**¿Por qué no se restauran `SP / ESP`?**
+
+Porque sería peligroso. Si `POPA / POPAD` restauran `SP / ESP` el puntero cambiaría a mitad de la instrucción, el resto de los pop leerían desde una dirección distinta y el stack quedaría corrupto.
+Por eso el valor se descarta pero el stack avanza normalmente.
+
+todo: abordar DIV e IDIV. Luego proseguir con BT/BTS/BTR/BTC
+
+todo: abordar cld y std
+
+todo: abordar saltos
+
+todo: abordar call y ret
+
+todo: abordar enter / leave
