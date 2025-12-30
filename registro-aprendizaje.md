@@ -4926,9 +4926,328 @@ rcl al, 3
 ; CF = 1
 ```
 
+## ¿Qué es un `OPCODE` en x86-64?
+
+Un `opcode` es el byte (o bytes) que indican qué instrucción ejecutar. En x86-64 una instrucción no es un byte fijo, sino algo como:
+
+`[prefixes] [opcode] [ModRM] [SIB] [displacement] [immediate]`
+
+**Nota:** Algunas partes puede no existir.
+
+### Longitud variable
+
+Las instrucciones pueden medir entre 1 a 15 bytes de largo, por ej:
+
+- `NOP` mide 1 byte y se representa por el byte `90` (en hex).
+- `mov rax, 0x1122334455667788` mide 10 bytes y es representada por `48 B8 88 77 66 55 44 33 22 11`.
+
+### Prefijo `REX`
+
+En x86-64 aparece el prefijo `REX` (acrónimo: **R**egister **EX**tension) de 1 byte que extiende las capacidades del encoding x86 en modo 64 bits.
+
+```asm
+REAX = 0100WRXB
+; W R X B son las extensiones
+
+Bit: 7 6 5 4 3 2 1 0
+     0 1 0 0 W R X B
+```
+
+- `0100` identifica que es un `REX`.
+- `W` operando de 64 bits.
+- `X` extiende el campo `reg`.
+- `B` extiende el campo `index` (SIB).
+- `B` extiende el campo `r/m` o registro base.
+
+**Ejemplos concretos**
+
+`REX` usa estos bytes (`0x40-0x4F`) como un prefijo para decirle al CPU cómo debe interpretar la instrucción que viene después.
+No es una instrucción por sí misma, sino metadatos para el decodificador.
+
+| Hex    | Binario    | Significado               |
+| ------ | ---------- | ------------------------- |
+| `0x40` | `01000000` | REX presente, sin flags   |
+| `0x48` | `01001000` | `W=1` → operación 64 bits |
+| `0x41` | `01000001` | `B=1` → registros r8–r15  |
+| `0x4C` | `01001100` | `W=1, R=1`                |
+| `0x4F` | `01001111` | W,R,X,B = 1               |
+
+El CPU decodifica el instruction stream en modo 64 bits haciendo algo como:
+
+1. Leer un byte.
+2. Si el byte está entre `0x40` y `0x4F` lo reconoce como prefijo `REX`.
+3. Guarda los bits `W R X B` en flags internos del decodificador.
+4. Lee el `opcode` real.
+5. Usa esos flags para:
+   1. Decidir tamaño de operando (32 vs 64 bits).
+   2. Extender registros (`RAX` -> `R8-R15`).
+   3. Extender Campos `ModRM` / `SIB`.
+
+Luego `REX` ya no existe y solo afectó la decodificación.
+
+**Sin `REX`**
+
+- Solo hay 8 registros (`RAX` a `RDI` o sus versiones de 32/16/8 bits).
+- Los operandos por defecto son de 32 bits.
+
+**Con `REX`**
+
+- Aparecen los registros `R8` al `R15`.
+- Se pueden usar operandos de 64 bits.
+- Se amplían campos del `ModRM/SIB`.
+  `ModRM` es un byte que acompaña a muchos `opcodes` x86 y sirve para decir que registros se usan y/o qué modo de direccionamiento de memoria se aplica. Básicamente indica que tal `opcode` opera con tal registro y/o tal dirección.
+  `SIB` (Scale-Index-Base) es otro byte opcional, usado solo cuando hay direcciones complejas, para describir `[base + index * escala]`. Es usado en direcciones de tipo array y/o punteros complejos.
+
+**Ejemplo**
+
+```asm
+; Intel
+mov eax, ebx
+; Código máquina
+; 89 D8
+; Registros solo eax-edi
+; Operando implícitamente de 32 bits
+
+; Con REX
+mov rax, rbx
+; Código máquina
+; 48 89 D8
+; 48 = REX.W
+; El CPU ve: Esto es 64 bits y usa registros de 64 bits
+
+; Registros extendidos
+mov r8, rax
+; Código máquina
+49 89 C0
+; 49 = 01001001
+; W = 1
+; B = 1 -> R8
+; Sin ese byte esa instrucción no existe para el CPU
+```
+
+### `OPCODE` principal
+
+Puede ser de 1 byte:
+
+- `NOP -> 90`
+- `RET -> C3`
+
+De 2 bytes (0F xx)
+
+- `SYSCALL 0F 05`
+
+De 3 bytes (0F 38 / 0F 3A). Usado por SSE / AVX antiguas.
+
+### `ModRM`
+
+Define qué registro, memoria o registro y cómo se direcciona.
+
+```
+7 6 | 5 4 3 | 2 1 0
+mod |  reg  | r/m
+```
+
+**Ejemplo**
+
+```asm
+; Intel
+mov rax, rbx
+; Código máquina
+48 89 D8
+; mod = 11 (registro)
+; reg = 011 (rbx)
+; r/m = 000 (rax)
+```
+
+### `SIB` (Scale Index Base)
+
+Se usa cuando hay escalado:
+
+```asm
+; Intel
+mov rax, [rbx + rcx*4]
+; Si no hay escalado no hay SIB
+; base = rbx
+; index = rcx (1, 2, 4 u 8)
+```
+
+### Displacement (offsets reales)
+
+En x86-64 el direccionamiento RIP-relative es siempre con un displacement de 32 bits, aunque el valor sea pequeño. Es decir, un entero de 32 bits con signo.
+
+```asm
+; Intel
+mov eax, [rip + 0x1234]
+; dirección de memoria efectiva = RIP siguiente + dirección de 32 bits
+```
+
+Rango efectivo del desplazamiento: `-2^31` (-2 GB) a `+2^31 - 1` (+2 GB).
+
+**¿Qué sucede si el símbolo está a más de ±2 GB?**
+
+El ensamblador/linker debe recurrir a una dirección de memoria de 64 bits.
+
+```asm
+; Intel
+mov rax, 0x1122334455667788 ; imm64
+; Esto ya no es RIP-relative
+```
+
+### Inmediatos (valores literales)
+
+```asm
+; Intel
+mov eax, 1
+; Bytes
+; B8 01 00 00 00
+; 01 00 00 00 es el inmediato
+```
+
+### Relación con los saltos en x86-64
+
+Los saltos no guardan direcciones, guardan `RIP_siguiente + offset`, donde `offset` depende del `opcode`.
+
+| Tipo de salto | Opcode | Offset  |
+| ------------- | ------ | ------- |
+| short         | EB     | 8 bits  |
+| near          | E9     | 32 bits |
+
+```asm
+; Intel
+jmp short label
+; Bytes
+; EB xx
+; xx es el desplazamiento con signo desde la siguiente instrucción
+
+; salto tipo near 64 bits
+start:
+	nop             ; 1 byte
+	nop             ; 1 byte
+	jmp near target ; salto relativo de 32 bits
+	nop             ; no se ejecuta
+	nop             ; no se ejecuta
+
+target:
+	nop
+; opcode de jmp near
+; E9 xx xx xx xx (rel32)
+; E9 es el op code de jmp near
+; rel32 es el desplazamiento con signo de 32 bits
+; El offset es relativo al RIP de la instrucción siguiente
+```
+
+**Si se cuentan las direcciones:**
+
+Suponmiendo que el cóðigo empieza en `0x400000`.
+
+| Dirección | Instrucción |
+| --------- | ----------- |
+| 0x400000  | nop         |
+| 0x400001  | nop         |
+| 0x400002  | jmp near    |
+| 0x400007  | nop         |
+| 0x400008  | nop         |
+| 0x400009  | target: nop |
+
+El `jmp near` mide 5 bytes (1 byte del `opcode` + 4 bytes del offset).
+
+**Cálculo del offset**
+
+**Fórmula:** `offset = destino - RIP_siguiente`
+**RIP siguiente:**  `0x400007`
+**Destino:** `0x400009`
+
+`offset = 0x400009 - 0x400007 = 0x00000002`
+
+**Bytes finales del salto:** `E9 02 00 00 00`. En LE (little-endian) `02 00 00 00`.
+
+**¿Qué hace la CPU?**
+
+1. Ejecuta `jmp`.
+2. RIP ya apunta a `0x400007`.
+3. Suma `+2`.
+4. Nuevo RIP = `0x400009` (`target`).
+
+## Instrucción `JMP` (jump)
+
+Realiza un salto incondicional. Siempre transfiere el flujo de ejecución sin mirar flags ni condiciones. Cambiando el **instruction pointer** `IP / EIP / RIP` (según modo)  sin modificar los flags del CPU.
+A diferencia de `CALL` no guarda la dirección de retorno. Es un cambio directo en el flujo de ejecución.
+
+**Hay diversos tipos de `JMP`, los cuales se listan a continuación:**
+
+**1. Salto relativo (el más común)**
+
+**Sintaxis:** `JMP etiqueta`
+
+El destino es relativo al instruction pointer según el modo. Se considera como un desplazamiento y es muy usado en bucles y control de flujo.
+
+**Ejemplo**
+
+```asm
+; Intel
+; 16 bits
+start:
+	mov ax, 1
+	jmp start
+; IP = IP siguiente + offset
+; offset de 8 a 16 bits
+
+; 32 bits
+start:
+	mov eax, 1
+	jmp start
+; EIP = EIP siguiente + offset
+; offset de 8 a 32 bits
+
+; 64 bits
+start:
+	mov rax, 1
+	jmp start
+; RIP = RIP siguiente + offset
+; offset de 32 bits (no existe un offset de 64 bits)
+```
+
+**2. Salto corto**
+
+Son desplazamientos de 8 bits con un rango de `-128` a `+127` bytes, medidos desde la instrucción siguiente.
+
+**Ejemplo**
+
+```asm
+; Intel
+section .text
+global _start
+
+_start:
+	mov eax, 1
+	jmp short lopp ; Salto corto (offset de 8 bits)
+	mov eax, 2     ; Instrucción saltada
+	
+loop:
+	inc eax
+	jmp short loop ; salto corto hacia atrás
+```
+
+El ensamblador verifica que `loop` esté a menos de `±128` bytes.
+Codifica el salto como `EB xx` donde `xx` es el offset relativo `destio - IP_siguiente`, y `EP` es el `opcode`
+
+
+
+
+
 
 
 todo: abordar saltos
+
+**Unsigned** → CF / ZF → `JA`, `JB`, `JBE`, `JAE`
+
+**Signed** → SF vs OF → `JG`, `JL`, `JGE`, `JLE`
+
+**Cero** → ZF → `JE`, `JNE`
+
+**Bucle** → RCX → `LOOP`, `JRCXZ`
+
+todo: abordar setcc y cmovcc
 
 todo: abordar call y ret
 
