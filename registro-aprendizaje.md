@@ -1530,9 +1530,123 @@ movsbl %al, %ebx # EBX = 0xFFFFFFFF (extendido con signo, es -1 en 32 bits)
 - Se usa cuando quieres trabajar con valores signed (con signo), por ejemplo, cargar un byte a entero de 32 bits para hacer operaciones con signo.
 - Muy común en procesamiento de caracteres, flags, o datos donde el signo importa.
 
+## Instrucción `LEA` (load effective address)
+
+Calcula una dirección efectiva y la guarda en un registro, sin acceder a memoria. (Solo realiza aritmética de direcciones). No modifica ningún flag del CPU.
+
+**Sintaxis:** `LEA dest, [base + index * scale + displacement]` donde:
+
+| Campo          | Descripción                     |
+| -------------- | ------------------------------- |
+| `base`         | Registro base (opcional)        |
+| `index`        | Registro índice (opcional)      |
+| `scale`        | 1, 2, 4 u 8                     |
+| `displacement` | Constante inmediata (8/32 bits) |
+
+**Ejemplo**
+
+```asm
+; Intel
+lea rax, [rbx + 8] ; rax = rbx + 8
+
+; Ejemplo completo
+lea rax, [rbx + rcx * 4 + 16] ; rax = rbx + (rcx * 4) + 16
+```
+
+**Registros permitidos**
+
+- Destino:
+
+  Registros generales en 8 bits: No existe `lea` en 8 bits.
+
+  Registros generales en 16 bits: `AX`, `BX`, `CX`, `DX`, `SI`, `DI`, `BP`.
+
+  Registros generales en 32 bits: `EAX`, `EBX`, `ECX`, `EDX`, `ESI`, `EDI`, `EBP`, `ESP`.
+
+  Registros generales en 64 bits: `RAX`, `RBX`, `RCX`, `RDX`, `RSI`, `RDI`, `RBP`, `RSP`, `R8` al `R15`.
+
+- Memoria:
+
+  - `base`: cualquier GPR (registro de propósito general).
+  - `index`: cualquier GPR excepto `SP`, `ESP`, `RSP`.
+  - `scale`: `1, 2, 4, 8`.
+
+**Usos comunes**
+
+- `LEA` como aritmética rápida.
+
+  ```asm
+  ; Intel
+  ; Suma
+  lea, rax, [rax + 1] ; rax += 1
+  ; Equivalente a inc pero sin afectar los flags del CPU
+  
+  ; Multiplicación
+  lea rax, [rcx * 8] ; rax *= 8
+  lea rax, [rcx + rcx * 4] ; rax = rcx * 5
+  
+  ; Expresiones complejas
+  lea rax, [rdi + rsi*2 + 32] ; rax = rdi + 2*rsi + 32
+  ```
+
+  **¿Por qué se prefiere a `LEA` por sobre `IMUL`?**
+
+  - Es mas rápida y con menos latencia
+  - No toca flags
+  - Se ejecuta en la unidad de direcciones
+  - Ideal para multiplicaciones pequeñas constantes
+
+  **En cambio `IMUL`**
+
+  - Es mas lenta
+  - Usa la unidad de multiplicación
+  - A veces modifica flags
+
+- `LEA` vs `MOVE`
+
+  ```asm
+  ; Intel
+  mov rax, [rbx] ; mov accesa al contenido de [rbx]
+  lea rax, [rbx] ; solo copia la dirección apuntada por rbx en rax sin accesar a memoria
+  ```
+
+- Uso típico con punteros y arrays
+
+  ```asm
+  ; Intel
+  ; rdi = &array[0]
+  ; rcx = i
+  lea rax, [rdi + rcx*8]
+  ; Suponiendo que los elementos son de 8 bytes
+  ```
+
+- RIP-relative addressing
+
+  ```asm
+  ; Intel
+  ; En modo de 64 bits
+  lea rax, [rel label] ; Sintaxis GAS
+  ; rel = dirección relativa calculada desde la siguiente instrucción
+  ; o
+  lea rax, [rip + label] ; Forma real
+  ```
+
+  Tipos de rel según el tamaño del desplazamiento:
+
+  - `rel8`: desplazamiento con 7 bits con signo (rango de `-127` a `+127`).
+
+  - `rel32`: desplazamiento con 32 bits con signo (rango ≈ ±2 GB)
+
+    ```asm
+    ;Intel
+    jmp label ; rel32 (lo normal)
+    ```
+
+  En x86-64 no existe `rel64` para saltos. los saltos siguen siendo `rel8` o `rel32`. 
+
 ## Instrucciones lógicas
 
-Tambien conocidas como instrucciones bit a bit u operaciones bitwise. Son operaciones que trabajan a nivel de bits entre registros, memoria o valores inmediatos. Se usan para manipular bits directamente y para operaciones lógicas básicas que son muy comunes en programación de bajo nivel.
+También conocidas como instrucciones bit a bit u operaciones bitwise. Son operaciones que trabajan a nivel de bits entre registros, memoria o valores inmediatos. Se usan para manipular bits directamente y para operaciones lógicas básicas que son muy comunes en programación de bajo nivel.
 
 **Principales instrucciones lógicas en x86**
 
@@ -2354,15 +2468,15 @@ Setea el flag `CF` (carry flag) en cero sin afectar otro flag del CPU. No usa op
 ; Intel
 ; Suma con overflow 
 mov al, 0xFF ; al = 255
-add al, 1 ; 255 + 1 = 256 → al = 0, CF = 1 (ocurrió overflow)
+add al, 1    ; 255 + 1 = 256 → al = 0, CF = 1 (ocurrió overflow)
 ; Operación posterior a la suma
 mov bl, 0
-adc bl, 5 ; bl = bl + 5 + CF
+adc bl, 5    ; bl = bl + 5 + CF
 ; Si no se limpia CF y CF = 1, bl quedará en 6 y no en 5
 ; Corrección
 mov bl, 0
-clc ; limpia CF dejándolo en 0
-adc bl, 5 ; bl = bl + 5 + 0 (CF = 0)
+clc          ; limpia CF dejándolo en 0
+adc bl, 5    ; bl = bl + 5 + 0 (CF = 0)
 ```
 
 **Usos comunes para `CLC`**
@@ -2373,7 +2487,7 @@ adc bl, 5 ; bl = bl + 5 + 0 (CF = 0)
 
   ```asm
   ; Intel
-  clc ; CF = 0
+  clc          ; CF = 0
   add rax, rbx ; suma la parte baja
   adc rdx, rcx ; suma la parte alta + carry
   ```
@@ -2419,8 +2533,8 @@ Setea el flag `CF` (carry falg) en uno. No afecta ningún otro flag del CPU, tam
 ```asm
 ; Intel
 mov al, 10 ; al = 10 (0000 1010b)
-mov bl, 5 ; bl = 5 (0000 0101b)
-stc ; Fuerza CF = 1
+mov bl, 5  ; bl = 5 (0000 0101b)
+stc        ; Fuerza CF = 1
 ; Resta bl de al, considerando el borrow 
 sbb al, bl ; al = al - bl - CF
 ; Resultado
@@ -2463,7 +2577,7 @@ Invierte el flag `CF` del CPU en el registro de estado (EFLAGS/RFLAGS). Si `CF` 
 ```asm
 ; Intel
 ; CF = 0 inicialmente
-cmc ; CF ahora es uno
+cmc        ; CF ahora es uno
 adc al, bl ; suma con acarreo, usando el nuevo valor de CF
 ; al = al + bl + CF
 ```
@@ -2494,8 +2608,8 @@ Invirtiendo `CF` con `CMC` podemos forzar que la suma incluya o ignore el carry 
   ```asm
   ; Intel
   ; Negar un número (equivalente a -num)
-  not al ; complementa todos los bits
-  cmc ; complementa el carry para sbb
+  not al     ; complementa todos los bits
+  cmc        ; complementa el carry para sbb
   sbb al, al ; resultado final -al
   ```
 
@@ -2595,9 +2709,9 @@ Realiza una resta teniendo en cuenta el flag de acarreo `CF`. Su finalidad es da
 
 ```asm
 ; Intel
-mov rax, 10 ; rax = 0000 1010b
-mov rbx, 3  ; rbx = 0000 0011b
-clc ; Pone a 0 el flag CF
+mov rax, 10  ; rax = 0000 1010b
+mov rbx, 3   ; rbx = 0000 0011b
+clc          ; Pone a 0 el flag CF
 sbb rax, rbx ; rax = 10 - 3 - 0 = 7 (0000 0111b)
 
 ; Resultado
@@ -2609,9 +2723,9 @@ sbb rax, rbx ; rax = 10 - 3 - 0 = 7 (0000 0111b)
 
 ```asm
 ; Intel
-mov rax, 10 ; rax = 0000 1010b
-mov rbx, 3  ; rbx = 0000 0011b
-stc ; Pone el flag CF a 1
+mov rax, 10  ; rax = 0000 1010b
+mov rbx, 3   ; rbx = 0000 0011b
+stc          ; Pone el flag CF a 1
 sbb rax, rbx ; rax = 10 - 3 - 1 = 6 (0000 0110b)
 
 ; Resultado
@@ -2957,8 +3071,8 @@ resultado = destino + fuente + CF
 
 mov rax, 0xFFFFFFFFFFFFFFFF ; rax = 18_446_744_073_709_551_615
 mov rdx, 0x0000000000000001 ; rdx = 1
-mov rcx, 0x2 ; rcx = 2
-mov rbx, 0x0 ; rbx = 0
+mov rcx, 0x2                ; rcx = 2
+mov rbx, 0x0                ; rbx = 0
 
 add rax, rcx ; Suma la parte baja
 ; CF = 1 debido al overflow en 64 bits 
@@ -3268,12 +3382,12 @@ Multiplica sin signo el acumulador implícito por el operando indicado. Por lo q
 
 **Registros implícitos según el tamaño**
 
-| Operando | Registro implícito | Resultado |
-| -------- | ------------------ | --------- |
-| `r/m8`   | `AL`               | `AX`      |
-| `r/m16`  | `AX`               | `DX:AX`   |
-| `r/m32`  | `EAX`              | `EDX:EAX` |
-| `r/m64`  | `RAX`              | `RDX:RAX` |
+| Tamaño  | Operando explícito | Registros implícitos usados   | Resultado |
+| ------- | ------------------ | ----------------------------- | --------- |
+| 8 bits  | r/m8               | **AL** × r/m8 → **AX**        | AX        |
+| 16 bits | r/m16              | **AX** × r/m16 → **DX:AX**    | DX:AX     |
+| 32 bits | r/m32              | **EAX** × r/m32 → **EDX:EAX** | EDX:EAX   |
+| 64 bits | r/m64              | **RAX** × r/m64 → **RDX:RAX** | RDX:RAX   |
 
 **Ejemplo**
 
@@ -3361,7 +3475,17 @@ En la forma de un operando, esto ocurre cuando la parte alta del resultado no es
 **Sintaxis:** 
 
 - Un Operando `IMUL src`
+  **Registros implícitos según el tamaño del operando.**
+
+  | Tamaño del operando | Operando explícito | Registros implícitos usados   | Resultado |
+  | ------------------- | ------------------ | ----------------------------- | --------- |
+  | 8 bits              | r/m8               | **AL** × r/m8 → **AX**        | AX        |
+  | 16 bits             | r/m16              | **AX** × r/m16 → **DX:AX**    | DX:AX     |
+  | 32 bits             | r/m32              | **EAX** × r/m32 → **EDX:EAX** | EDX:EAX   |
+  | 64 bits             | r/m64              | **RAX** × r/m64 → **RDX:RAX** | RDX:RAX   |
+
 - Dos operandos `IMUL dest, src`
+
 - Tres operandos `IMUL dest, src, inmediato`
 
 **Ejemplo (forma implícita con un operando)**
@@ -3371,8 +3495,8 @@ Se usa un registro implícito como multiplicando (`AL`, `AX`, `EAX`, `RAX`), el 
 ```asm
 ; Intel 16 bits
 mov ax, -10 ; ax = 1111 1111 1111 0110b (en complemento a dos)
-mov bx, 3 ; bx = 0000 0000 0000 0011b
-imul bx ; DX:AX = -30
+mov bx, 3   ; bx = 0000 0000 0000 0011b
+imul bx     ; DX:AX = -30
 ; La parte alta del número queda en el registro dx, y la baja en ax
 ;-30 = 1111 1111 1111 1111 | 1111 1111 1110 0010
 ;         ↑ DX = FFFF             ↑ AX = FFE2
@@ -3387,7 +3511,7 @@ Esta forma guarda solo la parte baja del resultado (no usa registros implícitos
 ```asm
 ; Intel 8 bits
 mov al, 50 ; al = 0011 0010b
-mov bl, 5 ; bl = 0000 0101
+mov bl, 5  ; bl = 0000 0101
 imul al, bl
 ; Resultado debería ser 250 (50 * 5), pero 250 no cabe en al (8 bits), por lo que se trunca a 8 bits.
 ; 250 en 16 bits: 0000 0000 1111 1010
@@ -3406,7 +3530,7 @@ No existe forma con tres operandos para 8 bits. Pero si está disponible para 16
 ```asm
 ; Intel 16 bits
 ; 300 * -3 = -900
-mov bx, 300 ; bx = 0000 0001 0010 1100b
+mov bx, 300     ; bx = 0000 0001 0010 1100b
 imul ax, bx, -3 ; ax = (int16)bx * (int16)-3
 ; Resultado
 ; ax = -900 (1111 1100 0111 1100b en complemento a dos)
@@ -3658,6 +3782,32 @@ pop qword [resultado]
 - No existe `POP` con inmediatos, por lo que `POP 5 / 0x1234`  es inválido.
 - `POP` lee primero e incrementa `SP / ESP / RSP` después. (Útil de saber cuando se realiza análisis o exploits).
 
+## Directiva `.stack`
+
+**Solo funciona con:** NASM/TASM pero no con GAS
+
+Directiva del ensamblador que se utiliza para reservar espacio para la pila en el programa. Es decir, le dice al ensamblador cuánto espacio se debe reserva para la pila en memoria cuando el programa se ejecute.
+
+**Sintaxis:** `.stack <tamaño>[, <opciones>]`
+
+**Parámetros**
+
+- `tamaño` (obligatorio)
+  Es la cantidad de memoria que se reserva para la pila. Puede escribirse en decimal o hexadecimal (prefijado con `0x` o postfijado con `h`). Ejemplo: `100h`, `0x100`.
+  Si es omitido, el ensamblador asigna automáticamente `1024`.
+
+- `opciones` (opcional)
+  Puede ser `BYTES`, `WORD`, `DWORD`, etc. Indica la unidad de reserva (aunque normalmente no se usa).
+  **Ejemplos**
+
+  ```asm
+  .stack 100h        ; Reserva 256 bytes de pila
+  .stack 4096        ; Reserva 4096 bytes (4 KB)
+  .stack 200h, DWORD ; Reserva 512 bytes en unidades de 4 bytes
+  ```
+
+  En ensambladores como NASM, esta directiva solo le indica al ensamblador cuánto espacio reservar para el **stack segment**; el CPU no necesita saber `.stack`, solo usa `ESP/RSP` para apuntar a la pila.
+
 ## Variantes de la instrucción `PUSH` (`PUSHF / PUSHFD / PUSHFQ`)
 
 Existen tres variantes que permiten empujar los flags del CPU de un tamaño específico a la pila. Ninguna de ellas modifica los flags del CPU. 
@@ -3674,7 +3824,7 @@ Existen tres variantes que permiten empujar los flags del CPU de un tamaño espe
 
 ```asm
 ; Intel
-pushfd ; Guarda EFLAGS en el stack
+pushfd  ; Guarda EFLAGS en el stack
 pop eax ; eax = flags
 ```
 
@@ -3764,9 +3914,9 @@ El CPU filtra qué bits pueden cambiar, dependiendo de:
 
 ; Restaurado del flag DF
 pushfq ; Guarda flags
-cld ; DF = 0
-std ; DF = 1
-popfq ; Restaura DF al valor original
+cld    ; DF = 0
+std    ; DF = 1
+popfq  ; Restaura DF al valor original
 
 ; Donde no funciona como se espera
 pushfq
@@ -3847,7 +3997,7 @@ Usos típicos
   ; Intel
   pushfq
   or qword [rsp], 0x100  ; setea TF (bit 8 de RFLAGS)
-  popfq                 ; single-step
+  popfq                  ; single-step
   ; Cuando se setea TF = 1 el CPU entra en single-step mode, Esto significa que después de ejecutar cada instrucción, el CPU lanza una excepcin #DB (Debug Exception).
   ; No se interrumpe antes de la instrucción, sino después.
   
@@ -3943,12 +4093,855 @@ pop eax
 Porque sería peligroso. Si `POPA / POPAD` restauran `SP / ESP` el puntero cambiaría a mitad de la instrucción, el resto de los pop leerían desde una dirección distinta y el stack quedaría corrupto.
 Por eso el valor se descarta pero el stack avanza normalmente.
 
-todo: abordar DIV e IDIV. Luego proseguir con BT/BTS/BTR/BTC
+## Instrucción `DIV` (división entera sin signo)
 
-todo: abordar cld y std
+Permite realizar **división entera sin signo**. Tiene varias modalidades según el tamaño del operando, y eso cambia qué registros se usan implícitamente y dónde quedan el cociente y el resto. `DIV` siempre usa registros fijos (a diferencia de `ADD` o `MUL`). No define ningún flag del CPU. Para la división con signo se usa la instrucción `IDIV`.
+
+**Reglas generales**
+
+- El dividendo está en registros implícitos.
+- El cociente y el resto quedan en registros implícitos.
+- Si el cociente no cabe en el registro implícito, ocurre #DE (Division Error).
+
+**División de 8 bits**
+
+**Sintaxis:** `DIV r/m8`.
+
+**Registros usados**
+
+| Rol       | Registro       |
+| --------- | -------------- |
+| Dividendo | `AX` (16 bits) |
+| Divisor   | `r/m8`         |
+| Cociente  | `AL`           |
+| Resto     | `AH`           |
+
+**Ejemplo**
+
+```asm
+; Intel
+mov ax, 100 ; ax = 100
+mov bl, 7   ; divisor = 7
+div bl
+; Resultado
+; al = 14 (100 / 7)
+; ah = 2 (100 % 7)
+```
+
+**Importante:** Aunque el divisor sea de 8 bits, el dividendo siempre es `AX`.
+
+**División de 16 bits**
+
+**Sintaxis:** `DIV r/m16`
+
+**Registros usados**
+
+| Rol       | Registro          |
+| --------- | ----------------- |
+| Dividendo | `DX:AX` (32 bits) |
+| Divisor   | `r/m16`           |
+| Cociente  | `AX`              |
+| Resto     | `DX`              |
+
+**Ejemplo**
+
+```asm
+; Intel
+mov dx, 0
+mov ax, 1000
+mov bx, 30
+div bx
+; Resultado
+; ax = 33
+; dx = 10
+; dx:ax forman el dividendo de 32 bits
+```
+
+**División de 32 bits**
+
+**Sintaxis:** `DIV r/m32`
+
+**Registros usados**
+
+| Rol       | Registro            |
+| --------- | ------------------- |
+| Dividendo | `EDX:EAX` (64 bits) |
+| Divisor   | `r/m32`             |
+| Cociente  | `EAX`               |
+| Resto     | `EDX`               |
+
+**Ejemplo**
+
+```asm
+; Intel
+mov edx, 0
+mov eax, 100000
+mov ecx, 300
+div ecx
+; Resultado
+; eax = 333
+; edx = 100
+```
+
+**División de 64 bits**
+
+**Sintaxis:** `DIV r/m64`
+
+**Registros usados**
+
+| Rol       | Registro             |
+| --------- | -------------------- |
+| Dividendo | `RDX:RAX` (128 bits) |
+| Divisor   | `r/m64`              |
+| Cociente  | `RAX`                |
+| Resto     | `RDX`                |
+
+**Ejemplo**
+
+```asm
+; Intel
+mov rdx, 0
+mov rax, 100000000000
+mov rbx, 3000
+div rbx
+; Resultado
+; rax = 33333333333
+; rdx = 1000
+```
+
+**Nota:** el dividendo puedo ser de 128 bits.
+
+**Importante:**
+
+Como se vio en todos los ejemplos que componen al dividendo con dos registros, primero se limpia la parte alta. Olvidar limpiar dichos registros, constituye un error común que afecta los resultados de la división.
+
+## Instrucción `IDIV` (división entera con signo)
+
+Divide un dividendo implícito (más grande) por un divisor explícito y devuelve: cociente (en otro registro), resto (en otro registro). Todo con signo (usando complemento a dos para números negativos).
+El divisor es el único operando de la instrucción.
+**Importante:** el resto conserva el signo del dividendo.
+
+**Sintaxis:**
+
+```asm
+idiv r/m8
+idiv r/m16
+idiv r/m32
+idiv r/m64
+```
+
+**Registros usados por `IDIV` según el tamaño del divisor**
+
+| Tamaño del divisor (`idiv r/mX`) | Dividendo implícito (entrada) | Cociente (salida) | Resto (salida) |
+| -------------------------------- | ----------------------------- | ----------------- | -------------- |
+| **8 bits** (`idiv r/m8`)         | `AX` → (`AH:AL`)              | `AL`              | `AH`           |
+| **16 bits** (`idiv r/m16`)       | `DX:AX`                       | `AX`              | `DX`           |
+| **32 bits** (`idiv r/m32`)       | `EDX:EAX`                     | `EAX`             | `EDX`          |
+| **64 bits** (`idiv r/m64`)       | `RDX:RAX`                     | `RAX`             | `RDX`          |
+
+**Antes de usar `IDIV` se debe extender el signo correctamente.**
+
+Significa copiar el bit del signo del valor menor hacia los bits altos del dividendo completo, antes de ejecutar `IDIV`. (Nótece que los dividendos son compuestos por dos registros).
+
+**Instrucciones usadas para extender el signo antes de `IDIV`.**
+
+| Instrucción | Modo CPU | Extiende **desde** | Extiende **hacia** | Tamaños  |
+| ----------- | -------- | ------------------ | ------------------ | -------- |
+| **CBW**     | 16-bit   | `AL`               | `AX`               | 8 → 16   |
+| **CWDE**    | 32-bit   | `AX`               | `EAX`              | 16 → 32  |
+| **CDQE**    | 64-bit   | `EAX`              | `RAX`              | 32 → 64  |
+| **CWD**     | 16-bit   | `AX`               | `DX:AX`            | 16 → 32  |
+| **CDQ**     | 32-bit   | `EAX`              | `EDX:EAX`          | 32 → 64  |
+| **CQO**     | 64-bit   | `RAX`              | `RDX:RAX`          | 64 → 128 |
+
+### Instrucción `CBW` (convert byte to word)
+
+Convierte un valor con signo de 8 bits a 16 bits, extendiendo el bit de signo. Toma el contenido de `AL` (8 bits), lo extiende con signo y deja el resultado en `AX`. No afecta ningún flag del CPU. Cuesta 1 µop (micro operación).
+
+**Ejemplo**
+
+```asm
+; Intel
+; Valor positivo
+mov al, 0x7F ; 0111 1111b (127)
+cbw          ; ax = 0x007F
+; MSB de al es 0
+; ax = 0000 0000 0111 1111
+
+; Valor negativo
+mov al, 0x80 ; 10000000b (-128) (en complemento a dos)
+cbw          ; ax = 0xFF80
+; MSB de al es 1
+; ax = 1111 1111 1000 0000
+```
+
+### Instrucción `CWDE` (convert word to dbubleword extended)
+
+Extiende el signo de `AX` a `EAX`, interpretando `AX` como un entero con signo. (Solo funciona en 32 bits). En CPUs modernas cuesta 1 µop (micro operación).
+Toma el valor de `AX` (16 bits con signo), copia su valor en `EAX` (32 bits) y rellena los bits altos del 31 al 16 con:
+
+- 0 si el bit de signo de `AX` es 0.
+- 1 si el bit de signo de `AX` es 1.
+
+Es decir, preserva el valor numérico con signo.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Valor positivo
+mov ax, 0x007F ; 127 (0000 0000 0111 1111)
+cwde           ; eax = 0x0000007F (0000 0000 0000 0000 0000 0000 0111 1111)
+
+; Valor negativo
+mov ax, 0xFF80 ; -128 (1111 1111 1000 0000)
+cwde           ; EAX = 0xFFFFFF80 (1111 1111 1111 1111 1111 1111 1000 0000)
+```
+
+### Instrucción `CDQE` (convert doubleword to quadword extended)
+
+Extiende con signo un entero de 32 bits a 64 bits. No afecta los flags del CPU. En CPUs modernas cuesta 1 µop (micro operación).
+Toma el valor de `EAX` (32 bits) y lo extiende con signo, dejando el resultado en `RAX` (64 bits). El bit de signo de `EAX` (bit 31) se replica en los bits altos de `RAX`.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Valor positivo
+mov eax, 0x0000007F ; 127 (0000 0000 0000 0000 0000 0000 0111 1111)
+cdqe                ; rax = 0x000000000000007F
+; RAX: 0000 0000 0000 0000 0000 0000 0000 0000
+;      0000 0000 0000 0000 0000 0000 0111 1111
+
+; Valor negativo
+mov eax, 0xFFFFFF80 ; -128 (1111 1111 1111 1111 1111 1111 1000 0000)
+cdqe                ; rax = 0xFFFFFFFFFFFFFF80
+; RAX: 1111 1111 1111 1111 1111 1111 1111 1111
+;      1111 1111 1111 1111 1111 1111 1000 0000
+```
+
+### Instrucción `CWD` (convert word to doubleword)
+
+Extiende el signo del acumulador antes de una división con signo `IDIV`. No modifica los flags del CPU de forma útil. Según algunos manuales de Intel y AMD, algunos flags internos si pueden cambian, pero no deben usarse después.
+En CPUs modernas `CWD` cuesta 0 µops (micro instrucciones). En arquitecturas como: Intel Core (Nehalen a Aldr Lake / Raptor Lake) y AMD Zen (Zen 1 al 4), `CWD` es una instrucción simple, determinista y sin dependencias externas, por lo que:
+
+- No se decodifica en µops reales.
+- Se resuelve en el register rename / execution stage.
+- Tiene una latencia efectiva de 0 ciclos.
+
+**Nota:** En CPUs antiguas (pre P6) no existía el concepto de µops, debido a que internamente era lógica cableada. El coste era 1 instrucción (no comparable a µops modernos).
+
+Toma el valor con signo de `AX` (16 bits) y lo extiende con signo en `DX:AX` (32 bits). Se usa antes de `IDIV r/m16`. `CWD` copia el bit de signo de `AX` (bit 15) a todos los bits de `DX`. (`AX` no cambia).
+
+| AX (signo) | DX después de CWD |
+| ---------- | ----------------- |
+| positivo   | `0x0000`          |
+| negativo   | `0xFFFF`          |
+
+**Ejemplo**
+
+```asm
+; Intel
+; Valor positivo
+mov ax, 0x1234 ; 0001 0010 0011 0100
+cwd            ; dx = 0x0000
+; Resultado
+; DX:AX = 0000:1234
+
+; Valor negativo
+mov ax, 0xFF80 ; -128 (16 bits)
+cwd            ; dx = 0xFFFF
+; Resultado
+; DX:AX = FFFF:FF80 (-128 en 32 bits)
+```
+
+### Instrucción `CDQ` (convert doubleword to quadword)
+
+Extiende el signo de `EAX` hacia `EDX:EAX`. No modifica ningún flag del CPU (mantienen sus valores después de ejecutar `CDQ`). En CPUs modernas cuesta 1 µops (micro instrucciones).
+Toma el bit de signo de `EAX` (bit 31) y llena `EDX` con:
+
+- `0x00000000` si `EAX` es positivo o cero.
+- `0xFFFFFFFF` si `EAX` es negativo.
+
+No modifica `EAX`, solo prepara `EDX`.
+`CDQ` Se usa casi exclusivamente para preparar una división con signo de 32 bits.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Valor positivo
+mov eax, 123
+cdq
+; Resultado
+; EAX = 0x0000007B
+; EDX = 0x00000000
+; EDX:EAX = 00000000:0000007B
+
+; Valor negativo
+mov eax, -1 ; eax = 0xFFFFFFFF
+; eax = 1111 1111 1111 1111 1111 1111 1111 1111
+cdq
+; Resultado
+; EAX = 0xFFFFFFFF
+; EDX = 0xFFFFFFFF
+; EDX:EAX = FFFFFFFF:FFFFFFFF
+
+; Valor límite
+mov eax, 0x80000000 ; eax = -2147483648
+cdq
+; Resultado
+; EAX = 0x80000000
+; EDX = 0xFFFFFFFF
+; EDX:EAX FFFFFFFF:80000000
+```
+
+### Instrucción `CQO` (convert quadword to octword)
+
+Es la versión de 64 bits de la familia de sign-extension usada antes de divisiones con signo en x86. No modifica ningún flag del CPU. En CPUs modernas cuesta 1 µops (micro operación).
+Extiende el signo de `RAX` hacia `RDX:RAX`.
+Toma el valor con signo que está en `RAX` (64 bits) y rellena `RDX` con:
+
+- `0x0000000000000000` si `RAX >= 0`.
+- `0xFFFFFFFFFFFFFFFF` si `RAX < 0`.
+
+Formando un entero con signo de 128 bits en el par `RDX:RAX`.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Valor positivo
+mov rax, 42
+cqo
+; Resultado
+; RDX = 0x0000000000000000
+; RAX = 0x000000000000002A
+; RDX:RAX 0000000000000000:000000000000002A
+
+; Valor negativo
+mov rax, 042
+cqo
+; Resultado
+; RAX = 0xFFFFFFFFFFFFFFD6
+; RDX = 0xFFFFFFFFFFFFFFFF
+; RDX:RAX FFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFD6
+```
+
+## De vuelta a `IDIV`
+
+**Ejemplo (división de 8 bits `CBW`)**
+
+```asm
+; Intel
+; Dividir: -20 / 3 usando CBW
+mov al, -20 ; al = -20 (0xEC)
+cbw         ; extiende signo AL -> AX (ah = 0xFF)
+mov bl, 3   ; divisor
+idiv bl     ; ax / bl = -20 / 3
+; Resultado
+; AL = -6 (cociente)
+; AH = -2 (resto)
+```
+
+**¿Qué sucede si no se usa `CBW`?**
+
+- `AH` contendría basura
+- `AX` no representaría -20
+- Resultado incorrecto o **#DE**.
+
+**Ejemplo (división de 16 bits con `CWD`)**
+
+```asm
+; Intel
+; Dividir -100 / 9
+mov ax, -100 ; ax = -100 (0xFF9C)
+cwd          ; extiende signo de AX en DX -> DX:AX
+mov bx, 9    ; divisor (r/m16)
+idiv bx      ; (DX:AX) / BX
+; Resultado
+; AX = -11 (cociente)
+; DX = -1 (resto)
+```
+
+**Ejemplo (división de 32 bits con `CDQ`)**
+
+```asm
+; Intel
+; Dividir -1_000_000 / 3
+mov eax, -1000000
+cdq        ; extiende el signo de EAX a EDX:EAX
+mov ecx, 3 ; divisor (r/m32)
+idiv ecx   ; (EDX:EAX) / ECX
+; Resultado
+; EAX = -333333 (cociente)
+; EDX = -1 (resto)
+```
+
+**Ejemplo (división de 64 bits con `CQO`)**
+
+```asm
+; Intel
+; Dividir -1_000_000_000_000 / 7
+mov rax, -1000000000000 ; RAX = -1e12
+cqo                     ; extiende el signo de RAX a RDX:RAX
+mov rcx, 7              ; divisor (r/m64)
+idiv rcx                ; (RDX:RAX) / RCX
+; Resultado
+; RAX = -142857142857 (cociente)
+; RDX = -1 (resto)
+```
+
+**Ejemplo (división de 32 bits con `CWDE`)**
+
+Se tiene un valor con signo en `AX` (16 bits) y se quiere:
+
+- Promover a 32 bits correctamente.
+- Dividirlo usando `IDIV r/m32`.
+
+```asm
+; Intel
+; Dividir -300 / 7
+mov ax, -300 ; ax = -300 (0xFED4)
+cwde         ; extiende AX a EAX con signo
+cdq          ; extiende EAX a EDX:EAX
+mov ecx, 7   ; divisor (32 bits)
+idiv ecx     ; (EDX:EAX) / ECX
+; Resultado
+; EAX = -42 (cociente)
+; EDX = -6 (resto)
+```
+
+**Ejemplo (división de 64 bits con `CDQE`)**
+
+Se tiene un valor con signo en `EAX` (32 bits) y se quiere:
+
+- Promover a 64 bits correctamente.
+- Dividir usando `IDIV r/m64`.
+
+```asm
+; Intel
+; Dividir -2_000_000 / 9
+mov eax, -2000000 ; eax = 0xFFE17B80
+cdqe              ; extiende EAX a RAX
+cqo               ; extiende RAX a RDX:RAX
+; RDX = 0xFFFFFFFFFFFFFFFF
+; RAX = 0xFFFFFFFFFFE17B80 (-2_000_000)
+mov rcx, 9        ; divisor (64 bits)
+idiv rcx          ; (RDX:RAX) / RCX
+; Resultado
+; RAX = -222_222
+; RDX = -2
+```
+
+### Excepción #DE (Divide Error)
+
+`#DE` es una excepción de CPU que ocurre durante `DIV` / `IDIV`. (No exclusivamente por dividir por cero).
+
+**Casos en que ocurre `#DE`**
+
+- Dividir por 0
+
+  ```asm
+  ; Intel
+  mov eax, 10
+  cdq
+  mov ecx, 0
+  idiv ecx ; #DE
+  ```
+
+- El cociente no cabe en el registro destino
+
+  Es la que mas bugs reales causa. Si el cociente no cabe en: `AL` (8 bits), `AX` (16 bits), `EAX` (32 bits), `RAX` (64 bits). Entonces la CPU lanza `#DE` (aunque matemáticamente la división sea válida).
+
+  **Ejemplo clásico de overflow (16 bits)**
+
+  ```asm
+  ; Intel
+  ; 32_768 / 1 da overflow en AX
+  mov ax, 0x8000 ; ax = -32_768
+  cwd
+  mov bx, -1
+  idiv bx        ; #DE
+  ```
+
+  **¿Por qué falla?**
+
+  Porque `-32_768 / -1 = +32_768`, y `AX` solo puede representar de `-32_768` a `+32_767`, por lo que `+32_768` no cabe en `AX`. El resultado es `#DE`.
+
+  **Ejemplo en 32 bits**
+
+  ```asm
+  ; Intel
+  mov eax, 0x80000000 ; -2_147_483_648
+  cdq
+  mov ecx, -1
+  idiv ecx            ; #DE
+  ```
+
+  Mismo problema, `-2_147_483_648 / -1 = +2_147_483_648  (overflow)`.
+
+## Instrucción `BT` (bit test)
+
+Prueba un bit específico en un registro o en memoria y copia su valor a `CF` (Carry Flag) sin modificar el operando. No afecta a ningún otro flag del CPU.
+
+**Sintaxis:** `BT src, pos` donde `src` puede ser un registro o una dirección de memoria, y `pos` es la posición del bit a probar, el que puede ser un registro o un valor inmediato. En `pos` el bit se numera desde cero (LSB o bit menos significativo) hasta `n-1`, donde `n` es el tamaño del operando.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Bit en registro
+mov eax, 0xA4 ; eax = 1010 0100b
+bt eax, 5     ; prueba el bit 5 de EAX
+; EAX = 0xA4 (no cambia)
+; CF = 1 porque el bit 5 es uno
+
+; Bit con registro como índice
+mov eax, 0xFFF ; eax = 4095 (0000 0000 0000 0000 0000 1111 1111 1111b)
+mov ecx, 7
+bt eax, ecx    ; prueba el bit 7 de eax
+; EAX = 0xFFF (no cambia)
+; CF = 1 porque el bit 7 es uno
+```
+
+## Instrucción `BTS` (bit test and set)
+
+Prueba un bit específico en un registro o memoria, copia su valor a `CF` (Carry Flag) y luego lo setea en uno. No afecta a ningún otro flag del CPU.
+
+**Sintaxis:** `BT src, pos`, donde `src` es la fuente con la que se opera, la que puede ser un registro o una dirección de memoria, y `pos` es el índice del bit desde cero (siendo cero el bit LSB).
+
+Ejemplo
+
+```asm
+; Intel
+; Bit en registro
+mov eax, 0x24 ; eax = 0010 0100b
+bts eax, 5    ; prueba el bit 5 y lo pone en uno
+; Bit 5 = 1 por lo que CF = 1
+; Después de BTS, EAX = 0010_0100b | 0010_0100b = 0010_0100b
+; En este caso el bit 5 ya estaba en uno, así que no cambia
+; CF captura el valor original del bit y luego bts lo setea en uno
+
+; Bit en memoria
+mov dword [var], 0x0000 ; [var] 0000 0000 0000 0000 0000 0000 0000 0000
+bts dword [var], 3 ; [var] = 0000 0000 0000 0000 0000 0000 0000 1000
+; CF = 0 porque el bit 3 original estaba en cero
+; [var] = 0x0008 (bit 3 ahora en uno)
+```
+
+## Instrucción `BTR` (bit test and reset)
+
+Prueba un bit específico en un registro o memoria, copia su valor a `CF` (Carry Flag) y luego lo setea en cero. No afecta a ningún otro flag del CPU.
+
+**Sintaxis:** `BTR src, pos` donde `src` es la fuente con la que se opera, la que puede ser un registro o una dirección de memoria, y `pos` es el índice del bit desde cero (siendo cero el bit LSB).
+
+**Ejemplo**
+
+```asm
+; Intel
+; Bit en registro
+mov eax, 0x2C ; eax = 0000 0000 0000 0000 0000 0000 0010 1100
+btr eax, 5    ; prueba el bit 5 y lo pone en cero
+; EAX = 0000 0000 0000 0000 0000 0000 0000 1100
+; Bit 5 original = 1 por lo tanto CF = 1
+; Después de BTR, el bit 5 de EAX queda en cero
+
+; Bit en memoria
+mov dword [var], 0x0008 ; [var] = 0000 0000 0000 0000 0000 0000 0000 1000
+btr dword [var], 3      ; prueba el bit 3 y lo pone en cero
+; [var] = 0000 0000 0000 0000 0000 0000 0000 0000
+; CF = 1 porque el bit original era uno
+; Bit 3 después de BTR queda en cero
+```
+
+## Instrucción `BTC` (bit test and complement)
+
+Prueba un bit específico de un operando y lo invierte (complementa). Es como combinar un `BT` con una operación de negación `NOT` solo en el bit seleccionado. No afecta a ningún otro flag del CPU.
+
+**Sintaxis:** `BTC src, pos`
+
+```asm
+BTC r/m, r
+BTC r/m, imm
+```
+
+Donde `src` es la fuente donde está el bit a manipular, y puede ser un registro o una dirección de memoria. Y  `pos` es el índice del bit desde cero (siendo cero el bit LSB), el que puede ser un registro (indicando el número del bit) o un valor inmediato.
+
+**Ejemplo: **
+
+```asm
+; Intel
+mov eax, 10 ; eax = 0000 0000 0000 1010
+btc eax, 1  ; Complementa el bit 1
+; eax = 0000 0000 0000 1000
+; CF = 1 porque el bit 1 original estaba en uno
+; El bit 1 queda en cero
+```
+
+## Instrucción `ROL` (rotate left)
+
+Rota los bits de un operando hacia la izquierda. Los bits que salen por la izquierda vuelven a entrar por la derecha. (No se pierden bits, solo se reacomodan). Afecta principalmente a `CF` (Carry Flag) y en el caso de que solo se rote 1 bit a `OF` (Overflow Flag).
+
+**¿Cómo afecta los flags?**
+
+- `CF` toma el valor del último bit que salió por la izquierda.
+- `OF` puede modificarse solo si se rota un bit.
+  **Fórmula:** `OF = XOR(CF, NUEVO_MSB)`
+- El resto de flags no se  ven afectados.
+
+**Sintaxis:**
+
+```asm
+ROL r/m, cl  ; número de bits a rotar determinado por CL
+ROL r/m, imm ; número de bits a rotar determinado por un inmediato
+```
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 0x99 ; al = 1001 1001b
+rol al, 1    ; rota 1 bit a la izquierda
+; AL = 0011 0011b
+; CF = 1 porque el bit que salió por la izquierda era 1
+```
+
+**Usos comunes**
+
+- Cifrado y hash
+  Muchos algoritmos de cifrado (DES, RC5, SHA, etc) usan rotaciones circulares para mezclar bits sin perder información.
+- Manipulación de flags o empaquetamiento de bits.
+  Permite mover bits a posiciones específicas dentro de un registro sin sobrescribir otros.
+- Cálculo de checksum o CRC
+  Para generar sumas de verificación rápidas o códigos de redundancia cíclica.
+- Optimización en algoritmos aritméticos
+  Los PRNG (generadores de números pseudoaleatorios) usan rotaciones de bits para mezclar el estado interno.
+- Códigos de compresión o empaquetamiento de datos
+  Para reorganizar bits y aprovechar mejor el espacio en memoria.
+- Criptografía simple de "ofuscación"
+  Rotaciones rápidas de bytes o palabras pueden servir para ocultar datos sin un cifrado completo. (Muy usado en malware o juegos para proteger variables).
+
+## Instrucción `ROR` (rotate right)
+
+Rota los bits del operando a la derecha, reingresando por la izquierda los bits que salen (por la derecha). No se pierden bits (se reacomodan). Afecta a `CF` (Carry Flag) y a `OF` (Overflow Flag) (cuando la rotación es de solo un bit, para conteos mayores `OF` queda indefinido). 
+
+**¿Cómo afecta los flags?**
+
+- `CF` recibe el último bit rotado fuera, es decir, el LSB original del operando.
+
+- `OF` solo se define si el conteo de bits rotados es de uno. Para conteos mayores queda indefinido.
+  **Fórmula: ** `OF = XOR(MSB_RESULTADO, BIT(MSB_RESULTADO - 1))`
+
+  ```asm
+  ; Resultado = 1010 1010
+  ; MSB = 1
+  ; MSB - 1 = 0
+  ```
+
+**Sintaxis:**
+
+```asm
+ROR r/mX, CL ; rnúmero de bits a rotar determinado por CL
+ROR r/mX, 1  ; número de bits a rotar determinado por un inmediato
+; X: 8, 16, 32, 64
+```
+
+**Ejemplo**
+
+```asm
+; Intel
+; Rotación de 1 bit
+mov al, 0xB1 ; al = 1011 0001b
+ror al, 1    ; rota 1 bit a la derecha
+; AL = 1101 1000b (0xD8)
+; CF = 1 porque el último bit rotado es un uno
+; OF = 0 porque XOR(1,1) = 0
+
+; Rotación de 2 bits
+mov al, 0xB1 ; 1011 0001b
+ror al, 2    ; rota 2 bits a la derecha
+; AL = 0110 1100
+; CF = 0 porque el último rotado fue un cero
+; OF indefinido porque se rotaron dos bits
+```
+
+## Rotaciones pares respecto al tamaño del registro
+
+Supongamos un registro de 8 bits como `AL`.
+
+```asm
+; Intel
+rol al, 8
+```
+
+El desplazamiento es igual al tamaño del registro, por lo que el CPU no cambia el valor de `AL`. Esto se debe a que rotar 8 bits un registro que ya es de 8 bits es equivalente a dar una vuelta completa en donde cada bit vuelve a su posición original. Lo mismo ocurre con cualquier múltiplo del tamaño del registro:
+
+- `ROL AL, 16` idéntico a `ROL AL, 8` (`mod 8 = 0`).
+- `ROL EAX, 32` no cambia `EAX` (32 bits).
+
+En general si `[ bit_pos % length(operando) ] = 0` no pasa nada.
+
+**Estado de `CF` (Carry Flag)**
+
+En estas rotaciones completas `CF` puede comportarse de manera predecible o indefinida dependiendo del procesador. Por ej. en Intel, cuando el desplazamiento es igual al tamaño del registro, `CF` no se actualiza, o se mantiene igual.
+
+**Optimizaciones**
+
+Esto permite hacer optimizaciones. Si se quiere rotar un registro completo varias veces, es posible omitir las rotaciones que sean múltiplos del tamaño del registro, porque no alteran el valor. Es común ver esto en micro código o en algoritmos criptográficos cuando se hacen rotaciones de 32 o 64 bits.
+
+## Instrucción `RCR` (rotate through carry right)
+
+Rota a la derecha a través del carry. A diferencia de una rotación normal `ROR`, `RCR` incluye el Carry Flag `CF` como parte de la rotación. Es decir, la rotación no es circular solo sobre el registro, sino sobre el `registro + CF`.
+
+**¿Qué flags del CPU modifica?**
+
+- `CF` (Carry Flag) Se actualiza siempre con el último bit que sale del operador de destino. 
+- `OF` (Overflow Flag) Se actualiza solo si se rota un bit. Indica si el signo cambió de manera inconsistente en operaciones de rotación de 1 bit.
+  **Fórmula:** `OF = XOR(MSB original, CF después de la rotación)`
+  **Importante:** Para rotaciones de mas de un bit, `OF` permanece indeterminado. 
+- El resto de flags no se ven afectados.
+
+**Sintaxis:** `RCR r/m, count`
+
+- `r` registro de 8/16/32/64 bits.
+- `m` posición de memoria.
+- `count` número de posiciones a rotar. Normalmente entre 1 y 31/63 según arquitectura.
+
+**Ejemplo (rotación de 1 bit)**
+
+```asm
+; Intel
+; Rotación de 1 bit
+; CF = 1
+mov al, 0xB6 ; al = 1011 0110b
+rcr al, 1 ; Cada bit se mueve una posición a la derecha
+; El bit LSB (0) se va a CF 1011 011[0] -> CF
+; CF = 0
+; El CF original (1) entra como el bit MSB
+; CF original -> [1]101 1011
+; Todos los demás bits de mueven a la derecha
+; AL = 1101 1011
+```
+
+**Ejemplo (rotación de `n > 1` bits)**
+
+Cuando `n > 1`, el desplazamiento se realiza en pasos de rotación (incluyendo `CF`).  Se rotan un total de posiciones de `mod (tamaño(registro) + 1)` porque el ciclo completo incluye `registro + CF`.
+
+**Paso a paso**
+
+```asm
+; Intel
+; CF = 1
+mov al, 0b10110110 ; al = 0xB6
+rcr al, 3
+; Primera rotación
+; AL = 1011 0110
+; CF = 1
+; LSB (0) -> CF (0)
+; CF (original) -> MSB (1)
+; AL = 1101 1011
+; CF = 0
+
+; Segunda rotación
+; AL = 1101 1011
+; CF = 0
+; LSB (1) -> CF (1)
+; CF anterior (0) -> MSB (0)
+; AL = 0110 1101
+; CF = 1
+
+; Tercera rotación
+; AL = 0110 1101
+; CF = 1
+; LSB (1) -> CF (1)
+; CF anterior (1) -> MSB (1)
+; AL = 1011 0110
+; CF = 1
+```
+
+## Instrucción RCL (rotate through carry left)
+
+Toma un registro o un valor en memoria y lo rota hacia la izquierda usando `CF` como bit extra en la rotación. Es decir, que `CF` entra en el bit LSB durante la rotación, y el bit MSB sale a `CF`.
+
+**¿Que flags del CPU afecta?**
+
+- `CF`Siempre se modifica, después de `RCL` queda con el último bit que salió del MSB del operando.
+
+- `OF` Solo cuando se realizan rotaciones de 1 bit. Para `count > 1` queda indefinido. (Se define al final de la operación).
+
+  **Fórmula:** `XOR(MSB, CF)`
+
+**Sintaxis:** `RCL r/m, count`
+
+**Parámetros**
+
+- `r/m` Registro o posición de memoria (byte o word según el tamaño).
+- `count` Valor inmediato, 1-31 dependiendo del tamaño del operando (8 a 32 bits). O el registro `CL` para rotaciones variables.
+
+**Ejemplo (rotación de 1 bit)**
+
+```asm
+; Intel
+; Rotación de 1 bit
+; CF = 1
+mov al, 0xB6 ; al = 1011 0110b
+rcl al, 1
+; MSB -> CF (1)
+; CF anterior -> LSB (1)
+; AL = 0110 1101
+; CF = 1
+```
+
+**Ejemplo (rotación de 3 bits)**
+
+```asm
+; Intel
+; Rotación de 3 bits
+; CF = 1
+mov al, 0xB6 ; al = 1011 0110b
+rcl al, 3
+; Primera rotación
+; AL = 1011 0110
+; CF = 1
+; MSB -> CF (1)
+; CF anterior -> LSB (1)
+; AL = 0110 1101
+; CF = 1
+
+; Segunda rotación
+; AL = 0110 1101
+; CF = 1
+; MSB -> CF (0)
+; CF anterior -> LSB (1)
+; AL = 1101 1011
+; CF = 0
+
+; Tercera rotación
+; AL =  1101 1011
+; CF = 0
+; MSB -> CF (1)
+; CF anterior -> LSB (0)
+; AL = 1011 0110
+; CF = 1
+```
+
+
 
 todo: abordar saltos
 
 todo: abordar call y ret
 
 todo: abordar enter / leave
+
+todo: abordar cld y std
+
+todo: abordar instrucción nop
+
+todo: abordar instrucciones string: MOVSx / STOSx, LODSx, , SCASx y CMPSx
+
+todo: hacer algunos programas
+
+todo: abordar el uso de fpu x87 (fdiv, fdivp, etc)
+
+**todo: abordar SSE / AVX**
