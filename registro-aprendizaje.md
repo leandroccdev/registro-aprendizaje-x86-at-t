@@ -5168,6 +5168,84 @@ El `jmp near` mide 5 bytes (1 byte del `opcode` + 4 bytes del offset).
 3. Suma `+2`.
 4. Nuevo RIP = `0x400009` (`target`).
 
+## Etiquetas
+
+Las etiquetas son nombres simbólicos que representan una dirección de memoria dentro del programa. No ocupan espacio por sí mismas, simplemente sirven como referencias.
+
+**Usos comunes**
+
+- Saltos incondicionales/condicionales: `JMP`, `JE`, `JNE`, `JL`, etc.
+- Llamadas a funciones `CALL`.
+- Definir posiciones de datos: `.data`, `.bss`.
+
+**Sintaxis**
+
+```asm
+nombre_etiqueta:
+    ; instrucciones o datos
+```
+
+El carácter `:` (dos puntos) indica que es una etiqueta.
+
+**Tipos de etiquetas**
+
+1. Etiquetas de código
+
+   Se usan para saltos y llamadas.
+   ```asm
+   section .text
+   global _start
+   
+   _start:
+       ; Programa principal
+   hola:
+       ; Código
+   fin:
+       ; Código
+   section .data
+       ; Código
+   ```
+
+   En el ejemplo `hola` y `fin` son etiquetas.
+
+2. Etiquetas de datos
+
+   Se usan en `.data` o `.bss` para definir variables o cadenas.
+
+   ```asm
+   section .data
+       contador: db 0     ; un byte inicializado a 0
+       texto: db "hola",0 ; cadena terminada en null 
+   ```
+
+   `contador` y `texto` son etiquetas de datos (variables). Se pueden usar en instrucciones como:
+
+   ```asm
+   mov al, [contador] ; carga el valor de contador en AL
+   ```
+
+**Reglas para los nombres de etiquetas**
+
+- Pueden incluir letras, números y `_`.
+- No pueden empezar con un número.
+- Sensibles a mayúsculas y minúsculas (en NASM y GAS).
+- Deben ser únicas dentro de la misma sección (aunque algunos ensambladores permiten etiquetas locales).
+
+**Etiquetas locales**
+
+Algunas sintaxis como NASM permiten etiquetas locales usando el prefijo `.` (punto).
+
+```asm
+; NASM
+inicio:
+	; Código
+.loop: ; Etiqueta local
+	; Código
+```
+
+En el ejemplo anterior `.loop` es una etiqueta local.
+**Nota:** Solo son accesibles dentro del alcance de `inicio:` (dependiendo del ensamblador).
+
 ## Instrucción `JMP` (jump)
 
 Realiza un salto incondicional. Siempre transfiere el flujo de ejecución sin mirar flags ni condiciones. Cambiando el **instruction pointer** `IP / EIP / RIP` (según modo)  sin modificar los flags del CPU.
@@ -5207,7 +5285,7 @@ start:
 ; offset de 32 bits (no existe un offset de 64 bits)
 ```
 
-**2. Salto corto**
+**2. Salto corto (short  jump)**
 
 Son desplazamientos de 8 bits con un rango de `-128` a `+127` bytes, medidos desde la instrucción siguiente.
 
@@ -5229,23 +5307,412 @@ loop:
 ```
 
 El ensamblador verifica que `loop` esté a menos de `±128` bytes.
-Codifica el salto como `EB xx` donde `xx` es el offset relativo `destio - IP_siguiente`, y `EP` es el `opcode`
+Codifica el salto como `EB xx` donde `xx` es el offset relativo `destio - IP_siguiente`, y `EB` es el `opcode`.
+
+**3. Salto cercano (near jump)**
+
+```asm
+; Intel
+jmp near etiqueta
+```
+
+Tiene un desplazamiento de 16 a 32 bits.
+
+**4. Salto indirecto**
+
+```asm
+; Intel
+jmp rax
+jmp [memoria]
+```
+
+El destino no está codificado directamente, sino que está en un registro o en memoria.
+
+```asm
+; Intel
+jmp rax         ; RIP = rax
+jmp [table+rcx] ; salto por tabla
+```
+
+Se usa mucho en: switch/case, jump tables, virtualización, obfuscación , ROP (return-oriented programming) / explotación.
+
+**5. Salto lejano**
+
+```asm
+; Intel
+jmp far seg:offset
+```
+
+Cambia `CS:IP`. Se usa en modo real y protegido. Prácticamente inexistente en código moderno de 64 bits.
+
+**Efecto en el predictor de saltos**
+
+`JMP` rompe la predicción de saltos. El salto indirecto es más costoso, por lo que los compiladores intentan minimizar saltos o usar fall-through.
+
+## Instrucción `JE` (jump if equal)
+
+Salto condicional que depende del estado de los flags del CPU.
+`JE` salta si el flag `ZF` (Zero Flag) está en uno. En otras palabras `JE  ⇔  ZF = 1` (salta si y solo sí ZF = 1).
+La instrucción **no compara nada**, solo lee el estado de `ZF` y dependiendo de su valor realiza el salto.
+
+**¿Cuándo se activa el `ZF`?**
+
+El `ZF` se activa cuando una operación previa produce un resultado 0, típicamente con: `CMP`, `TEST` u operaciones aritméticas como `SUB`, `ADD`, etc.
+
+**Sintaxis:** `JE etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+cmp eax, ebx ; Internamente hace eax - ebx
+je etiqueta  ; Salta si eax == ebx a etiqueta:
+
+; Ejemplo paso a paso
+mov eax, 5
+cmp eax, 5 ; 5 - 5 = 0 -> ZF = 1
+je ok      ; Salta porque ZF = 1
+
+mov ebx, 0 ; Instrucción saltada
+ok:        ; Etiqueta a la que salta JE
+mov ebx, 1 ; Esta instrucción se ejecuta
+; Resultado
+; EBX = 1
+```
+
+**Tamaños de salto**
+
+| Característica     | **Short**     | **Near (16-bit)** | **Near (32/64-bit)** | **Far**      |
+| ------------------ | ------------- | ----------------- | -------------------- | ------------ |
+| Nombre             | short         | near              | near                 | far          |
+| Offset             | 8 bits signed | 16 bits signed    | 32 bits signed       | seg:offset   |
+| Rango              | −128 a +127 B | −32 768 a +32 767 | ±2 GB                | Segmentado   |
+| Tamaño instrucción | 2 bytes       | 3–4 bytes         | 6 bytes              | Variable     |
+| Modos CPU          | 16 / 32 / 64  | 16 bits           | 32 / 64 bits         | Real / Prot. |
+| RIP-relative (64b) | Sí            | No                | Sí                   | No           |
+| Inmediato 64 bits  | No            | No                | No                   | No           |
+| Uso actual         | Muy común     | Antiguo           | Muy común            | Obsoleto     |
+
+## Instrucción `JZ` (jump if zero)
+
+Salta a la irección indicada si el flag `ZF` (Zero Flag) está en uno. `ZF` queda en uno cuando el resultado de la última operación es cero. Puede ocurrir típicamente con: `CMP`, `TEST`, `SUB`, `ADD`, `AND`, `XOR`, etc.
+`JZ` y `JE` son similares.
+
+Pudiera parecer que `JZ` es una instrucción distinta a `JE`, no obstante ambas instrucciones se ensamblan al mismo `opcode` y verifican `ZF = 1`. Se aplican distintos nombres por legibilidad para los siguientes usos:
+
+- `JE` es usado en comparaciones (`CMP`).
+- `JZ` es usado en operaciones aritméticas o lógicas.
+
+**Sintaxis:** `JZ etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+test eax, eax ; eax & eax
+jz etiqueta   ; Salta si ZF = 1 después de una operación lógica
+; Si eax == eax el resultado será 0 y por lo tanto ZF = 1
+```
+
+`JZ` es semánticamente mas claro que `JE` para el presente contexto.
+
+**Tamaños de salto soportados**
+
+`JZ` no admite saltos lejanos (solo relativos).
+
+| Tipo  | Displacement  | Arquitectura     |
+| ----- | ------------- | ---------------- |
+| short | 8 bits (±128) | x86 / x64        |
+| near  | 16 bits       | x86 16-bit       |
+| near  | 32 bits       | x86 32-bit / x64 |
+
+**`OPCODES`**
+
+| Tipo       | Opcode     |
+| ---------- | ---------- |
+| `jz short` | `74 cb`    |
+| `jz near`  | `0F 84 cd` |
+
+## Instrucción `JNE` (jump if not equal)
+
+Salto condicional. Salta si los valores comparados no son iguales. Es decir, salta si `ZF` es cero. Por lo que también se le conoce como su versión `JNZ` (jump is not zero). No modifica ningún flag del CPU. Solo lee el flag `ZF` (Zero Flag).
+Usada normalmente después de instrucciones como: `CMP`, `TEST`, `SUB`, `ADD`, etc.
+
+**Sintaxis:** `JNE etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+cmp eax, ebx
+jne etiqueta ; Salta a etiqueta si eax - ebx != 0
+```
+
+**Equivalente en alto nivel**
+
+```C
+if (eax != ebx)
+	salto
+```
+
+**Ejemplo simple**
+
+```asm
+; Intel
+mov eax, 5
+mvo ebx, 3
+cmp eax, ebx
+jne no_iguales ; 5 - 3 != 0 (salta)
+
+iguales:
+	; Este código no se ejecuta
+	jmp fin
+no_iguales:
+	; Este codigo sí se ejecuta
+fin:
+```
+
+**Tamaños de los saltos de `JNE`**
+
+| Tipo de salto     | Nombre      | Tamaño del displacement | Rango             |
+| ----------------- | ----------- | ----------------------- | ----------------- |
+| **Corto**         | `short JNE` | 8 bits (signed)         | −128 a +127 bytes |
+| **Near (16-bit)** | `near JNE`  | 16 bits (signed)        | −32 768 a +32 767 |
+| **Near (32-bit)** | `near JNE`  | 32 bits (signed)        | −2³¹ a +2³¹−1     |
+
+**Notas:**
+
+- El displacement siempre es signed (con signo).
+
+- El cálculo es:
+
+  `IP/EIP/RIP = IP/EIP/RIP_siguiente + displacement`
+
+## Instrucción `JNZ` (jump if not zero)
+
+Salto condicional. Salta si el resultado de la operación anterior fue distinto a cero. Es decir cuando `ZF` es cero. No modifica ningún flag del CPU. Solo lee `ZF`.
+Es sinónima de la instrucción `JNE`, ya que ambas verifican `ZF = 0` para realizar el salto. Pero `JNZ` se usa cuando tratas con resultados numéricos, y `JNE` cuando tratas con comparaciones.
+
+**¿Cuando salta?**
+
+- `ZF = 0` salta.
+- `ZF = 1` el salto no se realiza.
+
+**Sintaxis:** `JNZ etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+mov eax, 5
+sub eax, 5    ; eax = 0 → ZF = 1
+jnz etiqueta: ; No salta
+
+mov eax, 5
+sub eax, 3   ; eax = 2 → ZF = 0 (resultado distinto de cero)
+jnz etiqueta ; Sí salta
+```
+
+**Ejemplo en bucle clásico**
+
+```asm
+; Intel
+mov ecx, 5
+loop_start:
+	; Cuerpo del bucle
+	dec ecx ; ZF = 1 cuando ECX llega a 0
+	jnz loop_start
+; El bucle se repite mientras ECX != 0
+```
+
+**Tamaño del salto**
+
+| Tipo      | Tamaño del desplazamiento  |
+| --------- | -------------------------- |
+| **Short** | 8 bits (-128 a +127 bytes) |
+| **Near**  | 16 bits (modo 16)          |
+| **Near**  | 32 bits (modo 32 y 64)     |
+
+**Nota:** en x86-64 no existe `far jnz`.
+
+**`OPCODEs`**
+
+| Forma       | Opcode     |
+| ----------- | ---------- |
+| `jnz short` | `75 cb`    |
+| `jnz near`  | `0F 85 cd` |
+
+## Instrucción `JS` (jump if sign)
+
+Salto condicional. Depende exclusivamente de `SF` (Sign Flag). Salta si el resultado previo fue negativo, es decir `SF = 1`. Lo que significa que el último resultado aritmético/lógico tuvo su MSB en uno. Si `SF = 0` el salto no se realiza. No modifica ningún flag del CPU. Solo lee `SF`.
+
+**Sintaxis:** `JS etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo básico
+mov eax, -5   ; eax = 0xFFFFFFFB (11111111 11111111 11111111 11111011)
+test eax, eax ; eax & eax = eax (no cambia EAX, solo ajusta los flags)
+; SF = 1
+js negativo   ; Salta a la etiqueta netagivo
+
+negativo:
+	; Código ejecutado después del salto
+
+; TEST realiza un AND lógico entre los operandos (mismo registro) solo para afectar los flags, sin guardar el resultado.
+
+; Ejemplo comparando valores con signo
+cmp eax, ebx ; eax - ebx
+js salto     ; Resultado de la resta negativo, SF = 1, js salta.
+
+salto:
+	; Código ejecutado después del salto
+```
+
+**Tamaños del salto**
+
+| Tipo de salto | Desplazamiento          | Rango             |
+| ------------- | ----------------------- | ----------------- |
+| **Short**     | rel8 (8 bits, signed)   | −128 a +127 bytes |
+| **Near**      | rel32 (32 bits, signed) | ±2 GB             |
+
+**Nota:** En modo 64 bits no existe `JS rel64`.
+
+**Usos típicos**
+
+- Verificar resultados negativos en operaciones.
+- Detectar underflow con signo.
+- Control de flujo tras: `ADD`, `SUB`, `CMP`, `TEST`.
+
+## Instrucción `JNS` (jump if not sign)
+
+Salto condicional. Salta a la etiqueta si `SF = 0`, es decir si el resultado no es negativo o es cero. Esto significa que para el resultado el bit MSB es cero.
+No modifica los flags del CPU, lee solo `SF` (Sign Flag).
+
+**Sintaxis:** `JNS etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo básico
+mov eax, 5    ; eax = 00000000 00000000 00000000 00000101
+test eax, eax ; SF = 0 porque eax AND eax = eax
+jns salto     ; SF = 0, salta
+
+salto:
+	; Código que se ejecuta después del salto
+
+; Ejemplo con número negativo
+mov eax, -5   ; eax = 11111111 11111111 11111111 11111011
+test eax, eax ; SF = 1
+jns salto     ; SF = 1, no salta
+```
+
+**Tamaños del salto**
+
+| Tipo  | Tamaño  | Rango       |
+| ----- | ------- | ----------- |
+| short | 2 bytes | −128 a +127 |
+| near  | 6 bytes | ±2 GB       |
+
+**Nota:** En modo 64 bits no existe `JS rel64`.
+
+**Usos típicos**
+
+- Verificar si un valor es `>= 0`.
+- Después de `test reg, reg`.
+- Validaciones.
+- Bucles.
+- Manejo de errores.
+
+## Instrucción `JO` (jump if overflow)
+
+Salto condicional. Salta cuando el flag `OF` (Overflow Flag) está en uno. Es decir, cuando ocurre un overflow en operaciones aritméticas con signo (cuando el resultado no cabe en el rango del operando). No modifica los flags del CPU. Solo lee `OF`.
+
+**¿Cuando `OF` es seteado?**
+
+El flag se ajusta principalmente por: `ADD`, `SUB`, `IMUL`, `INC`, `DEC`.
+
+**Sintaxis:** `JO etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo de overflow con signo
+mov al, 127 ; 0111 1111  (+127)
+add al, 1   ; resultado = 1000 0000 (-128)
+jo etiqueta
+; 127 + 1 = 128 (no cabe en int8 con signo)
+; OF = 1 indicando overflow
+; jo salta al detectar OF = 1
+
+; Ejemplo sin overflow
+mov al, 5
+add al, 3 ; resultado = 8
+jo etiqueta ; No salta
+; OF = 0 (no se produjo overflow)
+```
+
+**Tamaños del salto**
+
+| Tipo   | Desplazamiento                |
+| ------ | ----------------------------- |
+| Short  | 8 bits (±128 bytes)           |
+| Near   | 16 / 32 bits                  |
+| x86-64 | RIP-relative (32 bits signed) |
+
+## Instrucción `JNO` (jump if not overflow)
+
+Salto condicional. Salta si el flag `OF` esta en cero, es decir, cuando el resultado cabe en el registro destino. Es la instrucción complementaria a `JO`. No modifica ningún flag de la CPU. Solo lee `OF` (Overflow Flag).
+**Nota:** Solo tiene sentido después de una instrucción que afecte a OF.
+
+**Sintaxis:** `JNO etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo sin overflow
+; OF = 0
+mov al, 100
+add al, 20 ; 100 + 20 = 120 (cabe en AL en 8 bits, OF no se modifica).
+jno etiqueta ; Salta porque OF = 0
+
+; Ejemplo con overflow
+; OF = 0 Inicial
+mov al, 127
+add al, 1    ; overflow (127 + 1 = -128)
+jno etiqueta ; No salta porque OF = 1
+```
+
+## Instrucción `JC` (jump if carry)
+
+Salto condicional. Salta si hubo acarreo, es decir cuando `CF = 1`. Normalmente con instrucciones como: `ADD` o `SUB`. No modifica ningún flag del CPU. Solo lee `CF` (Carry Flag).
+
+**Sintaxis:** `JC etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo con acarreo
+mov al, 255
+add al, 1 ; AL = 0, CF = 1 porque 255 + 1 desborda el registro de 8 bits
+jc etiqueta  ; Salta porque CF = 1
+
+; Ejemplo sin acarreo
+mov al, 100
+add al, 10  ; AL = 110, CF = 0 porque no se desborda el registro de 8 bits
+jc etiqueta ; No salta porque CF = 0
+```
+
+## Instrucción `JNC` (jump if not carry)
 
 
-
-
-
-
-
-todo: abordar saltos
-
-**Unsigned** → CF / ZF → `JA`, `JB`, `JBE`, `JAE`
-
-**Signed** → SF vs OF → `JG`, `JL`, `JGE`, `JLE`
-
-**Cero** → ZF → `JE`, `JNE`
-
-**Bucle** → RCX → `LOOP`, `JRCXZ`
 
 todo: abordar setcc y cmovcc
 
