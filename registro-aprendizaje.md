@@ -5712,7 +5712,304 @@ jc etiqueta ; No salta porque CF = 0
 
 ## Instrucción `JNC` (jump if not carry)
 
+Salto condicional. Salta si `CF = 0`. Es complementaria a `JC`. No modifica ningún flag, solo lee `CF` (Carry Flag).
 
+**Sintaxis:** `JNC etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejmplo de suma simple
+mov al, 200  ; AL = 200
+add al, 100  ; AL = 200 + 100 = 44 (por desbordamiento en 8 bits)
+; Overflow porque 200 + 100 = 300 mod 256 = 44
+jnc etiqueta ; No salta porque CF = 1 (overflow unsigned)
+
+; Ejemplo con resta
+mov al, 50  ; AL = 0011 0010
+sub al, 100 ; AL = 50 - 100 = -50 (signed) o 206 (unsigned)
+; 100 = 0110 0100
+;     0011 0010   (50)
+;   - 0110 0100   (100)
+;   -----------
+; (1) 1100 1110
+; (1): borrow (acarreo)
+; CF = 1
+jnc etiqueta ; no salta porque CF = 1
+```
+
+## Instrucción `JB` (jump if below)
+
+Salto condicional. Salta si el primer operando es **menor que** el segundo en una comparación sin signo (unsigned). Es decir, salta si `CF = 1`. No modifica ningún flag, solo lee `CF` (Carry Flag).
+La diferencia de `JC` es semántica, mientras ésta se usa en un contexto aritmético / bit a bit, `JB` se usa en un contexto de comparación unsigned.
+
+**Sintaxis:** `JB etiqueta`
+
+```asm
+; Intel
+; Comparación unsigned
+cmp al, bl
+jb menor_unsigned
+; ¿AL es menor a BL (sin signo)?
+
+; En cambio si se usara jc, quien leyera el código pensaría en acarreo, mas no en comparación sin signo.
+```
+
+## Instrucción `JNAE` (jump if not abobe or equal)
+
+Salto condicional. Salta si el primer operando es menor que el segundo, cuando se interpretan como unsigned. (Generalmente después de `CMP`). Es decir cuando `CF = 1`. No modifica los flags del CPU. Solo lee `CF` (Carry Flag).
+Nuevamente la diferencia respecto a `JC` y `JB` es semántica para el programador. `JNAE` se puede leer como ***Salta si no es mayor o igual*** o, de forma equivalente ***salta si es menor (unsigned)***. La primera es una negación lógica (no depende de signed/unsigned), en cambio la segunda es una relación de orden (sí depende de signed/unsigned).
+
+**Sintaxis:** `JNAE etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+mov al, 50
+cmp al, 100   ; 50 - 100 requiere borrow (CF = 1)
+jnae etiqueta ; Salta porque CF = 1
+; El borrow nos dice que 50 < 100 en unsigned
+```
+
+## Instrucción `JAE` (jump if above or equal)
+
+Salto condicional. Salta si el primer operando es mayor o igual al segundo en una comparación unsigned. Es decir cuando `CF = 0`. No modifica los flags del CPU. Solo lee `CF` (Carry Flag). Normalmente usada después de `SUB` o `CMP`.
+La diferencia respecto a `JNC` nuevamente es solo semántica para el programador (comparten el mismo `opcode`). Mientras que `JNC` es usada para revisar si hubo carry o borrow, `JAE` se usa para comparar números unsigned.
+
+**Sintaxis:** `JAE etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo con cmp
+cmp a, b ; hace a - b (no guarda el resultado, ajusta flags solamente)
+jae etiqueta ; Salta solo si CF = 0
+
+; Ejemplo con sub
+sub a, b
+jae etiqueta
+
+; Ejemplo simple en 8 bits
+mov al, 100
+cmp al, 50      ; 100 - 50 = 50
+jae mayor_igual ; CF = 0, salta
+
+; Caso contrario
+mov al, 50
+cmp al, 100     ; 50 - 100 → borrow
+jae mayor_igual ; CF = 1 → no salta
+```
+
+## Instrucción `JNB` (jump if not below)
+
+Salto condicional. Salta si no hubo borrow en una comparación unsigned. Es decir cuando `CF = 0` respecto de la operación anterior y el resultado no fue menor (unsigned). No modifica ningún flag del CPU. Solo lee `CF`.
+A diferencia de sus instrucciones similares semánticamente, `JNE` se usa cuando el programador piensa en comparaciones unsigned.
+
+**Sintaxis:** `JNB etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Aritmética
+add al, bl
+jnc sin_overflow
+
+; Comparación unsigned
+cmp al, bl
+jnb mayor_o_igual
+
+; Ejemplo práctico
+mov al, 5
+cmp al, 3 ; 5 - 3 = 2, CF = 0
+jnb etiqueta ; CF = 0, salta
+```
+
+## Instrucción `JA` (jump if above)
+
+Salto condicional. Salta si el primer operando es estrictamente mayor que el derecho, en una comparación unsigned. Es decir si `CF = 0` y `ZF = 0`. No modifica ningún flag del CPU. Solo lee `CF` y `ZF`.
+
+**Sintaxis:** `JA etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo unsigned
+mov al, 200 ; 200 unsigned
+mov bl, 100 ; 100 unsigned
+cmp al, bl  ; AL - BL = 200 - 100 = 100
+ja mayor    ; Salta porque ZF = 0 y CF = 0 (comparación unsigned)
+
+; Ejemplo donde no salta
+mov al, 100
+mov bl, 200
+cmp al, bl  ; AL - BL = 100 - 200
+ja mayor    ; no salta porque CF = 1 (hubo borrow)  y ZF = 0
+
+; Ejemplo valores negativos (trampa común)
+mov al, -1 ; 0xFF = 255 unsigned
+mov bl, 1
+cmp al, bl ; AL - BL = 255 - 1
+ja mayor   ; sí salta
+; Porque:
+; -1 con signo = -1
+; -1 sin signo = 255
+```
+
+A simple vista se piensa "-1 no puede ser mayor que 1", pero eso solo funciona con números con signo. `JA` no usa signo, usa unsigned.
+
+**¿Qué valor real se guarda en el registro?**
+
+`AL` es un registro de 8 bits, cuando se hace `mov al, -1` el CPU no guarda `-1` como concepto, guarda bits.
+
+```
+-1 en complemento a dos (8 bits)
+1111 1111b
+0xFF
+```
+
+Ese patrón de bits se puede interpretar como:
+
+| Interpretación    | Valor |
+| ----------------- | ----- |
+| **signed int8**   | -1    |
+| **unsigned int8** | 255   |
+
+`CMP` hace `AL - BL`, lo que sustituyendo queda como `0xFF - 0x01 = 0xFE` o en binario:
+
+```
+  11111111
+- 00000001
+----------
+  11111110
+```
+
+**Resultado:** `0xFE` (254 unsigned o -2 signed), es decir, no hubo borrow.
+
+## Instrucción `JBE` (jump if below or equal)
+
+Salto condicional. Salta si es menor o igual en comparación unsigned. Es decir **cuando** `CF = 1` **o** `ZF = 1`. Equivale a `if (a <= b) (unsigned)`. No modifica los flags del CPU. Solo lee `CF` (Carry Flag) y `ZF` (Zero Flag).
+
+**Sintaxis:** `JBE etiqueta`
+
+**Casos posibles**
+
+| Resultado | Flags          | Significado              |
+| --------- | -------------- | ------------------------ |
+| `a < b`   | CF = 1         | Hubo borrow → a es menor |
+| `a == b`  | ZF = 1         | Resultado cero           |
+| `a > b`   | CF = 0, ZF = 0 | No salta                 |
+| `z ≤ b`   | ZF = o CF = 1  | Salta                    |
+
+**Ejemplo**
+
+```asm
+; Intel
+; Menor (unsigned)
+mov al, 50
+mov bl, 100
+cmp al, bl        ; AL - BL = 50 - 100 → borrow
+jbe menor_o_igual ; Salta porque CF = 1 y ZF = 0
+
+; Igual
+mov al, 100
+mov bl, 100
+cmp al, bl  ; 100 - 100 = 0
+jbe menor_o_igual ; Salta porque ZF = 1 y CF = 0
+
+; Mayor
+mov al, 200
+mov bl, 100
+cmp al, bl        ; 200 - 100
+jbe menor_o_igual ; No salta porque CF = 0 y ZF = 0
+
+; Menor o igual (unsigned)
+mov al, 30
+mov bl, 50
+cmp al, bl      ; 30 - 50 → borrow
+jbe menor_igual ; CF = 1 -> salta
+```
+
+## Instrucción `JG` (juimp if greater)
+
+Salto condicional. Es usada en comparaciones con signo. Salta si el primer operando es mayor que el segundo (signed). Es decir cuando `ZF = 0` y `SF = 0`. No modifica ningún flag del CPU. Lee `SF` y `ZF`.
+
+**Equivale a:** `if (x > y)`
+
+**Interpretación de los flags**
+
+- `ZF = 0` Operandos no son iguales.
+- `SF = OF` El resultado fue positivo sin error de signo.
+
+Ambas juntas indican que el resultado de la resta fue mayor que cero (interpretado con signo).
+
+**Sintaxis:** `JG etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo simple (signed)
+mov al, 10
+mov bl, 5
+cmp al, bl ; 10 - 5 = 5, ZF = 0 y CF = 0
+jg mayor   ; Salta
+
+; Ejemplo trampa
+mov al, -1 ; 0xFF = -1 (signed)
+mov bl, 1  ; 1
+cmp al, bl ; -1 - 1 = -2
+
+jg mayor   ; no salta
+```
+
+Aunque `0xFF` es 255 unsigend, para `JG` se interpreta como -1 y `-1 > 1 → falso`.
+
+## Instrucción `JGE` (jump if greater or equal)
+
+Salto condicional. Salta si la comparación previa indica "mayor o igual" (signed). Es decir cuando `SF == OF`. No modifica los flags del CPU. Lee `SF` y `OF`.
+
+**¿Qué indican los flas?**
+
+- `SF` indica si el resultado fue negativo.
+- `OF` indica overflow en aritmética con signo.
+
+Si ambos coinciden, el número es >= 0 en comparación signed, es decir: mayor que o igual.
+
+**Equivale a:** `a ≥ b (signed)`
+
+**Sintaxis:** `JGE etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Mayor (signed)
+mov al, 10
+mov bl, 5
+cmp al, bl        ; 10 - 5 = 5, SF = 0 y OF = 0
+jge mayor_o_igual ; Salta
+
+; Igual
+mov al, -3
+mov bl, -3
+cmp al, bl        ; -3 - (-3) = 0, SF = 0 y OF = 0
+jge mayor_o_igual ; salta
+
+; Menor
+mov al, -10
+mov bl, 5
+cmp al, bl        ; -10 - 5 = -15, SF = 1 y OF = 0
+jge mayor_o_igual ; No salta
+```
+
+## Instrucción `JL` (jump if less)
+
+Salto condicional.
 
 todo: abordar setcc y cmovcc
 
