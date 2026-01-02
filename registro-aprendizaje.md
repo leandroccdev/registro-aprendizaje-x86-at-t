@@ -6011,6 +6011,89 @@ jge mayor_o_igual ; No salta
 
 Salto condicional.
 
+
+
+
+
+
+
+## Instrucción `POPCNT` (population count)
+
+Cuenta cuántos bits están encendidos (en uno) en un operando. Tambien se le llama *Hamming weight*.
+
+**¿Qué hace exactamente?**
+
+1. Toma el operando fuente.
+2. Cuenta los bis encendidos (que están en uno).
+3. Guarda el resultado en el registro destino.
+
+**Flags del CPU**
+
+A pesar de que `POPCNT` no es una instrucción aritmética, si toca los flags del CPU.
+
+| Flag   | Estado                                |
+| ------ | ------------------------------------- |
+| **ZF** | **1 si el resultado es 0**, si no → 0 |
+| CF     | 0                                     |
+| OF     | 0                                     |
+| SF     | 0                                     |
+| PF     | 0                                     |
+| AF     | indefinido                            |
+
+**Sintaxis:** `POPCNT reg, r/m`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplos válidos
+popcnt eax, ebx ; 32 bits
+popcnt rax, rbx ; 64 bits
+popcnt ecx, [mem]
+
+; Ejemplo en 64 bits
+mov rax, 0b10101101
+popcnt rbx, rax     ; rbx = 5
+```
+
+No existe forma de 8 a 16 bits por lo que no puedes usar `AL` o `AX`.
+
+Usos comunes
+
+- Comprobar si un número es potencia de 2. Una potencia de 2 tiene exactamente un bit encendido.
+  ```asm
+  ; Intel
+  popcnt rcx, rax
+  cmp rcx, 1
+  je es_potencia_de_dos
+  ```
+
+- Criptografía
+
+- Bitboards (ajedrez, juegos, etc)
+
+- Compresión
+
+- Máscaras de permisos
+  ```asm
+  ; Intel
+  ; rax = máscara de permisos
+  popcnt rcx, rax
+  ; rcx = cantidad de permisos activos
+  ```
+
+- Análisis binario / reversing
+
+- SIMD / optimizaciones low-level
+
+### Requisitos de CPU
+
+`POPCNT` no es x86 clásico, es una extensión introducida por ***SSE4.2***. Su Flag CPUID es `POPCNT`.
+
+**Alternativa portable**: `x &= x - 1 en bucle`
+
+**Rendimiento**: En CPUs modernas su latencia es de aproximadamente 3 ciclos y un throughtput de 1 ciclo. (Mas rápido que hacerlo a mano).
+
 todo: abordar setcc y cmovcc
 
 todo: abordar call y ret
