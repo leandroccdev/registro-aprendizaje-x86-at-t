@@ -6009,11 +6009,230 @@ jge mayor_o_igual ; No salta
 
 ## Instrucción `JL` (jump if less)
 
-Salto condicional.
+Salto condicional. Salta si el primer operando es menor que el segundo, interpretados como números con signo. Es decir cuando `SF != OF`.
 
+**Equivale a: ** `x < y (signed)`
 
+**¿Por qué `SF != OF` significa "menor" (signed)?**
 
+En aritmética con signo, el bit de signo por sí solo no siempre es confiable si hubo overflow.
 
+- `SF` signo del resultado.
+- `OF` indica si el signo es inválido por overflow.
+
+Cuando `SF != OF`, el resultado es negativo real y eso implica `x < y`.
+
+**Sintaxis:** `JL etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Simple
+mov al, -10
+mov bl, 5
+cmp al, bl ; -10 - 5 = -15
+jl menor   ; Salta porque SF != OF
+; -10 < 5 → correcto
+
+; Ejemplo en donde unsigned fallaría
+mov al, 200 ; 200 unsigned = -56 signed
+mov bl, 100
+cmp al, bl  ; 200 - 100
+jl menor
+; Interpretación signed
+; -56 < 100 → salta
+; Interpretación unsigned
+; 200 > 100 → no salta
+; Por esto JL se usa solo para signed y se usa JB para unsigned
+```
+
+## Instrucción `JLE` (jump if less or equal)
+
+Salto condicional. Salta si es menor o igual en una comparación con signo. Es decir, salta cuando `ZF = 1` o `SF != OF`. No modifica los flags del CPU. Lee solo `ZF`, `ZF` y `OF`.
+`JLE` se usa con números con signo. Para unsigned la instrucción equivalente es `JBE`.
+
+**Condición del salto**
+
+`JLE` salta si `(x < y) || x == y` (menor o igual).
+
+- `ZF = 1` los valores son iguales (`x == y`).
+- `SF != OF` el primero es menor que el segundo (`x < y` con signo).
+
+**Equivale a:** `if (x == y || x < y)`.
+
+**Sintaxis:** `JLE etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+mov eax, -5
+mov ebx, 3
+cmp eax, ebx ; -5 - 3 = -8
+; Flags
+; ZF = 0 (no son iguales)
+; SF = 1 (resultado negativo)
+; OF = 0 (sin overflow)
+jle etiqueta ; Salta ZF = 1 || SF != OF
+```
+
+## Instrucción `JP` (jump if parity)
+
+Salto condicional. Salta si el bit de paridad está activo. Es decir `PF = 1`. No modifica los flags del CPU. Lee solo `PF`.
+
+**`PF` (Parity Flag) flag**
+
+- `PF = 1` cuando el byte LSB del resultado tiene una cantidad par de bits encendidos.
+- `PF = 0` cuando tiene una cantidad impar de bits encendidos.
+
+**Sintaxis:** `JP etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo en donde salta
+mov al, 3   ; 0000 0011 → 2 bits encendidos (PF = 1)
+test al, al ; actualiza flags según AL
+jp etiqueta ; salta porque PF = 1
+
+; Ejemplo donde no salta
+mov al, 7   ; 0000 0111 → 3 bits encendidos (PF = 0)
+test al, al ; actualiza flags según AL
+jp etiqueta ; no salta porque PF = 0
+```
+
+**Usos comunes**
+
+Hoy en día `JP` casi no se usa en programación de aplicaciones, pero aparece en:
+
+- Rutinas de bajo nivel
+- Criptografía antigua / checksums
+- Optimización muy específica
+- Código ofuscado o reversing
+- Control de errores de hardware o comunicaciones antiguas
+
+## Instrucción `JPE` (jump if parity even)
+
+Salto condicional. Tiene el mismo `opcode` que `JP` y un sentido mas semántico (salta si la paridad es par) a diferencia de `JP` (salta si hay paridad).
+
+**Sintaxis:** `JPE etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo en donde salta
+mov al, 3   ; 0000 0011 → 2 bits encendidos (PF = 1)
+test al, al ; actualiza flags según AL
+jpe etiqueta ; salta porque PF = 1
+
+; Ejemplo donde no salta
+mov al, 7   ; 0000 0111 → 3 bits encendidos (PF = 0)
+test al, al ; actualiza flags según AL
+jpe etiqueta ; no salta porque PF = 0
+```
+
+## Instrucción `JNP` (jmp if not parity)
+
+Salto condicional. Salta si el bit de paridad está inactivo. Es decir cuando `PF = 0` (cuando no hay paridad). En otras palabras, cuando el byte LSB del resultado tiene una cantidad de bits encendidos impares.
+No modifica los flags del CPU. Lee solo `PF`.
+
+**Sintaxis:** `JNP etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo en donde no salta
+mov al, 5    ; 0000 0101 → tiene 2 bits encendidos (PF = 1)
+test al, al  ; actualiza flags según AL
+jnp etiqueta ; No salta porque PF = 1
+
+; Ejemplo en donde salta
+mov al, 7    ; 0000 0111 → 3 bits encendidos (PF = 0)
+test al, al  ; actualiza flags según AL
+jnp etiqueta ; salta porque PF = 0
+```
+
+## Instrucción `JPO` (jump if parity odd)
+
+Salto condicional. Tiene el mismo `opcode` de `JNP` y un sentido semánticamente distinto (salta si la paridad del resultado es impar), a diferencia de `JNP` (salta si no hay paridad par). Para todos los otros efectos, `JPO` funciona igual que `JNP`.
+No modifica los flags del CPU. Lee solo `PF`.
+
+**Sintaxis:** `JPO etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo en donde no salta
+mov al, 5    ; 0000 0101 → tiene 2 bits encendidos (PF = 1)
+test al, al  ; actualiza flags según AL
+jpo etiqueta ; No salta porque PF = 1
+
+; Ejemplo en donde salta
+mov al, 7    ; 0000 0111 → 3 bits encendidos (PF = 0)
+test al, al  ; actualiza flags según AL
+jpo etiqueta ; salta porque PF = 0
+```
+
+## Instrucción `LOOP`
+
+Instrucción de control de flujo pensada para hacer bucles "clásicos" usando un contador en un registro.
+
+**¿Qué hace `LOOP`?**
+
+- Incrementa el registro `RCX/ECX/CX` (dependiendo del modo 64/32/16) en 1.
+- Si `RCX != 0`, salta a `etiqueta`.
+- Si `RCX == 0`, continúa con la siguiente instrucción.
+
+Es decir, "repite mientras RCX no llegue a cero".
+
+**Sintaxis**: `LOOP etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+mov rcx, 5 ; número de iteraciones
+inicio:
+	; código del bucle
+	loop inicio
+; Ejecución
+; - Iteración 1: RCX = 5 → se decrementa a 4 → salta
+; - Iteración 2: RCX = 4 → 3 → salta
+; - Iteración 3: RCX = 3 → 2 → salta
+; - Iteración 4: RCX = 2 → 1 → salta
+; - Iteración 5: RCX = 1 → 0 → NO salta → sale del bucle
+; El bloque se ejecuta exactamente 5 veces
+```
+
+**No usa los flags del CPU**
+
+`LOOP` no evalúa ningún flag, solo revisa si el registro `RCX/ECX/CX` (según el modo 64/32/16).
+
+**Importante:** En arquitecturas modernas `LOOP` es mas lento que usar instrucciones normales, debido a esto:
+
+- Casi no se usa en código optimizado.
+- Los compiladores modernos no generan `LOOP`.
+- Se enseña más por motivos históricos y didácticos.
+
+**¿Qué haría un compilador moderno?**
+
+```asm
+; Intel
+mov rcx, 5
+inicio:
+	; trabajo del bucle
+	dec rcx
+	jnz inicio
+```
+
+El código anterior tiene el mismo comportamiento, pero un mejor rendimiento.
+
+## Variante de `LOOPE` y `LOOPZ`
 
 
 
