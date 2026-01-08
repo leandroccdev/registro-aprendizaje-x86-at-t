@@ -6988,15 +6988,157 @@ mi_funcion:
 
 `RET` asume que en la cima de la pila está la dirección de retorno. Si `RSP` no es restaurada, `RET` sacará basura y saltará a una dirección inválida ocasionando un crash en la ejecución.
 
+## Instrucción `NOP` (no operation)
+
+Instrucción que no hace nada excepto consumir tiempo de ejecución y espacio en el programa. No modifica registros, memoria ni algún flag del CPU. Sí avanza el puntero de instrucciones (`RIP/EIP/IP`) para pasar a la instrucción siguiente.
+
+Su `opcode` es `90` (hexadecimal), mide exactamente 1 byte.
+
+**Sintaxis:** `NOP`
+
+**Usos comunes**
+
+- Alineación de código (usada como padding).
+
+  Se usa para alinear instrucciones o bloques a ciertos límites de bytes (útil para caché, pipelines, o convenciones del compilador).
+
+- Relleno / parcheo (patching).
+
+  Cuando se quiere reemplazar una instrucción sin cambiar el tamaño del código se usa `NOP`.
+
+  ```asm
+  ; Intel
+  mov eax, 1 ; B8 01 00 00 00 (5 bytes)
+  ; Para reemplazar esta instrucción se usaría NOP (5 veces)
+  nop ; (1 byte)
+  nop ; (1 byte)
+  nop ; (1 byte)
+  nop ; (1 byte)
+  nop ; (1 byte)
+  ```
+
+  **Nótece** que la cantidad de `NOP` a utilizar viene dada por el largo en bytes de la instrucción a reemplazar. El largo final se verá en el ejecutable particular, puesto que muchas instrucciones dependen de como sean codificadas en `opcodes`. (Pero a nivel conceptual se esboza la idea). 
+
+  Esto se realiza en: Inveniería inversa, para deshabilitar checks y/o hot-patching.
+
+- Delays mínimos / sincronización.
+
+  Aunque no es la forma ideal de hacer esperas, se usa para pequeñas pausas o en bucles de espera.
+
+  ```asm
+  ; Intel
+  wait:
+  	not
+  	not
+  	jmp wait
+  ```
+
+- Optimización del pipeline.
+
+  En arquitecturas modernas, algunos `NOP` se usan para evitar "hazards" (peligros). Los hazards son situaciones que impiden que el pipeline de la CPU ejecute instrucciones de forma continua y correcta. En  otras palabras: son conflictos que obligan al procesador a esperar, reordenar o descartar trabajo para no producir resultados incorrectos. Esto debido a que las CPUs modernas ejecutan varias instrucciones "al mismo tiempo" (por el predictor de saltos) en distintas etapas (fetch, decode, execute, memory, write-back), a veces dichas instrucciones se estorban entre sí.
+
+  `NOP` ayuda a que el pipeline se estabilice. Actualmente lo maneja mas el compilador/CPU, pero históricamente fue importante.
+
+**Detalles técnicos sobre `NOP`**
+
+En realidad el `opcode` de `NOP` es un alias de `xchg eax, eax`, que permite intercambiar un registro consigo mismo, sin cambiar nada.
+
+En x86-64 existen `NOPs` de múltiples bytes (multi-byte NOPs`) para relleno más eficiente.
+
+```asm
+; Intel
+nop
+nop word ptr [rax+rax]
+nop dword ptr [rax+rax]
+```
+
+El ensamblador/compilador los usa para alineación.
+
+## Instrucción `XCHG` (exchange)
+
+Intercambia (swap) el contenido de dos operandos sin usar un registro temporal. No modifica ningún flag del CPU. `XCHG` puede operar en todos los modos (8/16/32/64 bits).
+
+**Sintaxis:** `XCHG dst, src`
+
+**Operandos permitidos**
+
+| Operando 1 | Operando 2 | ¿Válido?     |
+| ---------- | ---------- | ------------ |
+| Registro   | Registro   | Sí           |
+| Registro   | Memoria    | Sí           |
+| Memoria    | Registro   | Sí           |
+| Memoria    | Memoria    | No permitido |
+| Inmediato  | Cualquiera | No permitido |
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo básico
+mov rax, 10
+mov rbx, 20
+xchg rax, rbx
+; RAX = 20
+; RBX = 10
+
+; Ejemplo con memoria
+mov [rbp-8], 2
+mov rax, 3
+xchg rax, [rbp-8]
+; [rbp-8] = 3
+; RAX = 2
+```
+
+**`LOCK` implícito**
+
+Cuando uno de los operandos es memoria, la instrucción es atómica, es decir, equivale a usar el prefijo `LOCK`.
+
+```asm
+; Intel
+xchg rax, [variable_compartida]
+```
+
+Esto garantiza que ningún otro hilo o CPU pueda acceder a esa dirección de memoria durante el intercambio. Por eso `XCHG` se usa mucho en spinlocks, implementación de mutex y en sincronización en multiprocesadores.
+
+**Caso especial con `RAX`**
+
+Existe una codificación mas corta cuando uno de los operandos es `RAX`.
+
+```asm
+; Intel
+xchg rax, rbx
+```
+
+Se codifica en un byte menos que otras combinaciones. Por eso a veces se ve en código optimizado o shellcode. (Donde la cantidad de bytes importa).
+
+**Usos típicos**
+
+- Intercambiar valores sin registro temporal
+- Sincronización (locks) para variables compartidas entre hilos.
+- Algoritmos de ordenamiento o manipulación de datos, para intercambios de elementos en arreglos.
+
+**Importante**
+
+Si bien `XCHG reg, reg` es rápido. `XCHG reg, [mem]` es mas lento porque es atómico por hardware. Por lo que si no se necesita atomicidad, es mejor usar el intercambio clásico.
+
+```asm
+; Intel
+mov rcx, [mem]
+mov [mem], rax
+mov rax, rcx
+```
+
+**No existe** `XCHG mem, mem`.
+
 todo: abordar enter / leave
 
 todo: abordar cld y std
 
-todo: abordar instrucción nop
-
 todo: abordar instrucciones string: MOVSx / STOSx, LODSx, , SCASx y CMPSx
 
 todo: hacer algunos programas
+
+todo: ver instrucciones relacionadas a xchg (las del archivo fundamentos-intercambios.odt)
 
 todo: abordar el uso de fpu x87 (fdiv, fdivp, etc)
 
