@@ -17,10 +17,12 @@ No pretende ser una guía manual para aprender x86, mas bien es una forma de doc
 ### Software Ensamblador
 
 #### NASM (Netwide Assembler)
+
 **Web:** https://nasm.us
 **Documentación:** https://nasm.us/doc
 **Sintaxis:** Intel
 **Arquitecturas:**
+
 - x86 (IA-32, 32 bits)
 - x86-64 (AMD64 / Intel 64, 64 bits)
 
@@ -29,10 +31,12 @@ No pretende ser una guía manual para aprender x86, mas bien es una forma de doc
 **Licencia:** Open Source
 **Instrucciones:** soportadas por CPU objetivo
 **Modos de operación:**
+
 - Modo binario plano (.bin) para bootloaders o BIOS
 - Modo ELF, COFF, Mach-O y Win32/Win64 OBJ
 
 #### MASM (Microsoft Macro Assember)
+
 **Sintaxis:** Intel
 **Arquitecturas:**
 - x86 (16 y 32 bits)
@@ -51,6 +55,7 @@ No pretende ser una guía manual para aprender x86, mas bien es una forma de doc
 **Modos de memoria 16/32 bits:** .tiny, .small, .compact, .flat, .huge
 
 #### GAS (GNU Assembler)
+
 **Web:** https://sourceware.org/binutils/
 **Documentación:** https://sourceware.org/binutils/docs/
 **Paquete:** binutils
@@ -114,6 +119,7 @@ No pretende ser una guía manual para aprender x86, mas bien es una forma de doc
 
 
 #### TASM (Turbo Assembler)
+
 **Web:** https://sourceforge.net/projects/guitasm8086/
 **Documentación (1990):** https://archive.org/details/bitsavers_borlandturemblerVersion2.0UsersGuide1990_17919335
 **Sintaxis:** intel
