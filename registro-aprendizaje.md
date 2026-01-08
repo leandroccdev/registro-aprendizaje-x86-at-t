@@ -1437,7 +1437,7 @@ La instrucción `lahf` en x86 significa Load AH from Flags, y su función es: **
 | 6           | `ZF`     | Zero Flag             |
 | 7           | `SF`     | Sign Flag             |
 
-No copia el Overflow Flag (OF) — eso lo puedes recuperar con otras instrucciones como `seto`.
+No copia el Overflow Flag (OF) — eso lo puedes recuperar con otras instrucciones como `SETO`.
 
 **Ejemplo de uso práctico en AT&T**
 
@@ -6346,6 +6346,257 @@ Para dichos modos existen instrucciones específicas: `JECXZ` (32 bits) y `JRCXZ
 
 Todas usan un desplazamiento relativo de 8 bits, por lo que solo pueden saltar `±128` bytes desde la instrucción siguiente.
 
+## Instrucción `MOVZX` (move with zero-extend)
+
+Copia el valor de un registro o memoria de menor tamaño a un registro más grande sin tener en cuenta el signo. Rellena conceros los bits MSB del registro destino. Es decir, si se copia un byte a un registro de 32 bits, los 24 bits altos se ponen a cero. No afecta los flags del CPU.
+
+**Sintaxis:** `MOVZX dest, src`, donde `dest` es un registro de 16/32/64 bits y `src` un registro de 8/16 bits o una ubicación de memoria de 8/16 bits.
+
+**Reglas de tamaños**
+
+| Tamaño fuente | Tamaño destino permitido | Comentario                          |
+| ------------- | ------------------------ | ----------------------------------- |
+| 8 bits        | 16 o 32 bits             | Rellena con ceros los bits altos    |
+| 16 bits       | 32 bits                  | Rellena con ceros los 16 bits altos |
+| 8/16 bits     | 64 bits (x86-64)         | Rellena los bits altos a 0          |
+
+**Nota:** No se puede mover un registro de 32 bits a 16 bits usando `MOVZX`. Para eso se usan instrucciones normales como `MOV` o truncamiento.
+
+**Ejemplo**
+
+```asm
+; Intel
+; 8 bits a 32 bits
+movzx eax, byte ptr [rbx] ; Copia 1 byte desde memoria en RBX a EAX
+; Los 24 bits altos de EAX se ponen a cero
+
+; 8 bits a 16 bits
+movzx dx, al ; Copia AL (8 bits) a DX (16 bits)
+; Los 8 bits altos de DX se ponen a cero
+
+; 16 bits a  32 bits
+movzx ecx, bx; Copia BX (16 bits) a ECX (32 bits)
+; Los 16 bits altos de ECX se ponen a cero
+
+; 8 bits a 64 bits
+movzx rax, al ; Copia AL (8 bits) a RAX (64 bits)
+; Los 56 bits altos de RAX se ponen a 0
+```
+
+## Instrucción `MOVSX` (move with sign-extend)
+
+Copia un valor de tamaño pequeño a un registro mas grande teniendo en cuenta el signo. Si el valor de origen es negativo (con el bit MSB en 1), extiende el signo para que el resultado grande también sea negativo. Si el valor de origen es positivo, rellena con ceros el resto del registro destino.
+
+**Sintaxis:** `dst, src` donde `dst` es un registro de tamaño mayor (16/32/64 bits) y `src` un registro o memoria de tamaño menor (generalmente 8/16 bits).
+
+**Tamaños permitidos**
+
+| Origen | Destino | Comentario            |
+| ------ | ------- | --------------------- |
+| 8-bit  | 16-bit  | Se extiende a `word`  |
+| 8-bit  | 32-bit  | Se extiende a `dword` |
+| 8-bit  | 64-bit  | Se extiende a `qword` |
+| 16-bit | 32-bit  | Se extiende a `dword` |
+| 16-bit | 64-bit  | Se extiende a `qword` |
+
+**Nota:** no se puede usar `MOVSX` para mover desde un registro mas grande a uno más pequeño.
+
+**Ejemplo**
+
+```asm
+; Intel
+; 8 bits a 64 bits
+movsx rax, al  ; al = 8 bits, rax = 64 bits
+; Si AL = 127 (0x7F), RAX = 0x000000000000007F
+; Si AL = -16 (0xF0), RAX = 0xFFFFFFFFFFFFFFF0
+
+; 16 bits a 32 bits
+movsx eax, bx  ; bx = 16 bits, eax = 32 bits
+; Si bx = 0x1234, eax = 0x00001234
+; Si bx = 0xF234 (-3564 decimal), eax = 0xFFFFF234
+
+; Desde memoria a registro
+movsx rdx, byte ptr [rbx]  ; toma 8 bits de memoria y extiende a 64 bits
+; [rbx] es la dirección de memoria de donde se lee el byte
+```
+
+## Instrucción `SETcc` (set byte on condition)
+
+La instrucción es un mnemónico genérico que significa "set byte on condition", donde `cc` es un condicional que depende de los flags de la CPU. Si la condición se cumple, se escribe 1 en un byte de destino, de lo contrario (cuando no se cumple), se escribe 0 en dicho byte.
+
+**Destino:** Un registro de 8 bits: `AL`, `BL`, `CL`, `DL`, `SIL`, `DIL` o sus equivalentes de 64 bits truncados: `R8B` al `R15B`, o una posición de memoria de 8 bits.
+**Flags usados:** Depende de la condición `cc` que se use.
+**Operandos de 32/64 bits:** No tiene. Para usar el resultado en registros más grandes, hay que extender con `MOVXZ`.
+
+```asm
+; Intel
+movzx eax, al ; Extiende AL (8 bits) a EAX (32 bits)
+```
+
+**Sintaxis:** `SETcc r/m8`
+
+**Condiciones**
+
+| Instrucción `SETcc` | Significado / Condición             | Flags utilizados |
+| ------------------- | ----------------------------------- | ---------------- |
+| `SETE` / `SETZ`     | Igual / Zero                        | ZF = 1           |
+| `SETNE` / `SETNZ`   | No igual / Not Zero                 | ZF = 0           |
+| `SETL` / `SETNGE`   | Menor (signed)                      | SF ≠ OF          |
+| `SETLE` / `SETNG`   | Menor o igual (signed)              | ZF = 1 o SF ≠ OF |
+| `SETG` / `SETNLE`   | Mayor (signed)                      | ZF = 0 y SF = OF |
+| `SETGE` / `SETNL`   | Mayor o igual (signed)              | SF = OF          |
+| `SETB` / `SETC`     | Menor (unsigned) / Carry            | CF = 1           |
+| `SETAE` / `SETNC`   | Mayor o igual (unsigned) / No Carry | CF = 0           |
+| `SETA` / `SETNBE`   | Mayor (unsigned)                    | CF = 0 y ZF = 0  |
+| `SETBE` / `SETNA`   | Menor o igual (unsigned)            | CF = 1 o ZF = 1  |
+| `SETO`              | Overflow                            | OF = 1           |
+| `SETNO`             | No overflow                         | OF = 0           |
+| `SETP` / `SETPE`    | Paridad par                         | PF = 1           |
+| `SETNP` / `SETPO`   | Paridad impar                       | PF = 0           |
+| `SETNEG` / `SETS`   | Signo negativo                      | SF = 1           |
+| `SETPOS` / `SETNS`  | Signo positivo                      | SF = 0           |
+
+**Notas importantes**
+
+- Las instrucciones `SETL`, `SETLE`, `SETG`, `SETGE` usan números con signo.
+- Las instrucciones `SETB`, `SETBE`, `SETA`, `SETAE` usan números sin signo.
+- Muchas tienen alias, por ejemplo: `SETZ = SETE`, `SETNZ = SETNE`, `SETB = SETC`, `SETAE = SETNC`. 
+
+**Ejemplo**
+
+```asm
+; Intel
+sete al         ; AL = 1 si ZF=1, AL=0 si ZF=0
+setne bl        ; BL = 1 si ZF=0, BL=0 si ZF=1
+setl cl         ; CL = 1 si SF≠OF, CL=0 si SF=OF
+setg dl         ; DL = 1 si ZF=0 y SF=OF, DL=0 si ZF=1 o SF≠OF
+seto byte [res] ; escribe 1/0 en memoria
+```
+
+**Usos comunes**
+
+1. Convertir comparaciones en valores booleanos.
+
+   Es el uso más típico de `SETcc`. Simular un booleano.
+
+   ```asm
+   ; Intel
+   mov rax, 10
+   cmp rax, 20       ; ajusta ZF, SF, OF, CF según rax - 20
+   setl al           ; AL = 1 si RAX < 20 (signed), AL = 0 si no
+   movzx rax, al     ; extendemos a 64 bits si necesitamos usarlo como entero
+   ```
+
+   ```
+   // Equivalente en un lenguaje de alto nivel
+   bool resultado = (rax < 20)
+   ```
+
+   Es útil para evitar ramas y hacer código más predecible para la CPU (menos saltos, menos predicción de ramas).
+
+2. Implementar operaciones condicionales sin `JMP`.
+
+   Se puede usar `SETcc` para hacer operaciones condicionales sin saltos.
+   ```asm
+   ; Intel
+   ; Ejemplo de suma solo si una condición es verdadera
+   mov rax, 5
+   mov rbx, 10
+   cmp rax, rbx       ; verifica si rax < rbx
+   setl cl            ; CL = 1 si rax < rbx, 0 si no
+   movzx rcx, cl      ; RCX = 0 o 1
+   add rax, rcx       ; suma 1 a rax si se cumplió la condición
+   ```
+
+   Evita usar un `JLE` y un bloque extra de código, muy útil para optimización de bucles o cálculos de vectores.
+
+3. Operaciones sobre memoria.
+
+   `SETcc` puede escribir directamente en memoria de 8 bits.
+
+   ```asm
+   ; Intel
+   cmp rax, rbx
+   sete byte [res]   ; res = 1 si RAX = RBX, 0 si no
+   ```
+
+   Muy útil para flags de estado, estructuras de datos tipo bitfield, o para buffers que indican `true/false`.
+
+4. Condiciones de paridad u overflow.
+
+   Algunas condiciones son más raras, pero se usan en algoritmos de criptografía, checksum o codificación, donde los flags de overflow o paridad importan.
+
+   ```asm
+   ; Intel
+   test al, al
+   seto bl           ; BL = 1 si hubo overflow
+   ```
+
+5. Uso combinado con `MOVZX` para cálculos enteros.
+
+   Como `SETcc` solo escribe 1 byte, si se quiere usar el resultado como entero de 32/64 bits:
+
+   ```asm
+   ; Intel
+   cmp rax, rbx
+   setg cl           ; CL = 1 si RAX > RBX (signed)
+   movzx rcx, cl     ; RCX = 0 o 1
+   imul rcx, 5       ; multiplicar condicionalmente
+   ```
+
+   Esto permite hacer aritmética condicional sin ramas, muy útil en bucles vectorizados o simd.
+
+## Instrucción `CMOVcc` (conditional move)
+
+Mueve el contenido de un registro o memoria a otro registro solo si se cumple cierta condición basada en los flags del CPU. Si dicha condición no se cumple, el registro destino no se modifica.
+Es una instrucción muy útil para hacer saltos condicionales sin usar ramas, ayudando así a evitar las "branch mispredictions" en CPUs modernas. Es decir que evita los saltos condicionales clásicos (`JMP`, `JE`, `JNE`, etc) y bucles de predicción. Tiene especial utilidad en código crítico donde se quiere mantener el flujo lineal.
+No afecta los flags del CPU. Dependiendo de `cc` es el flag que lee.
+
+**Sintaxis: ** `CMOVcc dest, src` donde `dest` siempre es un registro, `src` puede ser un registro o memoria y `cc` es la condicóon basada en flags.
+
+**Condiciones comunes**
+
+| Condición                 | CC                 | Significado        |
+| ------------------------- | ------------------ | ------------------ |
+| Overflow                  | `O`                | OF = 1             |
+| Not overflow              | `NO`               | OF = 0             |
+| Carry                     | `C` / `B` / `NAE`  | CF = 1             |
+| Not carry                 | `NC` / `AE` / `NB` | CF = 0             |
+| Zero                      | `Z` / `E`          | ZF = 1             |
+| Not zero                  | `NZ` / `NE`        | ZF = 0             |
+| Sign                      | `S`                | SF = 1             |
+| Not sign                  | `NS`               | SF = 0             |
+| Paridad                   | `P` / `PE`         | PF = 1             |
+| Not paridad               | `NP` / `PO`        | PF = 0             |
+| Less (signed)             | `L` / `NGE`        | SF ≠ OF            |
+| Greater or equal (signed) | `GE` / `NL`        | SF = OF            |
+| Less or equal (signed)    | `LE` / `NG`        | ZF = 1 or SF ≠ OF  |
+| Greater (signed)          | `G` / `NLE`        | ZF = 0 and SF = OF |
+| Below (unsigned)          | `B` / `C` / `NAE`  | CF = 1             |
+| Above or equal (unsigned) | `AE` / `NC` / `NB` | CF = 0             |
+| Below or equal (unsigned) | `BE` / `NA`        | CF = 1 or ZF = 1   |
+| Above (unsigned)          | `A` / `NBE`        | CF = 0 and ZF = 0  |
+
+**Nota:** muchas condiciones tienen múltiples alias, por ejemplo: `B = C = NAE`.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Mueve RBX a RAX solo si ZF = 1
+cmp rdx, rcx   ; Compara rdx con rcx (afecta flags)
+cmove rax, rbx ; Solo mueve rbx → rax si ZF = 1
+
+; Mueve RBX a RAX solo si ZF = 0
+cmp rdx, rcx
+cmovne rax, rbx ; Solo mueve si ZF = 0 (rdx != rcx)
+```
+
+**Usos típicos**
+
+- Optimización de bucles pequeños.
+- Reemplazo de `if-else` que generan ramas costosas.
+
 ## Instrucción `POPCNT` (population count)
 
 Cuenta cuántos bits están encendidos (en uno) en un operando. Tambien se le llama *Hamming weight*.
@@ -6422,8 +6673,6 @@ Usos comunes
 **Alternativa portable**: `x &= x - 1 en bucle`
 
 **Rendimiento**: En CPUs modernas su latencia es de aproximadamente 3 ciclos y un throughtput de 1 ciclo. (Mas rápido que hacerlo a mano).
-
-todo: abordar setcc y cmovcc
 
 todo: abordar call y ret
 
