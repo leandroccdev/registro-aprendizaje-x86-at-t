@@ -6232,9 +6232,119 @@ inicio:
 
 El código anterior tiene el mismo comportamiento, pero un mejor rendimiento.
 
-## Variante de `LOOPE` y `LOOPZ`
+## Variantes `LOOPE` y `LOOPZ`
 
+Ambas instrucciones comparten el mismo `opcode`. Su diferencia es netamente semántica. No modifican ningún flag del CPU. Leen `ZF` solamente.
 
+**Significados semánticos**
+
+- `LOOPE`: Loop while equal (bucle mientras sea igual). 
+- `LOOPZ`: Loop while zero (bucle mientras `ZF = 1`).
+
+Saltan si `(RCX/ECX/CX != 0) AND (ZF == 1)`. Ambas leen `ZF` y usan a `RCX/ECX/CX` como contador. Pero `LOOPE` se usa típicamente después de `CMP` "mientras los valores comparados sean iguales". Y `LOOPZ` se usa típicamente después de `TEST` "mientras el resultado sea cero".
+
+**Sintaxis:** `LOOPE/LOOPZ etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+
+; Ejemplo con loope
+mov rcx, 5 ; máximo 5 iteraciones
+bucle:
+	; código
+	mov al, [rsi]
+	cmp al,  [rdi] ; ZF = 1 si son iguales
+	loope bucle    ; repite si RCX != 0 y ZF = 1
+	; loope decrementa rcx y salta a la etiqueta bucle
+; El bucle se detiene si encuentra una diferencia (ZF = 0), o se agotan las iteraciones (RCX = 0).
+
+; Ejemplo con loopz
+mov rcx, 3    ; máximo 3 iteraciones
+mov al, [val] ; carga valor inicial
+bucle:
+	; código
+	test al, al ; ZF = 1 si AL == 0
+	loopz bucle ; repite mientras RCX != 0 y ZF == 1
+	; loopz decrementa RCX y salta a la etiqueta bucle
+; El bucle se repetirá máximo tres veces o hasta que AL sea distinto de cero.
+```
+
+## Variantes `LOOPNE` y `LOOPNZ`
+
+Ambas instrucciones comparten el mismo `opcode`. Su diferencia es netamente semántica. No modifican ningún flag del CPU. Leen `ZF` solamente.
+
+**Significados semánticos**
+
+- `LOOPNE`: Loop not equal (bucle mientras no sea igual (a cero)).
+- `LOOPNZ`: Loop not zero (bucle mientras no sea cero).
+
+Saltan si `(RCX/ECX/CX != 0) AND (ZF == 0)`.  Ambas leen `ZF` y usan a `RCX/ECX/CX` como contador. `LOOPNE` es usado típicamente después de `CMP` "mientras que no sea igual". Y `LOOPNZ` es usado después de operaciones aritméticas "mientras el resultado no sea cero". (En la práctica son intercambiables, solo cambia su intención semántica de cara al programador que interpreta el código).
+
+**Sintaxis:** `LOOPNE/LOOPNZ etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo con loopne
+mov rcx, 5   ; inicializa el contador en 5
+xor rax, rax ; setea ZF en cero (simulando una condición no cero).
+bucle:
+	; código
+	loopne bucle
+	; loopne decrementa rcx y salta si RCX != 0 y ZF = 0
+; El bucle puede iterar hasta 5 veces
+
+; Ejemplo con loopnz
+mov rcx, 5      ; inicializa el contador en 5
+xor rax, rax    ; ZF = 0
+bucle:
+    ; código
+    loopnz bucle ; decrementa RCX y salta si RCX != 0 y ZF = 0
+; Ejemplo con loopnz
+```
+
+## Instrución `JCXZ` (jum if CX zero)
+
+Salto condicional. Se usa solo con el registro `CX` en 16 bits. Comprueba si `CX == 0`. Cuando `CX == 0` salta a la `etiqueta`, de lo contrario continua a la instrucción siguiente. Es útil en bucles donde se usa a `CX` como contador.
+No modifica ningún flag del CPU ni tampoco los lee.
+
+**Sintaxis:** `JCXZ etiqueta`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Ejemplo simple
+mov cx, 0  ; inicializa CX a cero
+jcxz fin ; como CX = 0, salta a la etiqueta fin
+; Código saltado
+mov ax, 0x1234
+fin:
+	mov ax, 0x5678 ; Código que se ejecuta
+	
+; Ejemplo en donde se usa a CX como contador
+mov cx, 5       ; contador de iteraciones
+bucle:
+; hacer algo
+loop bucle      ; decrementa CX y salta si CX != 0
+jcxz fin        ; si CX ya es 0, termina el bucle
+jmp bucle       ; repetir
+fin:
+; código después del bucle
+```
+
+**Nota:** En la actualidad su uso es menor a `LOOP` y sus variantes.
+
+**Modos de 32 y 64 bits**
+
+Para dichos modos existen instrucciones específicas: `JECXZ` (32 bits) y `JRCXZ` (64 bits). **Comparten** `opcodes` y funcionan de la misma manera que `JCXZ`, con la excepción de que en el modo de 64 bits se usa el prefijo `REX`.
+
+**Desplazamiento relativo de 8 bits**
+
+Todas usan un desplazamiento relativo de 8 bits, por lo que solo pueden saltar `±128` bytes desde la instrucción siguiente.
 
 ## Instrucción `POPCNT` (population count)
 
