@@ -7130,7 +7130,148 @@ mov rax, rcx
 
 **No existe** `XCHG mem, mem`.
 
-todo: abordar enter / leave
+## Instrucción `Enter`
+
+Crea automáticamente el stack frame de una función, es decir, prepara la pila para las variables locales y encadena el frame anterior. Es una secuencia compacta de la secuencia clásica manual. 
+
+```asm
+; Intel
+push rbp
+mov rbp, rsp
+sub rsp, tamaño
+```
+
+**Sintaxis:** `ENTER tamaño, nivel` donde `tamaño` son los bytes a reservar en la pila para variables locales. Y `nivel` cuántos frames anidados se deben enlazar (usado en lenguajes antiguos con funciones anidadas, como Pascal).
+
+En la práctica moderna `nivel` casi siempre es cero y `tamaño` es el espacio para variables locales.
+
+**Ejemplo**
+
+```asm
+; Intel
+enter 32, 0
+; Equivale a
+push rbp     ; guarda el frame pointer anterior
+mov rbp, rsp ; nuevo frame
+sub rsp, 32  ; reserva 32 bytes para avariables locales
+```
+
+Es decir:
+
+- Guarda el `RBP` anterior.
+- Fija `RBP` como base del nuevo stack frame.
+- Reserva espacio en la pila.
+
+**Ejemplo simple**
+
+```asm
+; Intel
+mi_funcion:
+    enter 16, 0     ; crea frame y reserva 16 bytes
+    mov  qword [rbp-8], 5
+    mov  qword [rbp-16], 10
+    leave
+    ret
+
+; Equivalente sin Enter
+mi_funcion:
+    push rbp
+    mov  rbp, rsp
+    sub  rsp, 16
+
+    mov  qword [rbp-8], 5
+    mov  qword [rbp-16], 10
+
+    mov  rsp, rbp
+    pop  rbp
+    ret
+```
+
+**Importante**
+
+Cuando `nivel > 0`, `ENTER` copia valores antiguos de `RBP` para permitir acceso a variables de funciones "padre" en lenguajes con funciones anidadas.
+
+**Ejemplo conceptual**
+
+```asm
+; Intel
+enter 16, 2
+```
+
+Construye una cadena de stack frames para acceder a varios niveles superiores.
+
+En C/C++, ensamblador moderno y compiladores actuales no se usa.
+
+**¿Por qué no se usa?**
+
+- Es mas lenta que `PUSH RBP / MOV RBP, RSP / SUB RSP, N`
+- Es menos flexible para optimización.
+- Los compiladores modernos prefieren emitir las instrucciones explícitas.
+- En x86-64 con optimizaciones, muchas funciones ni siquiera usan frame pointer.
+
+Por eso, aunque existe, `ENTER` es mas histórica que práctica.
+
+## Instrucción `LEAVE`
+
+Destruye el stack frame actual de una función y restaura el frame anterior. Es decir, es el epílogo automático de una función. Se usa típicamente antes de `RET`. No modifica los flags del CPU ni tampoco los lee. Requiere que el stack frame esté bien formado, asumiendo que `RBP` apunta al inicio del stack frame.
+
+**Sintaxis:** `LEAVE`
+
+**Ejemplo**
+
+```asm
+; Intel
+mi_funcion:
+    enter 16, 0
+    ; cuerpo de la función
+    leave
+    ret
+```
+
+Internamente `LEAVE` equivale a:
+
+```asm
+; Intel
+mov rsp, rbp   ; restaura el stack pointer al inicio del frame
+pop rbp        ; recupera el RBP anterior (frame del caller)
+```
+
+Es decir que:
+
+- Elimina las variables locales restaurando `RSP`.
+- Restaura el frame anterior sacando el `RBP` guardado.
+
+**Importante:** En funciones sin frame pointer no se usa. Muchos compiladores modernos no usan `RBP` como frame pointer para optimizar.
+
+```asm
+; Intel
+mi_funcion:
+    sub rsp, 32
+    ...
+    add rsp, 32
+    ret
+```
+
+Tal y como se ve, no hay `ENTER` ni `LEAVE`, solo ajustes manuales de `RSP`.
+
+**¿Por qué no se usa mucho hoy?**
+
+Al igual que `ENTER`, es más lenta que la secuencia manual. Limita optimizaciones del compilador. En x86-64, el uso de `RBP` como frame pointer es opcional, por eso, se suele ver más esto:
+
+```asm
+; Intel
+push rbp
+mov rbp, rsp
+...
+pop rbp
+ret
+
+; O directamente
+sub rsp, 32
+...
+add rsp, 32
+ret
+```
 
 todo: abordar cld y std
 
