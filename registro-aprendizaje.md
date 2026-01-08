@@ -6680,7 +6680,258 @@ Usos comunes
 
 **Rendimiento**: En CPUs modernas su latencia es de aproximadamente 3 ciclos y un throughtput de 1 ciclo. (Mas rápido que hacerlo a mano).
 
-todo: abordar call y ret
+## Funciones personalizadas
+
+En asm x86-64 una función suele tener la siguiente forma:
+
+```asm
+; Intel
+nombre_funcion:  ; etiqueta que define la función
+	push rbp     ; guarda el valor actual de RBP (base pointer)
+	mov rbp, rsp ; crea un nuevo frame de pila
+	; código de la función
+	mov rsp, rbp ; restaura el stack pointer
+	pop rbp      ; restaura RBP
+	ret          ; vuelve a la instrucción después del CALL
+```
+
+**¿Qué es un stack frame?**
+
+Es la zona de trabajo de una función en la pila. Dentro de el se guardan:
+
+- La dirección de retorno (puesta por `CALL`).
+- El `RBP` anterior (del caller).
+- Variables locales.
+- A veces parámetros.
+
+Cada función tiene su propio frame para no pisar los datos de otras funciones.
+
+### ¿Qué hace `CALL` antes de que la función empiece?
+
+Supongamos `CALL nombre_funcion`, Internamente la CPU realiza lo siguiente:
+
+- Empuja a la pila a la dirección de retorno.
+- Salta a la etiqueta `nombre_funcion`.
+
+La pila queda así:
+
+```
+Direcciones altas
+-----------------
+...
+[ return address ]  ← RSP después del CALL
+-----------------
+Direcciones bajas
+```
+
+Aún no hay frame para la función, solo está la dirección a la que se volverá con `RET`.
+
+Luego cuando se ejecuta `PUSH RBP`, se guarda el valor actual de `RBP` en `[RSP]`, la pila ahora se ve así:
+
+```
+Direcciones altas
+-----------------
+...
+[ return address ]
+[ old RBP ]        ← RSP
+-----------------
+Direcciones bajas
+```
+
+**Importante:** La función llamadora estaba usando su propio `RBP`. Si no se guarda, se destruye y se rompe su stack frame.
+
+Luego de ejecutar `MOV RBP, RSP`, `RBP` apunta al inicio del nuevo stack frame, `RSP` sigue apuntando al mismo lugar. Y la pila ahora se ve así:
+
+```
+Direcciones altas
+-----------------
+...
+[ return address ]
+[ old RBP ]   ← RBP, RSP   ← base del frame
+-----------------
+Direcciones bajas
+```
+
+Esto define el frame de la función en la pila. Desde ahora, `RBP` es el punto fijo de referencia, mientras que `RSP` puede moverse con cada ejecución de `PUSH/POP` o cuando se reserva espacio para variables locales.
+
+### ¿Cómo se reserva espacio para variables locales?
+
+Para reservar espacio bien se puede usar `SUB` respecto de `RSP`.
+
+``` asm
+; Intel
+una_funcion:
+	; Prólogo de la función
+    push rbp
+    mov rbp, rsp
+    sub rsp, 8   ; Reserva 8 bytes en la pila (variable local)
+
+    ; Usa la variable local
+    mov qword ptr [rbp-8], 42  ; Variable_local = 42
+    mov rax, qword ptr [rbp-8] ; RAX = variable_local
+
+    ; Se debe restaurar la pila antes de salir de la función
+    add rsp, 8 ; Libera el espacio reservado
+
+    pop rbp
+    ret
+```
+
+Luego de reservar espacio para variables locales la pila se ve así:
+
+```
+Direcciones altas
+-----------------
+...
+[ return address ]     ← RBP + 8
+[ old RBP ]            ← RBP
+-----------------
+[ local var 1 ]        ← RSP
+-----------------
+Direcciones bajas
+```
+
+Aquí es en donde a las variables locales se accede con desplazamientos negativos:
+
+```asm
+; Intel
+mov eax, [rbp-4] ; Asigna el contenido de una variable local a EAX 
+```
+
+Y los parámetros o retornos se acceden con desplazamientos positivos:
+
+```asm
+; Intel
+mov rax, [rbp+8] ; Dirección de retorno
+mov rax, [rbp+16] ; primer argumento (convención antigua)
+```
+
+**¿Por qué no usar solo `RSP`?**
+
+`RSP` cambia con cada `PUSH`, `POP`, `CALL`, etc. En cambio `RBP` sigue fijo. Usar `RBP` para direccionar variables es una regla estable.
+
+**Destruir el stack frame**
+
+```asm
+; Intel
+mov rsp, rbp
+pop rbp
+ret
+```
+
+`mov rsp, rbp` devuelve `RSP` a la posición de `RBP` olvidando los espacios de memoria reservados para las variables. El stack vuelve al inicio del frame:
+
+```
+Direcciones altas
+-----------------
+...
+[ return address ]
+[ old RBP ]   ← RSP, RBP
+-----------------
+Direcciones bajas
+```
+
+`pop rbp` restaura el valor de `RBP` desde la pila a `RBP` dejando a la pila de la siguiente manera:
+
+```
+Direcciones altas
+-----------------
+...
+[ return address ]  ← RSP
+-----------------
+Direcciones bajas
+```
+
+**Nótece** que ahora `RET` tiene a disposición la dirección de retorno para cargarla en `RIP`.
+
+Finalmente `RET` saca la dirección de retorno desde la pila y salta a ella, devolviendo el control a la función llamadora, con su pila intacta.
+
+## Instrucción `CALL`
+
+Llama a una función (semánticamente hablando). Técnicamente realiza dos acciones atómicas:
+
+1. Guardar la dirección de retorno en la pila (de la siguiente instrucción, es decir, a dónde volver después).
+
+2. Salta a la dirección de la función.
+
+   Equivale conceptualmente a:
+
+   ```asm
+   ; Intel
+   push dirección_de_retorno
+   jmp destino
+   ```
+
+   Pero `CALL` lo hace como una sola instrucción.
+
+No modifica los flags del CPU. En 64 bits el retorno que se empuja es una dirección de 64 bits. Por cada `CALL` debe ejecutarse un `RET` correspondiente o el flujo de rompe.
+
+**Importante:** Muchas vulnerabilidades clásicas (buffer overflow) se basan en sobreescribir la dirección
+
+**Sintaxis:** `CALL etiqueta/registro/memoria`
+
+**Ejemplo**
+
+```asm
+; Intel
+call mi_funcion    ; salto directo
+call rax           ; salto indirecto usando un registro
+call [tabla + rbx] ; salto indirecto desde memoria
+```
+
+**¿Qué sucede en la pila?**
+
+```asm
+; Intel
+0x401000: call mi_funcion
+0x401005: mov rax, 1   ; siguiente instrucción
+```
+
+Cuando se ejecuta `call mi_funcion` el CPU empuja `0x401005` en la pila.
+
+```
+RSP -> [ 0x401005 ]
+```
+
+Carga `RIP = dirección de mi_funcion`. Luego dentro de la función, al ejecutar el `RET`, ocurre lo inverso. Es decir `RET`, hace `pop rip` y vuelve exactamente a `0x401005`.
+
+**Nota:** El armado del stack frame es responsabilidad del código de la función.
+
+**Tipos de `CALL`**
+
+1. Llamada directa: 
+
+   `CALL mi_funcion`. El destino está codificado en la instrucción (offset relativo a `RIP`).
+
+2. Llamada indirecta.
+
+   ```asm
+   ; Intel
+   call rax
+   call [direccion]
+   ```
+
+   El destino se calcula en tiempo de ejecución. Muy común en: punteros en C, tablas virtuales y `switch` compilados con "jump tables" (tablas de saltos).
+
+**Argumentos**
+
+`CALL` no se encarga de gestionar argumentos, eso queda para las convenciones definidas en las respectivas [ABI](https://es.wikipedia.org/wiki/Interfaz_binaria_de_aplicaciones).
+Se dejan a modo de ejemplo algunos manuales ABI.
+
+- [musl libc](https://wiki.musl-libc.org/abi-manuals)
+- [System V ABI AMD64 ABI Draft V0.99.6 - Julio de 2012](https://refspecs.linuxbase.org/elf/x86_64-SysV-psABI.pdf)
+- [Microsoft Learn - Overview of X64 ABI conventions](https://learn.microsoft.com/en-us/cpp/build/x64-software-conventions?view=msvc-170)
+- [Microsoft Learn - Calling Conventions](https://learn.microsoft.com/en-us/cpp/cpp/calling-conventions?view=msvc-170)
+- [System V psABI for AMD64](https://gitlab.com/x86-psABIs/x86-64-ABI)
+- [Mac OS X ABI Functions Call Guide](https://personal.denison.edu/~bressoud/cs281-s07/MacOSXLowLevelABI.pdf)
+
+**psABI:** Processor Suplement ABI.
+
+El System V ABI es un estándar general, pero cada arquitectura necesita detalles propios, por eso existen documentos del tipo **psABI**.
+
+## Instrucción `RET`
+
+
 
 todo: abordar enter / leave
 
