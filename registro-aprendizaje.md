@@ -6931,7 +6931,62 @@ El System V ABI es un estándar general, pero cada arquitectura necesita detalle
 
 ## Instrucción `RET`
 
+Vuelve al punto desde donde se llamó a una función con `CALL`. No debe ejecutarse sin un `CALL` previo o lo mas seguro es que la ejecución termine en un crash. (Aunque técnicamente, es posible emular el comportamiento de `CALL`, resulta impráctico).
+`RET` no calcula ninguna dirección por sí mismo, solo realiza lo siguiente:
 
+```
+RIP = [RSP]
+RSP += 8
+```
+
+Toma lo que esté encima de la pila y salta a dicha dirección. Si se ejecuta un `RET` antes de un `CALL`, lo mas probable es que el resultado sea un **segmentation fault**, un crash o un salto a código inválido, lo que igualmente terminaría en un crash del programa.
+
+No modifica ni lee flags del CPU.
+
+**Sintaxis**
+
+```
+RET
+RET imm16
+```
+
+Admite dos formas, una básica sin operador y otra con un inmediato de 16 bits para ajustes adicional de pila. La primera realiza la operación inversa a `CALL`. En cambio la segunda:
+
+- Carga la dirección de retorno desde la pila.
+
+- Incrementa `RSP` en 8.
+
+- Suma el inmediato a `RSP`.
+
+  ```
+  RSP = RSP + 8 + imm16
+  ```
+
+  Se usaba principalmente por convenciones antiguas como `stdcall` (donde la función llamada limpia los argumentos de la pila).
+
+  **Diferencias por modo**
+
+  | Modo   | Tamaño de retorno | Ajuste               |
+  | ------ | ----------------- | -------------------- |
+  | 16-bit | 2 bytes           | `SP += 2 (+ imm16)`  |
+  | 32-bit | 4 bytes           | `ESP += 4 (+ imm16)` |
+  | 64-bit | 8 bytes           | `RSP += 8 (+ imm16)` |
+
+**Ejemplo**
+
+```asm
+; Intel
+mi_funcion:
+	push rbp
+	mov rbp, rsp
+	; código de la función
+	pop rbp
+	ret
+```
+
+**¿Por qué se restaura la pila antes de ejecutar `RET`?**
+
+`RET` asume que en la cima de la pila está la dirección de retorno. Si `RSP` no es restaurada, `RET` sacará basura y saltará a una dirección inválida ocasionando un crash en la ejecución.
 
 todo: abordar enter / leave
 
