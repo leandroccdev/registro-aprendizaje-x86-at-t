@@ -8274,10 +8274,19 @@ syscall
 | `exit`       | 60  | Terminar proceso         |
 | `exit_group` | 231 | Terminar todos los hilos |
 
+**Syscall vs función de biblioteca (libc)**
 
-Syscall vs función ed biblioteca (libc)
+Cuando en C se hace: `printf("hola");` no se está llamando directamente al kernel. En realidad ocurre lo siguiente:
+
+```
+printf() → libc → write() → syscall
+```
+
+Como se ve, se tienen capas intermedias, en ASM se puede saltar a libc y hablar directo con el kernel.
 
 todo: abordar los operadores GAS AT&T con sintaxis intel
+
+todo: abordar directivas del preprocesador EQU, IF/ENDIF/ STRUC/EDNS
 
 todo: hacer algunos programas
 
