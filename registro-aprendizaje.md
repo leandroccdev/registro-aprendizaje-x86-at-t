@@ -7273,7 +7273,422 @@ add rsp, 32
 ret
 ```
 
-todo: abordar cld y std
+# Manejo de strings
+
+## Operadores de datos
+
+No son instrucciones que el CPU ejecute. Su función principal es reservar e inicializar memoria en en tiempo de ensamblado, para que el programa tenga espacio para almacenar datos.
+
+Van ubicados en las secciones: `.data`, `.bss`, `.rodata` y/o `.text`.
+
+**Listado de secciones comunes en un programa X86-64**
+
+| Sección                              | Propósito                                                    | Ejemplo típico                                      |
+| ------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------- |
+| `.data` (Intel/MASM: `DATA SEGMENT`) | Datos **inicializados** que tu programa va a usar. Se reservan en memoria y ya tienen un valor definido. | `valor DB 10`                                       |
+| `.bss` (Intel/MASM: `BSS SEGMENT`)   | Datos **no inicializados**. La memoria se reserva pero se llena con 0 automáticamente en tiempo de carga. | `buffer resb 4` (GAS) / `buffer DB 4 DUP(?)` (MASM) |
+| `.rodata` (GAS) o `CONST SEGMENT`    | Datos **solo lectura**, como cadenas constantes o tablas de lookup que no cambian. | `msg DB "Hola",0`                                   |
+| `.text` (Intel/MASM: `CODE SEGMENT`) | Contiene las instrucciones ejecutables (código). No se suelen poner datos aquí, salvo constantes rápidas dentro de instrucciones. | `MOV AL, 10`                                        |
+
+**Uso según la sección**
+
+1. `.data`: Datos inicializados
+
+   Normalmente usa los operadores `DB`, `DW`, `DD`, `DUP` con valores inicializados.
+
+   ```asm
+   ; Intel
+   .section .data
+   	mensaje:
+   		.ascii "Hola\0" ; Cadena con terminador nulo
+       buffer:
+       	.byte 0,0,0,0   ; Buffer de 4 bytes inicializados en cero
+   ```
+
+   **Nota:** `.ascii` define cadena sin terminador automáticamente, por eso se debe agregar un carácter `\0` nulo al final.
+
+2. `.bss`: Datos sin inicializar
+
+   GAS no soporta `?` ni `DUP`, se usa `.skip N` para reservar N bytes sin inicializar.
+
+   ```asm
+   ; Intel
+   .section .bss
+   	buffer2:
+   		.skip 4 ; Reserva 4 bytes sin inicializar
+   ```
+
+   Equivalente en MASM/TASM
+
+   ```asm
+   ; Intel
+   BSS SEGMENT
+   buffer2 DB 4 DUP(?) ; Reserva 4 bytes sin inicializar
+   ```
+
+   - `DB` define bytes.
+   - `4 DUP(?)` repite 4 veces sin valor definido usando `?` (significa no inicializado).
+   - Se crea un buffer de 4 bytes que la CPU podrá usar después.
+
+3. `.rodata`: Datos de solo lectura
+
+   ```asm
+   ; Intel
+   .section .rodata
+   	saludo:
+   		.ascii "Hola Mundo\0"
+   ```
+
+   Los datos definidos en `.rodata` no deben ser modificados en tiempo de ejecución.
+
+### Operador `DB` (define byte)
+
+Se usa para reservar espacio en memoria y opcionalmente inicializarlo con valores ed un byte cada uno.
+
+**Disponible en:** NASM, MASN, TASM y FASM pero no en GAS.
+
+**Sintaxis:** `nombre_etiqueta db valor1, valor2, valor3, ...` donde:
+
+- `nombre_etiqueta`: Es opcional. Sirve para referirse a la dirección del dato.
+- `db`: define bytes.
+- `valor1, valor2, valor3, ...`: Son los valores con los que se inicializan los bytes. Pueden ser números, caracteres o expresiones.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Define un solo byte con un valor
+mi_byte db 0x7F ; Un byte con valor hexadecimal 7F
+
+; Define varios bytes
+array_bytes db 1, 2, 3, 4, 5 ; 5 bytes consecutivos
+
+; Definir un string
+mensaje db 'Hola Mundo', 0 ; String terminado en null (0)
+; Cada caracter usa un byte. El 0 al final es tipico para C-Style strings
+
+; Reserva bytes sin inicializar
+buffer db 10 dup(?) ; Reserva 10 bytes sin inicializar
+```
+
+### Operador `DW` (define word)
+
+Se usa para reservar espacio en memoria y opcionalmente inicializarlo con un valor. Usa "**word**" (16 bits).
+
+**Disponible en:** NASM (uso en minúscula), MASN, TASM y FASM pero no en GAS.
+
+**Sintaxis:** `etiqueta DW valor1 [, valor2, valor3, ...]` donde:
+
+- `etiqueta`: nombre de la variable o del arreglo.
+- `DW`: Define una palabra de 16 bits.
+- `valor1, valor2...`: valores iniciales (opcionales). Si no se da valor, se reserva el espacio sin inicializar.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Definir una sola palabra con valor
+mi_numero DW 1234h      ; 16 bits inicializados con 0x1234
+
+; Definir un arreglo de 3 palabras
+mi_arreglo DW 1, 2, 3   ; 3 palabras consecutivas
+
+; Reservar espacio sin inicializar
+mi_espacio DW ?         ; 1 palabra reservada, sin valor inicial
+```
+
+**Importante**
+
+- Cada `DW` reserva 2 bytes en memoria.
+- Los valores se pueden escribir en decimal, hexadecimal (`h`) o binario (`b`).
+- Para acceder a los datos, normalmente se usa un registro de 16 bits (`AX`, `BX`, etc).
+
+### Operador `DD` (define dubleword)
+
+Se usa para reservar una "**doubleword**" (que en x86-64 es de 32 bits (4 bytes)), punteros o valores inicializados de 4 bytes.
+
+**Disponible en:** NASM, MASN, TASM y FASM pero no en GAS.
+
+**Sintaxis:** `etiqueta DD valor1 [, valor2, valor3, ...]` donde:
+
+- `etiqueta`: nombre de la variable o arreglo.
+- `DD`: reserva 4 bytes por cada valor.
+- `valor1, valor2...`: valores iniciales opcionales. Si no se da valor, se puede usar `?` para reservar sin inicializar.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Definir un entero de 32 bits
+mi_entero DD 12345678h   ; 4 bytes con valor 0x12345678
+
+; Definir un arreglo de 3 doublewords
+mi_arreglo DD 1, 2, 3    ; 12 bytes en total (3*4)
+
+; Reservar espacio sin inicializar
+mi_espacio DD ?          ; 4 bytes reservados
+```
+
+**Acceso en registros**
+
+Para manipular un `DD` se usa un registro de 32 bits: `EAX`, `EBX`, `ECX`, `EDX`.
+
+```asm
+; Intel
+mov eax, mi_entero   ; carga el valor de 32 bits en EAX
+mov [mi_arreglo+4], 5 ; escribe 5 en el segundo elemento del arreglo
+```
+
+### Operador `DQ` (define quadword)
+
+Se usa para reservar memoria para enteros de 64 bits, punteros de 64 bits o valores grandes de 8 bytes. Usa una "**quadword**" (que en x86-64 es ed 64 bits).
+
+**Disponible en:** NASM (en minúscula), MASN, TASM y FASM (en minúscula) pero no en GAS.
+
+**Sintaxis:** `etiqueta DQ valor1 [, valor2, valor3, ...]` donde:
+
+- `Etiqueta`: nombre de la variable o arreglo.
+- `DQ`: reserva 8 bytes por cada valor.
+- `valor1, valor2...`: valores iniciales opcionales. Si no se quiere inicializar, se usa `?`.
+
+**Ejemplo**
+
+```asm
+; Intel
+; Definir un entero de 64 bits
+mi_entero64 DQ 123456789ABCDEF0h  ; 8 bytes con este valor
+
+; Definir un arreglo de 2 quadwords
+mi_arreglo64 DQ 1, 2               ; 16 bytes en total
+
+; Reservar espacio sin inicializar
+mi_espacio64 DQ ?                   ; 8 bytes reservados
+```
+
+**Acceso en registros**
+
+Para manipular un `DQ` se usa un registro de 64 bits: `RAX`, `RBX`, `RCX`, `RDX`, etc.
+
+```asm
+; Intel
+mov rax, mi_entero64      ; carga el valor de 64 bits en RAX
+mov [mi_arreglo64+8], 5   ; escribe 5 en el segundo elemento del arreglo
+```
+
+### Operador `DUP`(duplicate)
+
+Se usa para repetir un valor o un patrón al inicializar datos en memoria. Sirve con `DB`, `DW`, `DD`, `DQ` en ensambladores Intel (MASM/TASM/NASM/FASM).
+
+**Sintaxis:** `n DUP(valor)` donde;
+
+- `n`: es cuántas veces quieres repetir el valor.
+- `valor`: puede ser un número, un carácter, o incluso una expresión.
+- Se puede combinar con directivas como `DB`, `DW`, `DD`, `DQ`.
+
+**Ejemplo**
+
+```asm
+; Intel
+.DATA
+
+; Definir 10 bytes inicializados a 0
+mi_buffer DB 10 DUP (0)  
+
+; Definir 5 palabras (16 bits) inicializadas a 1234h
+mis_palabras DW 5 DUP (1234h)
+
+; Definir 3 doublewords (32 bits) inicializadas a 0
+mis_dwords DD 3 DUP (0)
+
+; Definir 4 quadwords (64 bits) inicializadas a 0
+mis_qwords DQ 4 DUP (0)
+```
+
+**¿Cómo funciona en memoria?**
+
+- `mi_buffer DB 10 DUP(0)`: reserva 10 bytes consecutivos, todos con valor `0`.
+- `mis_palabras DW 5 DUP(1234h)`: reserva 10 bytes (5*2), todos con `0x1234`.
+
+**Notas**
+
+1.  Solo funciona con la sintaxis Intel (MASM/TASM/NASM/FASM).
+
+2. Permite ahorrar mucho código al inicializar arreglos grandes.
+
+3. Se puede usar expresiones dentro de los paréntesis, no solo con números constantes:
+
+   ```asm
+   ; Intel
+   DW 4 DUP (100 + 2) ; inicializa 4 palabras con 102
+   ```
+
+## Prefijo `REP` (repeat)
+
+Modifica instrucciones que soportan repetición como las de movimiento o comparación de strings, para que se repitan varias veces en automático. Utiliza el registro `RCX` como contador y ejecuta tantas veces como el registro indique decrementandolo en cada repetición. No modifica los flags del CPU pero si sus variantes leen `ZF`.
+
+**Sintaxis:** `REP <instrucción>`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Copia 10 bytes de [RSI] a [RDI]
+mov rcx, 10 ; número de bytes
+rep movsb   ; mueve 1 byte de RSI a RDI RCX veces
+
+; Pone 5 palabras de 16 bits en AX en [RDI]
+mov ax, 0x1234
+mov rcx, 5
+rep stosw ; almacena AX en RDI 5 veces
+```
+
+### Variantes
+
+Existen variantes condicionales que combinan `REP` con saltos por cero o no cero:
+
+- `REPE` / `REPZ`: Repite mientras `ZF = 1` (útil en comparación de cadenas `CMPS`).
+
+- `REPNE` / `REPNZ`: Repite mientras `ZF = 0`.
+
+  ```asm
+  ; Intel
+  mov rcx, 10
+  repe cmpsb  ; compara bytes en RSI y RDI, repite mientras sean iguales y RCX > 0
+  ```
+
+**Nota:** `REP` es muy útil para operaciones de memoria masiva, porque evita escribir bucles manuales en ensamblador.
+
+**Instrucciones típicas para `REP` y sus variaciones**
+
+| Prefijo       | Función                       | Instrucciones típicas          |
+| ------------- | ----------------------------- | ------------------------------ |
+| `REP`         | Repetir N veces (RCX)         | `MOVS`, `STOS`, `LODS`, `CMPS` |
+| `REPE/REPZ`   | Repetir mientras ZF=1 y RCX>0 | `CMPS`, `SCAS`                 |
+| `REPNE/REPNZ` | Repetir mientras ZF=0 y RCX>0 | `CMPS`, `SCAS`                 |
+
+## Instrucción `CLD` (clear direction flag)
+
+Borra el flag de dirección `DF` (Direction Flag). Es decir que setea `DF = 0` asegurando que las instrucciones de strings avancen hacia direcciones más altas en memoria (de izquierda a derecha). Solo afecta a flag `DF`.
+
+`DF` controla la dirección en la que se procesan las instrucciones de strings con `MOVS`, `LODS`, `STOS`, `SCAS` y `CMPS`. Significa lo siguiente:
+
+- `DF = 0`: El string se procesa de izquierda a derecha (incrementando los punteros `ESI`/`RSI` y `EDI`/`RDI`).
+- `DF = 1`: El string se procesa de derecha a izquierda (decrementando los punteros `ESI`/`RSI` y `EDI`/`RDI`).
+
+**Sintaxis:** `CLD`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Suponiendo que se quiere copiar 5 bytes de src a dst
+cld               ; Asegura que DF=0, avanzamos hacia adelante
+mov rcx, 5        ; Contador
+mov rsi, src      ; Fuente
+mov rdi, dst      ; Destino
+rep movsb         ; Copia rcx bytes de [rsi] a [rdi]
+```
+
+`CLD` asegura que `REP MOVSB` copie hacia adelante incrementando `RSI` y `RDI`.
+
+## Instrucción `STD` (set direction flag)
+
+Enciende el flag `DF`. Es decir setea `DF = 1` asegurando que las instrucciones de strings avancen hacia direcciones más bajas en memoria (de derecha a izquierda). Solo afecta al flag `DF`.
+
+`DF` controla la dirección en la que se procesan las instrucciones de strings con `MOVS`, `LODS`, `STOS`, `SCAS` y `CMPS`. Significa lo siguiente:
+
+- `DF = 0`: El string se procesa de izquierda a derecha (incrementando los punteros `ESI`/`RSI` y `EDI`/`RDI`).
+- `DF = 1`: El string se procesa de derecha a izquierda (decrementando los punteros `ESI`/`RSI` y `EDI`/`RDI`).
+
+**Sintaxis:** `STD`
+
+**Ejemplo**
+
+```asm
+; Intel
+; Copiar 5 bytes desde el final de src hasta dst (hacia atrás)
+std               ; DF = 1, avanza hacia atrás
+mov rcx, 5
+lea rsi, [src+4]  ; apunta al último byte de src
+lea rdi, [dst+4]  ; apunta al último byte de dst
+rep movsb         ; copia rcx bytes de [rsi] a [rdi] decrementando punteros
+cld               ; es recomendable restaurar DF = 0 después de realizar la operación
+```
+
+**Nota:** Siempre que se use `STD` es buena práctica restaurar `DF` con `CLD` al terminar la operación, para no afectar código que espera `DF = 0`.
+
+## Instrucción `MOVS` (move string)
+
+Copia datos de una dirección de memoria a otra dirección de memoria. Es como un `memcpy` en C, pero a nivel de CPU. No afecta los flags del CPU. Siempre depende de `RSI`, `RDI` y el flag `DF` para saber hacia dónde y cómo mover.
+
+**Sintaxis:** `MOVS[m] dest, src`
+
+En ensamblador moderno no se suelen escribir los operandos directamente, la CPU usa registros especiales:
+
+- `RSI`: Source Index (puntero de origen).
+- `RDI`: Destination Index (puntero de destino).
+- `RCX`: Contador (solo si usamos `REP`).
+- `AL/AX/EAX/RAX`: para tamaños de 1,2,4 y 8 bytes.
+
+Y los sufijos determinan el tamaño que mueve:
+
+| Instrucción | Tamaño  | Descripción                  |
+| ----------- | ------- | ---------------------------- |
+| `MOVSB`     | 1 byte  | Mueve un byte                |
+| `MOVSW`     | 2 bytes | Mueve una palabra (word)     |
+| `MOVSD`     | 4 bytes | Mueve un double word         |
+| `MOVSQ`     | 8 bytes | Mueve un quad word (64 bits) |
+
+**¿Cómo funciona?**
+
+1. `MOVS` copia el contenido de `[RSI]` a `[RDI]`.
+2. Incrementa o decrementa `RSI` y `RDI` automáticamente según el tamaño y `DF` (Direction Flag).
+   - `CLD` setea `DF` a cero (avanza o incrementa).
+   - `STD` setea `DF` a uno (retrocede o decrementa).
+3. Si se combina con `REP`, repite la operación `RCX` veces.
+
+**Ejemplo mínimo sin `REP`**
+
+```asm
+; Intel
+section .data
+origen db 'H','i','!',0
+destino db 4 dup(0) ; byfufer de 4 bytes
+
+section .text
+global _start
+_start:
+    mov rsi, origen     ; puntero al origen
+    mov rdi, destino    ; puntero al destino
+    cld                 ; asegura que DF=0 (incrementa)
+    
+    movsb               ; mueve 1 byte de [RSI] a [RDI]
+    movsb               ; mueve otro byte
+    movsb               ; mueve otro byte
+    movsb               ; mueve el null terminator
+```
+
+**Ejemplo con `REP MOSB` (más eficiente)**
+
+```asm
+; Intel
+section .data
+origen db 'Hola',0
+destino db 5 dup(0)
+
+section .text
+global _start
+_start:
+    mov rsi, origen
+    mov rdi, destino
+    mov rcx, 5          ; número de bytes a copiar
+    cld                  ; DF=0
+    rep movsb           ; repite movsb RCX veces
+```
+
+`REP MOVSB` hace lo mismo que el ejemplo anterior de manera mas eficiente. `RCX` se decrementa hasta cero.
+
+todo: abordar los operadores GAS AT&T con sintaxis intel
 
 todo: abordar instrucciones string: MOVSx / STOSx, LODSx, , SCASx y CMPSx
 
