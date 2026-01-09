@@ -1,10 +1,10 @@
 #! /usr/bin/bash
-# $1: -r|--run Corre el archivo binario compilado.
+# $1: --run Corre el archivo binario compilado.
 # $1: -d Inicia debug con gdb 
 
 src="hw.asm"
-obj="hw.o"
-bin="hw.bin"
+obj="${src%.asm}.o"
+bin="${src%.asm}.bin"
 
 # Limpieza previa
 if [[ -f "$obj" ]]; then
@@ -41,9 +41,10 @@ if [[ ! -e "$bin" ]]; then
     echo "${bin} not found!"
 fi
 
-# Ejecuta solo cuando -r|--run es entregado como parámetro
-if [[ -n "$1" && ($1 == "--run" || $1 == "-r") ]]; then
+# Ejecuta cuando detecta --run
+if [[ -n "$1" && $1 == "--run" ]]; then
     ./"$bin"
+# Inicia gdb cuando detecta -d
 elif [[ -n "$1" && $1 == '-d' ]]; then
     gdb ./"$bin"
 fi
