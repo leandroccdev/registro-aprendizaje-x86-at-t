@@ -8207,15 +8207,30 @@ De esta manera se mantiene el sistema seguro y estable.
 
 Se usa la instrucción `syscall`, y antes de ejecutarla se debe cargar `RAX` con el número de la syscall y los argumentos en los registros `RDI`, `RSI`, `RDX`, `R10`, `R8`, `R9` (en ese orden).
 
-### Ejemplos
+**Escribir en pantalla**
 
-**Escribir en pantalla**, un equivalente a;
+**Sintaxis:** `write(fd, buffer, length);`
+
+**Diferencias clave: 32 vs 64 bits**
+
+| Aspecto           | Linux 32-bit              | Linux 64-bit              |
+| ----------------- | ------------------------- | ------------------------- |
+| Instrucción       | `int 0x80`                | `syscall`                 |
+| Número de syscall | `eax = 4`                 | `rax = 1`                 |
+| Arg 1             | `ebx`                     | `rdi`                     |
+| Arg 2             | `ecx`                     | `rsi`                     |
+| Arg 3             | `edx`                     | `rdx`                     |
+| Registros         | 32 bits (`eax`, `ebx`, …) | 64 bits (`rax`, `rdi`, …) |
+
+**Ejemplo**
+
+Equivalente a C.
 
 ```C
 write(1, "Hola\n", 5);
 ```
 
-Ahora el equivalente en asm x86-64 para linux:
+**Equivalente en 64 bits**
 
 ```asm
 ; Intel
@@ -8248,6 +8263,17 @@ El orden de los parámetros es el siguiente:
 | `RDX`    | Tercer argumento  |
 
 Luego `SYSCALL` transfiere el control al kernel.
+
+**Equivalente en 32 bits**
+
+```asm
+; Intel
+mov eax, 4      # write
+mov ebx, 1      # stdout
+mov ecx, msg    # buffer
+mov edx, len    # tamaño
+int 0x80
+```
 
 **Salir del programa**
 
