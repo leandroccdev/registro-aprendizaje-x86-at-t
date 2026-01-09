@@ -7688,9 +7688,403 @@ _start:
 
 `REP MOVSB` hace lo mismo que el ejemplo anterior de manera mas eficiente. `RCX` se decrementa hasta cero.
 
-todo: abordar los operadores GAS AT&T con sintaxis intel
+## Instrucción `LODS` (load string)
 
-todo: abordar instrucciones string: MOVSx / STOSx, LODSx, , SCASx y CMPSx
+Lee un elemento desde memoria y lo carga en un registro, avanzando y retrocediendo automáticamente el puntero. Es decir, copia un dato desde `[RSI]` a un registro (`AL/AX/EAX/RAX`) y mueve `RSI`. No modifica los flags del CPU. Solo lee `DF`.
+
+`LODS` toma un valor desde la dirección apuntada por `RSI` y lo carga en el acumulador:
+
+| Variante | Tamaño  | Operación     |
+| -------- | ------- | ------------- |
+| `LODSB`  | 1 byte  | `AL ← [RSI]`  |
+| `LODSW`  | 2 bytes | `AX ← [RSI]`  |
+| `LODSD`  | 4 bytes | `EAX ← [RSI]` |
+| `LODSQ`  | 8 bytes | `RAX ← [RSI]` |
+
+  Luego actualiza `RSI` automáticamente:
+
+- Si `DF = 0` (dirección hacia adelante, normal):
+
+  ```
+  RSI = RSI + tamaño
+  ```
+
+- Si `DF = 1` (dirección hacia atrás):
+
+  ```
+  RSI = RSI - tamaño
+  ```
+
+**Sintaxis:** `LODS[m]` donde `m `es un modificador:
+
+| Instrucción | Nombre                 | Tamaño leído | Registro destino | Efecto en `RSI` (DF=0) | Efecto en `RSI` (DF=1) |
+| ----------- | ---------------------- | ------------ | ---------------- | ---------------------- | ---------------------- |
+| `LODSB`     | Load String Byte       | 1 byte       | `AL`             | `RSI = RSI + 1`        | `RSI = RSI - 1`        |
+| `LODSW`     | Load String Word       | 2 bytes      | `AX`             | `RSI = RSI + 2`        | `RSI = RSI - 2`        |
+| `LODSD`     | Load String Doubleword | 4 bytes      | `EAX`            | `RSI = RSI + 4`        | `RSI = RSI - 4`        |
+| `LODSQ`     | Load String Quadword   | 8 bytes      | `RAX`            | `RSI = RSI + 8`        | `RSI = RSI - 8`        |
+
+**Relación con el modo**
+
+| Modo    | Variantes disponibles              |
+| ------- | ---------------------------------- |
+| 16 bits | `LODSB`, `LODSW`                   |
+| 32 bits | `LODSB`, `LODSW`, `LODSD`          |
+| 64 bits | `LODSB`, `LODSW`, `LODSD`, `LODSQ` |
+
+**Ejemplo**
+
+```asm
+; Intel
+; Lee bytes de una cadena uno por uno
+cld             ; DF = 0, avanzar
+mov rsi, texto  ; RSI apunta al inicio
+
+lodsb           ; AL = [RSI], RSI++
+; ahora AL tiene el primer byte
+
+lodsb           ; AL = [RSI], RSI++
+; ahora AL tiene el segundo byte
+```
+
+Si el texto es `ABC`:
+
+- La primera ejecución de `LODSB` carga `A` en `AL`.
+- La segunda ejecución de `LODSB` carga `B` en 'AL'.
+
+**Ejemplo 2**
+
+```asm
+; Intel
+; Leer palabras de 16 bits
+cld
+mov rsi, datos    ; datos: dw 100, 200, 300
+
+lodsw             ; AX = 100, RSI += 2
+lodsw             ; AX = 200, RSI += 2
+```
+
+**Ejemplo 3**
+
+```asm
+; Intel
+cld
+mov rsi, buffer
+mov rcx, 5
+
+rep lodsb          ; ejecuta LODSB 5 veces
+```
+
+Equivale a:
+
+```asm
+bucle:
+    lodsb
+    loop bucle
+```
+
+**Usos comunes**
+
+- Recorrer una secuencia de datos (strings, buffers, arrays).
+- Procesar cada elemento en el acumulador (comparar, transformar, sumar, etc).
+- Se combina con otras instrucciones de strings.
+
+## Instrucción `STOS` (store string)
+
+Copia el contenido de un registro hacia memoria, en la dirección apuntada por `DI/EDI/RDI`, y luego avanza o retrocede el puntero automáticamente según lo indique `DF`. Es palabras simples: `STOS` guarda un valor en memoria y mueve el puntero de destino. No modifica los flags del CPU. Lee `DF`.
+
+**Sintaxis:** `STOS[m]` donde `m` es un modificador:
+
+| Instrucción | Tamaño          | Registro origen | Destino en memoria |
+| ----------- | --------------- | --------------- | ------------------ |
+| `STOSB`     | Byte (8 bits)   | `AL`            | `[RDI]`            |
+| `STOSW`     | Word (16 bits)  | `AX`            | `[RDI]`            |
+| `STOSD`     | Dword (32 bits) | `EAX`           | `[RDI]`            |
+| `STOSQ`     | Qword (64 bits) | `RAX`           | `[RDI]`            |
+
+**Nota:** En modo 64 bits siempre se usa `RDI` como puntero destino.
+
+**Internamente realiza lo siguiente**
+
+```
+[Destino] ← Registro
+RDI ← RDI ± tamaño
+```
+
+El incremento o decremento depende de `DF`.
+
+| DF                   | Comportamiento    |
+| -------------------- | ----------------- |
+| `DF = 0` (con `CLD`) | RDI **avanza**    |
+| `DF = 1` (con `STD`) | RDI **retrocede** |
+
+**Ejemplo**
+
+```asm
+; Intel
+; Guarda un byte en memoria
+cld                 ; DF = 0 (avanza)
+mov rdi, buffer     ; destino
+mov al, 0x41        ; 'A'
+stosb               ; [RDI] = AL, RDI++
+```
+
+Luego de que se ejecuta `STOSB`:
+
+```
+buffer[0] = 0x41
+RDI = buffer + 1
+```
+
+**Ejemplo 2**
+
+```asm
+; Intel
+; Guarda 2 bytes
+cld
+mov rdi, buffer
+mov ax, 0x1234
+stosw               ; escribe 0x1234 en memoria
+```
+
+**Ejemplo 3**
+
+`STOS` se usa mucho para rellenar memoria (como `memset` en C).
+
+```asm
+; Intel
+; Rellenar un buffer con ceros (64 bits)
+cld
+mov rdi, buffer     ; destino
+xor rax, rax        ; valor a escribir = 0
+mov rcx, 16         ; número de elementos
+rep stosq           ; escribe 16 * 8 bytes = 128 bytes
+```
+
+Equivale a
+
+```C
+memset(buffer, 0, 128);
+```
+
+**Ejemplo 3**
+
+```asm
+; Intel
+; Escribe hacia atrás
+std                 ; DF = 1 (retrocede)
+mov rdi, buffer+7
+mov al, 0xFF
+stosb               ; escribe en [RDI], luego RDI--
+cld                 ; DF = 0 (resetea DF)
+```
+
+**Usos comunes**
+
+- Inicializar buffers.
+- Escribir valores repetidos en memoria.
+- Rutinas de bajo nivel, kernels, loaders, bootloaders.
+- Implementaciones optimizadas de librerías estándar.
+
+## Instrucción `SCAS` (scan string)
+
+Compara un valor en un registro con el contenido de memoria apuntado por `RDI/EDI/DI` avanzando automáticamente el puntero según `DF`. En otras palabras: `SCAS` busca un valor en memoria comparándolo con un registro.
+
+**¿Qué hace?**
+
+`SCAS` compara:
+
+```
+ACUMULADOR  vs  [RDI]
+```
+
+- En modo 64 bits: `RAX` vs `[RDI]`
+- En modo 32 bits: `EAX` vs `[EDI]`
+- En modo 16 bits: `AX`  vs `[DI]`
+- En modo 8 bits: `AL`  vs `[DI/EDI/RDI]`
+
+Internamente ejecuta una resta sin guardar el resultado.
+
+```
+ACUMULADOR - [RDI]
+```
+
+Pero sí actualiza los flags (`ZF`,`SF`, `CF`, `OF`, etc ).
+
+Finalmente incrementa o decrementa `RDI` según el tamaño del dato y el estado de `DF`.
+
+**Sintaxis:** `SCAS[m]` donde `m` es un modificador:
+
+| Instrucción | Tamaño          | Registro usado | Avance de RDI |
+| ----------- | --------------- | -------------- | ------------- |
+| `SCASB`     | Byte (8 bits)   | `AL`           | ±1            |
+| `SCASW`     | Word (16 bits)  | `AX`           | ±2            |
+| `SCASD`     | Dword (32 bits) | `EAX`          | ±4            |
+| `SCASQ`     | Qword (64 bits) | `RAX`          | ±8            |
+
+**Flags del CPU afectados por `SCAS`**
+
+| Flag | Nombre         | ¿Cómo queda tras `SCAS`?                            | Significado                                                  |
+| ---- | -------------- | --------------------------------------------------- | ------------------------------------------------------------ |
+| ZF   | Zero Flag      | 1 si `ACUMULADOR == [RDI]` 0 si son distintos       | Indica igualdad (coincidencia encontrada)                    |
+| SF   | Sign Flag      | Copia del bit más significativo del resultado       | Indica si el resultado es negativo (en aritmética con signo) |
+| CF   | Carry Flag     | 1 si hubo *borrow* (ACUMULADOR < [RDI] en unsigned) | Comparación sin signo                                        |
+| OF   | Overflow Flag  | 1 si hubo desbordamiento con signo                  | Comparación con signo                                        |
+| PF   | Parity Flag    | 1 si el byte bajo del resultado tiene paridad par   | Poco usado en práctica                                       |
+| AF   | Auxiliary Flag | Según borrow entre bit 3 y 4                        | Usado en BCD                                                 |
+| DF   | Direction Flag | No se modifica                                      | Controla si `RDI` incrementa o decrementa                    |
+| IF   | Interrupt Flag | No se modifica                                      | —                                                            |
+
+**Interpretación de los flags**
+
+| Condición                       | ZF   | CF   | Interpretación      |
+| ------------------------------- | ---- | ---- | ------------------- |
+| `ACUMULADOR == [RDI]`           | 1    | 0    | Coincidencia exacta |
+| `ACUMULADOR > [RDI]` (unsigned) | 0    | 0    | Acumulador mayor    |
+| `ACUMULADOR < [RDI]` (unsigned) | 0    | 1    | Acumulador menor    |
+| `ACUMULADOR != [RDI]`           | 0    | ?    | No hay coincidencia |
+
+**Ejemplo**
+
+```asm
+; Intel
+; Busca el byte 0x41 'A' en un buffer
+cld                 ; DF = 0 → avanzar hacia adelante
+mov al, 0x41        ; valor a buscar ('A')
+mov rdi, buffer     ; dirección del buffer
+mov rcx, 100        ; número de bytes a revisar
+
+repne scasb         ; busca AL en [RDI]
+```
+
+**¿Qué hace?**
+
+1. Compara `AL` con `[RDI]`.
+2. Si no son iguales (es decir, `ZF = 0`), sigue.
+3. Decrementa `RCX`.
+4. Avanza `RDI`.
+5. Repite hasta: Encontrar coincidencia (`ZF = 1`) o el fin del buffer (`RCX = 0`).
+
+Al terminar se obtiene `ZF = 1` si el valor fue encontrado, en tal caso `REPNE` se detiene inmediatamente, por lo que `RCX > 0` (siempre queda al menos un elemento sin consumir cuando hay coincidencia), `RDI` queda incrementado si `DF = 0` apuntando al byte siguiente al encontrado.  En cambio si el valor no estaba en el buffer, se obtiene `RCX = 0` y `ZF = 0`.
+
+**Ejemplo 2**
+
+```asm
+; Intel
+; Ejemplo mínimo sin usar el prefijo REP
+mov al, 0x30
+mov rdi, buffer
+scasb
+
+; Equivale a
+cmp al, byte [rdi]
+add rdi, 1    ; o sub si DF=1
+```
+
+**Usos comunes**
+
+- Búsqueda de caracteres o valores específicos en buffers.
+- Implementaciones de `memchr` y/o detecciones de terminadores de strings.
+- Rutinas de parsing a bajo nivel.
+
+## Instrucción `CMPS` (compare string)
+
+Compara dos strings en memoria, elemento por elemento, sin almacenar el resultado, solo actualizando los flags del CPU. (Igual que `CMP`).
+
+**¿Qué hace?**
+
+`CMPS` compara un dato apuntado por `RSI` (fuente), con un dato apuntado por `RDI` (destino). Internamente equivale a:
+
+```asm
+; Intel
+CMP [RDI], [RSI]
+```
+
+Luego actualiza lso flags del CPU según el resultado, y avanza o retrocede ambos punteros (`RSI` y `RDI`) dependiendo de `DF`.
+
+**Sintaxis:** `CMPS[m]` donde `m` es un modificador.
+
+| Instrucción | Tamaño comparado        |
+| ----------- | ----------------------- |
+| `CMPSB`     | 1 byte                  |
+| `CMPSW`     | 2 bytes (word)          |
+| `CMPSD`     | 4 bytes (dword)         |
+| `CMPSQ`     | 8 bytes (qword, x86-64) |
+
+**Movimiento de punteros `RSI` y `RDI`**
+
+| Tamaño | Si DF=0 (CLD) (incrementa) | Si DF=1 (STD) (decrementa) |
+| ------ | -------------------------- | -------------------------- |
+| B      | `RSI += 1` / `RDI += 1`    | `RSI -= 1` / `RDI -= 1`    |
+| W      | `+= 2`                     | `-= 2`                     |
+| D      | `+= 4`                     | `-= 4`                     |
+| Q      | `+= 8`                     | `-= 8`                     |
+
+**Flags del CPU afectados por `CMPS`**
+
+| Flag              | Significado tras `CMPS`                      |
+| ----------------- | -------------------------------------------- |
+| **ZF** (Zero)     | 1 si los valores son **iguales**             |
+| **SF** (Sign)     | Según el signo del resultado                 |
+| **CF** (Carry)    | 1 si `[RDI] < [RSI]` (comparación sin signo) |
+| **OF** (Overflow) | Si hay overflow con signo                    |
+| **AF**            | Ajuste BCD                                   |
+| **PF**            | Paridad                                      |
+
+**Ejemplo**
+
+```asm
+; Intel
+; Compara dos cadenas byte a byte
+cld           ; avanzar hacia adelante
+mov rsi, str1
+mov rdi, str2
+mov rcx, len
+
+repe cmpsb    ; compara byte a byte mientras sean iguales    
+; Al terminar:
+; ZF = 1 → cadenas iguales
+; ZF = 0 → se encontró diferencia
+```
+
+Equivalente en C
+
+```C
+int iguales = (memcmp(str1, str2, len) == 0);
+```
+
+Equivalente conceptual
+
+```
+for (i = 0; i < len; i++) {
+    if (str1[i] != str2[i])
+        break;
+}
+```
+
+**Comparación manual vs `CMPS`**
+
+```asm
+; Intel
+; Manual
+mov al, [rsi]
+cmp al, [rdi]
+inc rsi
+inc rdi
+
+; Con CMPSB
+cmpsb
+```
+
+Como se aprecia, usar `CMPS` es compacto y está diseñado para operaciones sobre bloques de memoria.
+
+**Usos típicos**
+
+- Comparar buffers, strings o estructuras en memoria.
+- Implementar funciones tipo `memcmp`, `strcmp`.
+- Búsqueda de diferencias en bloques binarios.
+
+todo: abordar los operadores GAS AT&T con sintaxis intel
 
 todo: hacer algunos programas
 
