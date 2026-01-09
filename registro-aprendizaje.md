@@ -1217,7 +1217,7 @@ No genera saltos en CPU, mas bien decide qué cóðigo se ensambla o no.
 | `.ident "text"`    | Cadena de identificación | `.ident "v1.0"`   |
 | `.end`             | Marca fin del archivo    | `.end`            |
 
-#### Interrupciones
+### Interrupciones
 
 Una interrupción se define como un mecanismo que detiene temporalmente la ejecución normal del procesador, ya sea para atender un evento urgente/importante y luego retormar la ejecución en donde se quedó previo a la interrupción. Cuando el CPU recibe una interrupción ejecuta una rutina especial llamada **manejador de interrupción** (interrupt handler).
 Las interrupciones son generadas por componentes del hardware (dispositivo, timer, teclado) o del software (llamadas al sistema, excepciones). Permiten al CPU reaccionar rápidamente a eventos externos sin necesidad de estar revisando constantemente (lo que se conoce como polling: consultar contínuamente el estado de un dispositivo o bandera en un bucle, hasta que cambia a un valor esperado). Un ejemplo de ésto es por ejemplo, cuando una tecla del teclado es presionada, una interrupción es generada, y al CPU se le indica que hay datos para leer.
@@ -1228,7 +1228,7 @@ En ensamblador x86 de 32 bits, para hacer una llamada al sistema (syscall) se us
 
 Esto genera la interrupción de software número 128 (0x80). El kernel la atiende para realizar la función solicitada (leer archivo, escribir, salir, etc).
 
-###### Resumen visual del flujo
+#### Resumen visual del flujo
 
 1. Ejecución normal
 2. Ocurre una interrupción
@@ -1237,7 +1237,7 @@ Esto genera la interrupción de software número 128 (0x80). El kernel la atiend
 5. Restaura contexto
 6. Resume ejecución normal
 
-###### Interrupciones prefedinidas
+#### Interrupciones prefedinidas
 
 En x86 existen (entre muchas otras) las siguientes interrupciones predefinidas:
 
@@ -1249,7 +1249,7 @@ En x86 existen (entre muchas otras) las siguientes interrupciones predefinidas:
 
 Estas son reservadas y manejadas por el procesador o el sistema operativo.
 
-###### Interrupciones definidas por el usuario
+#### Interrupciones definidas por el usuario
 
 El programador tambien puede definir y manejar interrupciones personalizadas, tanto por hardware como por software.
 Para definir una se utiliza la instrucción `int n` con un número que **no esté reservado** por el sistema. Luego debe verificarse que ese número esté correctamente apuntado en la tabla `IDT` (interrupt descriptor table) hacia su propia rutina de manejo.
@@ -1261,11 +1261,11 @@ int $0x21 # interrupción personalizada
 
 Si se configuró correctamente la entrada `0x21` en la `IDT` con el manejador o gestor, el CPU realizará el salto allí.
 
-###### Interrupciones personalizadas por hardware
+#### Interrupciones personalizadas por hardware
 
 En el modo protegido y en sistemas operativos modernos, la `IDT` no es modificable desde el espacio de usuario, solo el kernel tiene control total.
 
-###### Consideraciones
+#### Consideraciones
 
 Para crear una interrupción propia, se necesita cumplir algún punto de los siguientes:
 
@@ -1273,7 +1273,7 @@ Para crear una interrupción propia, se necesita cumplir algún punto de los sig
 - Tener acceso en modo kernel
 - Trabajar en un OS propio o código que se ejecuta en hardware directamente
 
-###### Intrucciones sti y cli en x86
+#### Intrucciones sti y cli en x86
 
 Controlan el flag de interrupciones en el registro de estado `EFLAGS`.
 
@@ -1285,7 +1285,7 @@ Tiene un retraso de una instrucción antes de que realmente se activen las inter
 
 **Importante**: solo afectan a las interrupciones externas, pero no a las excepciones internas. Además son instrucciones privilegiadas que solo son ejecutables en modo kernel (anillo 0).
 
-###### Gestor o manejador de interrupciones pesonalizadas
+#### Gestor o manejador de interrupciones pesonalizadas
 
 En el siguiente ejemplo se escribirá la entrada 0x21 de la `IVT` (interrupt vector table) para que apunte a nuestro propio manejador. Luego desde el manejador se imprimirá una letra.
 
@@ -1370,7 +1370,7 @@ manejador:
      # iret permite retornar al punto de la ejecución anterior a la interrupción
 ```
 
-###### ¿Qué es la IVT?
+#### ¿Qué es la IVT?
 
 LA interrupt vector table es una tabla en modo real de 256 entradas, que vive al inicio de la memoria RAM.
 
@@ -1386,7 +1386,7 @@ Por ejemplo, la interrupción de 0x13 (servicios de disco del BIOS) está en:
 0x13 * 4 = 0x4C # offset dentro de la ITV
 ```
 
-###### ¿Qué sucede cuando ocurre una interrupción?
+#### ¿Qué sucede cuando ocurre una interrupción?
 
 Cuando la interrupción ocurre (ya sea por hardware o software), el procesador guarda automáticamente en la pila:
 
@@ -1406,12 +1406,12 @@ La instrucción `iret` revierte dicho proceso:
 
 En 32 bits se llama `iretl` y en 64 `iretq`, `iret` corresponde a 16 bits.
 
-###### ¿Por qué no se debe usar `pop` al finalizar un manejador?
+#### ¿Por qué no se debe usar `pop` al finalizar un manejador?
 
 `pop` restaura la dirección de retorno desde la pila, pero **no restaura el context ocompleto como sí lo hace `ire`**.
 
 
-##### interrupción 0x80
+#### interrupción 0x80
 
 Ésta interrupción interrumple el flujo del programa, transfiere el control al kernel de linux y le pide que realiza una operación privilegiada como:
 - Salir del programa (exit)
@@ -1443,11 +1443,11 @@ _start:
     int $0x80        # interrupción al kernel
 ```
 
-##### ¿Por qué una interrupción?
+#### ¿Por qué una interrupción?
 
 El modo usuario (userland) no puede hacer cosas como acceder directamente al disco, terminar procesos, etc.. Solo el kernel, que corre en modo privilegiado (ring 0), puede hacerlo. Entonces se necesita una puerta de entrada controlada, y esa puerta es int $0x80.
 
-##### Tabla de registros (Linux x86 - 32 bits)
+#### Tabla de registros (Linux x86 - 32 bits)
 
 `%eax`: Número de syscall
 `%ebx`: Primer argumento
@@ -1459,7 +1459,7 @@ El modo usuario (userland) no puede hacer cosas como acceder directamente al dis
 
 Luego el valor de retorno se entrega en el registro `%eax`
 
-##### Tabla básica de syscalls en x86 (int $0x80)
+#### Tabla básica de syscalls en x86 (int $0x80)
 
 Los números de syscall están definidos en el archivo de cabecera del kernel:
 
@@ -8389,10 +8389,6 @@ printf() → libc → write() → syscall
 ```
 
 Como se ve, se tienen capas intermedias, en ASM se puede saltar a libc y hablar directo con el kernel.
-
-todo: abordar los operadores GAS AT&T con sintaxis intel
-
-todo: abordar directivas del preprocesador EQU, IF/ENDIF/ STRUC/EDNS
 
 todo: hacer algunos programas
 
