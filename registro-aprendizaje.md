@@ -1077,39 +1077,145 @@ Define el símbolo _start como entrada del programa. .globl es una directiva del
 
 A diferencia de lenguajes como C en donde el linker busca la función main, en ensamblador se busca _start para utilizarlo como punto de entrada.
 
-#### Directivas de ensamblador
+### Directivas de ensamblador especificas de GAS
 
-Las directivas permiten definir datos en la sección `.data`, las mas comunes son las siguientes:
+#### Secciones y organización del código
 
-`.byte`:   De 1 byte. Permite definir valores de 8 bits
-`.word`:   De 2 bytes. Permite definir valores de 16 bits
-`.short`:  De 2 bytes. Alias de `.word`
-`.long`:   De 4 bytes. Permite definir valores de 32 bits
-`.int`:    De 4 bytes. Alias de `.lng`
-`.quad`:   De 8 bytes. Permite definir valores de 64 bits
-`.ascii`:  Largo variable. Permite definir cadenas sin \0 al final
-`asciz`:   Largo variable. Permite definir cadenas con \0 al final
-`.string`: Largo variable. Alias de `asciz`
+| Directiva           | Función                        | Ejemplo                |
+| ------------------- | ------------------------------ | ---------------------- |
+| `.section name`     | Define o cambia de sección     | `.section .data`       |
+| `.text`             | Sección de código              | `.text`                |
+| `.data`             | Datos inicializados            | `.data`                |
+| `.bss`              | Datos no inicializados         | `.bss`                 |
+| `.rodata`           | Datos de solo lectura          | `.section .rodata`     |
+| `.previous`         | Vuelve a la sección anterior   | `.previous`            |
+| `.pushsection name` | Guarda sección actual y cambia | `.pushsection .rodata` |
+| `.popsection`       | Restaura sección anterior      | `.popsection`          |
 
-##### Otras directivas útiles
+#### Definición de datos (variables y constantes)
 
-`.space`:  Reserva N bytes sin inicializar (rellenados con ceros)
-`.zero`:   Igual que `.space` pero el relleno es opcional
-`.fill`:   Rellena memoria con un patrón `.fill count, size, value`
-`.align`:  Alinea la siguiente dirección a una potencia de 2
-`.balign`: Igual que `.align`, pero especifica para binarios
-`.skip`:   Similar a .space (reserva sin inicializar)
+| Directiva                | Tamaño  | Descripción         | Ejemplo            |
+| ------------------------ | ------- | ------------------- | ------------------ |
+| `.byte`                  | 8 bits  | Enteros de 1 byte   | `.byte 0x41`       |
+| `.short` / `.hword`      | 16 bits | Enteros de 2 bytes  | `.short 100`       |
+| `.int` / `.long`         | 32 bits | Enteros de 4 bytes  | `.int 1234`        |
+| `.quad`                  | 64 bits | Enteros de 8 bytes  | `.quad 0x11223344` |
+| `.float`                 | 32 bits | Punto flotante      | `.float 3.14`      |
+| `.double`                | 64 bits | Doble precisión     | `.double 3.141592` |
+| `.ascii`                 | n/a     | Cadena sin `\0`     | `.ascii "hola"`    |
+| `.asciz` / `.string`     | n/a     | Cadena con `\0`     | `.asciz "hola"`    |
+| `.space n`               | n bytes | Reserva espacio     | `.space 16`        |
+| `.zero n`                | n bytes | Reserva con ceros   | `.zero 32`         |
+| `.fill count,size,value` | n bytes | Rellenar con patrón | `.fill 4,1,0x90`   |
 
-##### Directivas de secciones y símbolos
+#### Alineación y organización en memoria
 
-`.data`:   Comienza la sección de datos (lectura/escritura)
-`.bss`:    Sección de variables no inicializadas
-`.text`:   Sección de código
-`.globl`:  Declara un símbolo global
-`.global`: Alias de `.globl`
-`.extern`: Declara un símbolo externo
-`.type`:   Define el tipo de símbolo (función, objeto)
-`.size`:   Define le tamaño de un símbolo
+| Directiva    | Función                           | Ejemplo               |
+| ------------ | --------------------------------- | --------------------- |
+| `.align n`   | Alinea a 2ⁿ bytes                 | `.align 4` → 16 bytes |
+| `.balign n`  | Alinea a n bytes                  | `.balign 16`          |
+| `.p2align n` | Alinea a 2ⁿ bytes                 | `.p2align 4`          |
+| `.org addr`  | Establece dirección de ensamblado | `.org 0x400000`       |
+
+#### Símbolos, visibilidad y enlazado
+
+| Directiva     | Función                             | Ejemplo          |
+| ------------- | ----------------------------------- | ---------------- |
+| `.global sym` | Hace símbolo visible al linker      | `.global main`   |
+| `.globl sym`  | Alias de `.global`                  | `.globl _start`  |
+| `.local sym`  | Símbolo solo local                  | `.local temp`    |
+| `.extern sym` | Declara símbolo externo             | `.extern printf` |
+| `.weak sym`   | Símbolo débil                       | `.weak handler`  |
+| `.hidden sym` | Oculta símbolo                      | `.hidden secret` |
+| `.set a,b`    | Define símbolo como expresión       | `.set SIZE, 64`  |
+| `.equ a,b`    | Define constante                    | `.equ MAX, 100`  |
+| `.equiv a,b`  | Como `.equ` pero error si ya existe | `.equiv X, 5`    |
+
+
+#### Macros y repetición
+
+| Directiva             | Función           | Ejemplo           |
+| --------------------- | ----------------- | ----------------- |
+| `.macro name args...` | Define macro      | `.macro PUSH reg` |
+| `.endm`               | Fin de macro      | `.endm`           |
+| `.irp var, list`      | Itera sobre lista | `.irp r, rax,rbx` |
+| `.irpc var, string`   | Itera caracteres  | `.irpc c,"ABC"`   |
+| `.rept n`             | Repite n veces    | `.rept 4`         |
+| `.endr`               | Fin de repetición | `.endr`           |
+
+
+#### Control de flujo en ensamblado (condicionales)
+
+No genera saltos en CPU, mas bien decide qué cóðigo se ensambla o no.
+
+**Condicionales**
+
+| Directiva      | Función                     | Ejemplo           |
+| -------------- | --------------------------- | ----------------- |
+| `.if expr`     | Si la expresión ≠ 0         | `.if DEBUG`       |
+| `.ifdef sym`   | Si símbolo está definido    | `.ifdef LINUX`    |
+| `.ifndef sym`  | Si símbolo NO está definido | `.ifndef TEST`    |
+| `.ifb arg`     | Si argumento está vacío     | `.ifb \arg`       |
+| `.ifnb arg`    | Si argumento no está vacío  | `.ifnb \arg`      |
+| `.ifeq expr`   | Si expr == 0                | `.ifeq SIZE-10`   |
+| `.ifne expr`   | Si expr ≠ 0                 | `.ifne FLAG`      |
+| `.ifgt expr`   | Si expr > 0                 | `.ifgt COUNT`     |
+| `.iflt expr`   | Si expr < 0                 | `.iflt OFFSET`    |
+| `.else`        | Rama alternativa            | `.else`           |
+| `.elseif expr` | Condición intermedia        | `.elseif MODE==2` |
+| `.endif`       | Fin del condicional         | `.endif`          |
+
+**Ejemplo**
+
+```asm
+; Intel
+.equ DEBUG, 1
+
+.if DEBUG
+    mov rax, 1      # código de depuración
+.else
+    mov rax, 0
+.endif
+```
+
+#### Control de ensamblado y mensajes
+
+| Directiva         | Función                      | Ejemplo                 |
+| ----------------- | ---------------------------- | ----------------------- |
+| `.error "msg"`    | Detiene ensamblado con error | `.error "Fallo"`        |
+| `.warning "msg"`  | Muestra advertencia          | `.warning "Deprecated"` |
+| `.abort`          | Aborta ensamblado            | `.abort`                |
+| `.include "file"` | Incluye otro archivo         | `.include "defs.inc"`   |
+| `.file "name"`    | Define nombre de archivo     | `.file "main.s"`        |
+| `.line n`         | Cambia número de línea       | `.line 42`              |
+
+#### Información de depuración
+
+| Directiva             | Función                    | Ejemplo                |
+| --------------------- | -------------------------- | ---------------------- |
+| `.loc file line`      | Asocia código a línea      | `.loc 1 10`            |
+| `.type sym,@function` | Marca símbolo como función | `.type main,@function` |
+| `.size sym, expr`     | Define tamaño de símbolo   | `.size main, .-main`   |
+
+#### Arquitectura, modo y opciones
+
+| Directiva                | Función                | Ejemplo                  |
+| ------------------------ | ---------------------- | ------------------------ |
+| `.code16`                | Código 16 bits         | `.code16`                |
+| `.code32`                | Código 32 bits         | `.code32`                |
+| `.code64`                | Código 64 bits         | `.code64`                |
+| `.intel_syntax noprefix` | Sintaxis Intel         | `.intel_syntax noprefix` |
+| `.att_syntax`            | Vuelve a sintaxis AT&T | `.att_syntax`            |
+| `.arch arch`             | Fija arquitectura      | `.arch x86_64`           |
+
+#### Misceláneas útiles
+
+| Directiva          | Función                  | Ejemplo           |
+| ------------------ | ------------------------ | ----------------- |
+| `.comm sym, size`  | Variable común           | `.comm buffer,64` |
+| `.lcomm sym, size` | Común local              | `.lcomm temp,32`  |
+| `.ident "text"`    | Cadena de identificación | `.ident "v1.0"`   |
+| `.end`             | Marca fin del archivo    | `.end`            |
 
 #### Interrupciones
 
