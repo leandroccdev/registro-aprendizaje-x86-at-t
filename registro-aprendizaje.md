@@ -8207,6 +8207,8 @@ De esta manera se mantiene el sistema seguro y estable.
 
 Se usa la instrucción `syscall`, y antes de ejecutarla se debe cargar `RAX` con el número de la syscall y los argumentos en los registros `RDI`, `RSI`, `RDX`, `R10`, `R8`, `R9` (en ese orden).
 
+**Nota:** En 32 bits se usa `int 0x80` en vez de `syscall`.
+
 **Escribir en pantalla**
 
 **Sintaxis:** `write(fd, buffer, length);`
