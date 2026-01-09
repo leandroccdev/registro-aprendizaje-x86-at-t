@@ -8084,6 +8084,199 @@ Como se aprecia, usar `CMPS` es compacto y está diseñado para operaciones sobr
 - Implementar funciones tipo `memcmp`, `strcmp`.
 - Búsqueda de diferencias en bloques binarios.
 
+# Llamadas al sistema (syscalls)
+
+Son el mecanismo que usa un programa en modo usuario para pedirle servicios al kernel del sistema operativo, tales como: leer/escribir archivos, usar red, crear procesos, terminar el programa, etc.
+
+Existen porque el programa no puede acceder directamente al hardware ni a los recursos del sistema (disco, memoria protegida, procesos). El kernel sí puede. Entonces el programa realiza lo siguiente:
+
+1. Pide algo (syscall).
+2. El CPU cambia a modo kernel.
+3. El kernel ejecuta la operación.
+4. El kernel devuelve el control al programa.
+
+De esta manera se mantiene el sistema seguro y estable.
+
+## ¿Cómo se realiza una syscall en x86-64 linux?
+
+Se usa la instrucción `syscall`, y antes de ejecutarla se debe cargar `RAX` con el número de la syscall y los argumentos en los registros `RDI`, `RSI`, `RDX`, `R10`, `R8`, `R9` (en ese orden).
+
+### Ejemplos
+
+**Escribir en pantalla**, un equivalente a;
+
+```C
+write(1, "Hola\n", 5);
+```
+
+Ahora el equivalente en asm x86-64 para linux:
+
+```asm
+; Intel
+section .data
+    msg db "Hola", 10
+    len equ $ - msg
+
+section .text
+global _start
+
+_start:
+    mov rax, 1        ; syscall: sys_write
+    mov rdi, 1        ; fd = 1 (stdout)
+    mov rsi, msg      ; dirección del mensaje
+    mov rdx, len      ; tamaño
+    syscall           ; llamada al kernel
+
+    mov rax, 60       ; syscall: sys_exit
+    xor rdi, rdi      ; código de salida = 0
+    syscall
+```
+
+El orden de los parámetros es el siguiente:
+
+| Registro | Significado       |
+| -------- | ----------------- |
+| `RAX`    | Número de syscall |
+| `RDI`    | Primer argumento  |
+| `RSI`    | Segundo argumento |
+| `RDX`    | Tercer argumento  |
+
+Luego `SYSCALL` transfiere el control al kernel.
+
+**Salir del programa**
+
+```asm
+; Intel
+mov rax, 60   ; sys_exit
+mov rdi, 0    ; código de retorno
+syscall
+```
+
+## Algunas syscalls comunes (Linux x86-64 ABI System V)
+
+### Básicas de archivos y procesos
+
+| Syscall          | RAX | Descripción                      |
+| ---------------- | --- | -------------------------------- |
+| `read`           | 0   | Leer de un descriptor de archivo |
+| `write`          | 1   | Escribir en un descriptor        |
+| `open`           | 2   | Abrir archivo                    |
+| `close`          | 3   | Cerrar archivo                   |
+| `stat`           | 4   | Obtener info de archivo          |
+| `fstat`          | 5   | Info de archivo por FD           |
+| `lstat`          | 6   | Info sin seguir symlink          |
+| `poll`           | 7   | Esperar eventos en FDs           |
+| `lseek`          | 8   | Mover puntero de archivo         |
+| `mmap`           | 9   | Mapear memoria                   |
+| `mprotect`       | 10  | Cambiar permisos de memoria      |
+| `munmap`         | 11  | Liberar memoria mapeada          |
+| `brk`            | 12  | Ajustar heap                     |
+| `rt_sigaction`   | 13  | Manejar señales                  |
+| `rt_sigprocmask` | 14  | Bloquear/desbloquear señales     |
+| `ioctl`          | 16  | Control de dispositivos          |
+| `pread64`        | 17  | Leer desde offset                |
+| `pwrite64`       | 18  | Escribir desde offset            |
+| `readv`          | 19  | Leer con múltiples buffers       |
+| `writev`         | 20  | Escribir con múltiples buffers   |
+| `access`         | 21  | Verificar permisos               |
+| `pipe`           | 22  | Crear pipe                       |
+| `select`         | 23  | Multiplexar I/O                  |
+| `sched_yield`    | 24  | Ceder CPU                        |
+| `mremap`         | 25  | Redimensionar mmap               |
+| `msync`          | 26  | Sincronizar memoria              |
+| `mincore`        | 27  | Ver páginas en RAM               |
+| `madvise`        | 28  | Sugerencias al kernel            |
+| `shmget`         | 29  | Obtener memoria compartida       |
+| `shmat`          | 30  | Adjuntar memoria compartida      |
+| `shmctl`         | 31  | Controlar memoria compartida     |
+| `dup`            | 32  | Duplicar FD                      |
+| `dup2`           | 33  | Duplicar FD en uno específico    |
+| `pause`          | 34  | Esperar señal                    |
+| `nanosleep`      | 35  | Dormir en na                     |
+
+### Procesos, señales y ejecución
+
+| Syscall   | RAX | Descripción           |
+| --------- | --- | --------------------- |
+| `fork`    | 57  | Crear proceso         |
+| `vfork`   | 58  | Fork optimizado       |
+| `execve`  | 59  | Ejecutar programa     |
+| `exit`    | 60  | Terminar proceso      |
+| `wait4`   | 61  | Esperar proceso hijo  |
+| `kill`    | 62  | Enviar señal          |
+| `uname`   | 63  | Info del sistema      |
+| `getppid` | 110 | Obtener PID del padre |
+| `getuid`  | 102 | Obtener UID           |
+| `geteuid` | 107 | Obtener EUID          |
+| `getgid`  | 104 | Obtener GID           |
+| `getegid` | 108 | Obtener EGID          |
+| `setuid`  | 105 | Cambiar UID           |
+| `setgid`  | 106 | Cambiar GID           |
+| `setsid`  | 112 | Crear nueva sesión    |
+| `ptrace`  | 101 | Debug/tracing         |
+| `prctl`   | 157 | Control del proceso   |
+
+### Red (sockets)
+
+| Syscall       | RAX | Descripción              |
+| ------------- | --- | ------------------------ |
+| `socket`      | 41  | Crear socket             |
+| `connect`     | 42  | Conectar socket          |
+| `accept`      | 43  | Aceptar conexión         |
+| `sendto`      | 44  | Enviar datos             |
+| `recvfrom`    | 45  | Recibir datos            |
+| `sendmsg`     | 46  | Enviar mensaje           |
+| `recvmsg`     | 47  | Recibir mensaje          |
+| `shutdown`    | 48  | Cerrar conexión          |
+| `bind`        | 49  | Asociar socket           |
+| `listen`      | 50  | Escuchar conexiones      |
+| `getsockname` | 51  | Obtener nombre de socket |
+| `getpeername` | 52  | Obtener peer             |
+| `socketpair`  | 53  | Crear par de sockets     |
+| `setsockopt`  | 54  | Opciones de socket       |
+| `getsockopt`  | 55  | Leer opciones            |
+
+### Memoria y sistema
+
+| Syscall             | RAX | Descripción                |
+| ------------------- | --- | -------------------------- |
+| `clone`             | 56  | Crear proceso/hilo         |
+| `arch_prctl`        | 158 | Configurar registros FS/GS |
+| `set_tid_address`   | 218 | TID para threads           |
+| `futex`             | 202 | Sincronización de hilos    |
+| `sched_setaffinity` | 203 | Afinidad de CPU            |
+| `sched_getaffinity` | 204 | Leer afinidad              |
+| `getrandom`         | 318 | Generar números aleatorios |
+| `memfd_create`      | 319 | Archivo en memoria         |
+
+### Sistema de archivos moderno
+
+| Syscall      | RAX | Descripción                 |
+| ------------ | --- | --------------------------- |
+| `openat`     | 257 | Abrir archivo relativo a FD |
+| `mkdirat`    | 258 | Crear directorio            |
+| `mknodat`    | 259 | Crear nodo                  |
+| `fchownat`   | 260 | Cambiar dueño               |
+| `fstatat`    | 262 | Info de archivo             |
+| `unlinkat`   | 263 | Borrar archivo              |
+| `renameat`   | 264 | Renombrar                   |
+| `linkat`     | 265 | Crear hard link             |
+| `symlinkat`  | 266 | Crear symlink               |
+| `readlinkat` | 267 | Leer symlink                |
+| `fchmodat`   | 268 | Cambiar permisos            |
+| `faccessat`  | 269 | Verificar permisos          |
+| `utimensat`  | 280 | Cambiar timestamps          |
+
+### Terminación del programa
+
+| Syscall      | RAX | Descripción              |
+| ------------ | --- | ------------------------ |
+| `exit`       | 60  | Terminar proceso         |
+| `exit_group` | 231 | Terminar todos los hilos |
+
+
+Syscall vs función ed biblioteca (libc)
+
 todo: abordar los operadores GAS AT&T con sintaxis intel
 
 todo: hacer algunos programas
