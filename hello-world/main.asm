@@ -6,7 +6,6 @@
     buffer_len = . - buffer
 
 .section .text
-.global _start
 .type _start, @function # declara que _start es una función
 .global _start # Exporta el símbolo
 
