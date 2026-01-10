@@ -6952,6 +6952,19 @@ Direcciones bajas
 
 Finalmente `RET` saca la dirección de retorno desde la pila y salta a ella, devolviendo el control a la función llamadora, con su pila intacta.
 
+### Convención System V AMD64 para los 6 primeros argumentos de una función
+
+| Argumento | Registro |
+| --------- | -------- |
+| 1         | **RDI**  |
+| 2         | **RSI**  |
+| 3         | **RDX**  |
+| 4         | **RCX**  |
+| 5         | **R8**   |
+| 6         | **R9**   |
+
+Esto significa que el primer argumento debe ir en `RDI`, el segundo en `RSI`, etc, hasta `R9`.
+
 ## Instrucción `CALL`
 
 Llama a una función (semánticamente hablando). Técnicamente realiza dos acciones atómicas:
