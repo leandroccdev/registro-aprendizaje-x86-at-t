@@ -181,6 +181,7 @@ elif [[ $f_debug -eq 1 ]]; then
     cd $exercise_folder
     gdb -q \
         -ex "set debuginfod enabled off" \
+        -ex "set disassembly-flavor intel" \
         ./"${bin_file}"
     cd ..
 fi
