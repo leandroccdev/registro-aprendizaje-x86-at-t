@@ -392,7 +392,7 @@ Son registros de propósito general como RAX y RBX, pero sin restricciones. Pued
 
 ###### Convenciones de llamadas en sistemas Linux x86-64
 
-En la convención de llamadas System V AMD64 ABI, los registros R8 al R15 se usan para pasar argumentos a las funciones. Los primeros 6 parámetros deu na función se pasan en los registros RDI, RSI, RDX, RCX, R8 y R9.
+En la convención de llamadas System V AMD64 ABI, los registros R8 al R15 se usan para pasar argumentos a las funciones. Los primeros 6 parámetros de una función se pasan en los registros RDI, RSI, RDX, RCX, R8 y R9.
 
 - R8 al R15 se usan cuando las funciones necesitan más de 6 parámetros.
 - Si hay más de 6 parámetros, R8 al R15 sirven para pasar del septimo al quinceavo parámetro.
@@ -6964,6 +6964,43 @@ Finalmente `RET` saca la dirección de retorno desde la pila y salta a ella, dev
 | 6         | **R9**   |
 
 Esto significa que el primer argumento debe ir en `RDI`, el segundo en `RSI`, etc, hasta `R9`.
+
+### Convención Caller-saved  y Callee-saved
+
+- **Caller-saved:** Son los registros que la función que llama (caller) debe respaldar si quiere preservar su valor.
+- **Callee-saved**: Son los registros que la función llamada (callee) debe respaldar y restaurar si los modifica. Es decir que la función que llama no se preocupa por ellos.
+
+**Registros caller-saved en System V AMD64**
+
+**Registros Generales**
+
+Pueden ser usados libremente por la función llamada. Si la función que llama necesita mantener su valor después de la llamada, debe guardarlos en la pila antes de llamar y restaurarlos después.
+
+- `RAX`: Retorno de valores, uso temporal.
+- `RCX`: Argumento temporal (también usado en llamadas a funciones).
+- `RDX`: Argumento temporal.
+- `RSI`: Argumento temporal.
+- `RDI`:  Argumento temporal.
+- `R8`:  Argumento temporal.
+- `R9`:  Argumento temporal.
+- `R10`:  Argumento temporal.
+- `R11`:  Argumento temporal.
+
+**¿Por qué existen?**
+
+La idea es optimizar la velocidad, los registros caller-saved permiten que la función llamada use registros temporales sin tener que guardarlos en la pila. Solo la función que necesita conservar valores específicos se encarga de preservarlos.
+
+**Registros calle-saved en System V AMD64**
+
+Son aquellos registros (no volátiles) que la función llamada debe preservar si los modifica. (Por convenciones de ABI y buena ingeniería de software). Si la función los usa, antes debe preservar su valor en la pila, para posteriormente antes de ejecutar `RET`, restaurarlos.
+
+**Registros Generales**
+
+`RBX`, `RBP` (Usado como frame pointer), `R12`, `R13`, `R14` y `R15`.
+
+**Stack pointer**
+
+`RSP` siempre debe estar correctamente alineado, así que también se considera implícitamente calle-saved.
 
 ### Etiquetas locales dentro de la función
 
