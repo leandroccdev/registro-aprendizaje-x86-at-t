@@ -134,7 +134,7 @@ function do_compile {
     gcc -no-pie \
         -nostdlib \
         "-m$_arch" \
-        -g \
+        -Wa,-g \
         -O0 \
         -o "$bin_file" \
         "$src_file"
