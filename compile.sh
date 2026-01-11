@@ -47,9 +47,9 @@ fi
 
 # Global vars
 arch="64"
-src="${exercise_folder}/main.asm"
-obj="${src%.asm}.o"
-bin="${src%.asm}.bin"
+src="${exercise_folder}/main.s"
+obj="${src%.s}.o"
+bin="${src%.s}.bin"
 
 # Parameters
 # $1: file path
@@ -111,15 +111,52 @@ function do_link {
     fi
 }
 
+# Parameters
+# $1: Source file
+# $2: Output binary file
+# $3: Arch (32|64)
+function do_compile {
+    src_file="$1"
+    bin_file="$2"
+    _arch="$3"
+
+    #region Validations
+    if [[ "$_arch" -ne "32" && "$_arch" -ne "64" ]]; then
+        echo "Error: 32|64 bits supported only!"
+        exit 1
+    fi
+    if [[ ! -f "$src_file" ]]; then
+        echo "Error: '$src_file' not found!"
+        exit 1
+    fi
+    #endregion
+
+    gcc -no-pie \
+        -nostdlib \
+        "-m$_arch" \
+        -g \
+        -o "$bin_file" \
+        "$src_file"
+
+    # check
+    if [ $? -ne 0 ]; then
+        echo "Error: the compile process failed!"
+        exit 1
+    fi
+}
+
 # Clean previous files
 clean_file "$obj" > /dev/null
 clean_file "$bin" > /dev/null 
 
-do_assemble "$src" "$obj" "$arch"
-# [[ $? -ne 0 ]] && exit 1
-
-do_link "$obj" "$bin"
-# [[ $? -ne 0 ]] && exit 1
+# Assemble for running
+if [[ $f_run -eq 1 ]]; then
+    do_assemble "$src" "$obj" "$arch"
+    do_link "$obj" "$bin"
+# Compile for debugging
+elif [[ $f_debug -eq 1 ]]; then
+    do_compile "$src" "$bin" "$arch"
+fi
 
 echo "Info: '$src' compiled!"
 clean_file "$obj" > /dev/null
