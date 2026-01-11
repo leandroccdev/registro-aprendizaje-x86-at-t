@@ -597,9 +597,9 @@ En ensamblador x86 de 16 bits, la memoria se direcciona mediante **segmento:offs
 
 ```asm
 # Intel
-MOV AX, DS    ; Carga el registro de segmento de datos
-MOV BX, 0x100 ; Offset dentro del segmento
-MOV AL, [BX]  ; Accede a la dirección DS:0x100
+MOV AX, DS    # Carga el registro de segmento de datos
+MOV BX, 0x100 # Offset dentro del segmento
+MOV AL, [BX]  # Accede a la dirección DS:0x100
 ```
 
 Aquí, `DS` indica **el segmento donde está el dato**, y `0x100` es el **offset** dentro de ese segmento. La CPU combina ambos para obtener la dirección física real:
@@ -617,7 +617,7 @@ Por ejemplo, si `DS = 0x2000` y `offset = 0x100`, la dirección física sería:
 ###### ¿Por qué existen los segmentos?
 
 1. **Organización:** separar código, datos y pila evita sobrescribir instrucciones con variables.
-2. **Compatibilidad:** en modo real de x86 (16 bits) no hay suficiente espacio de direccionamiento lineal; los segmentos permiten acceder a más memoria (hasta 1 MB).
+2. **Compatibilidad:** en modo real de x86 (16 bits) no hay suficiente espacio de direccionamiento lineal# los segmentos permiten acceder a más memoria (hasta 1 MB).
 3. **Seguridad relativa:** aunque básica, permite que la pila no sobrescriba el código accidentalmente.
 
 ###### En modos modernos (32/64 bits)
@@ -739,7 +739,7 @@ Selector de segmento (16 bits)
 **¿Cómo se usa el RPL?**
 Cuando el CPU accede a un segmento, compara tres niveles de privilegio:
 1. **CPL:** Current Privilege Level (nivel de privilegio actual del código, viene de `cs`).
-2. **DPL:** Descriptor Privilege Level (nivel requerido para acceder al segmento; está en el descriptor de la GDT/LDT).
+2. **DPL:** Descriptor Privilege Level (nivel requerido para acceder al segmento# está en el descriptor de la GDT/LDT).
 3. **RPL:** Privilegio solicitado (de quien intenta acceder).
 
 La fórmula para permitir acceso es:
@@ -1027,7 +1027,7 @@ La estructura básica de un programa en ensablador es como la siguiente:
 
 ```asm
 # Comentario para sintaxis AT&T
-; Comentario para sintaxis Intel
+# Comentario para sintaxis Intel
 # AT&T
 .section .data
      mensaje .asciz "hola mundo\n" # Cadena terminada en NULL
@@ -1168,7 +1168,7 @@ No genera saltos en CPU, mas bien decide qué cóðigo se ensambla o no.
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 .equ DEBUG, 1
 
 .if DEBUG
@@ -1658,11 +1658,11 @@ Calcula una dirección efectiva y la guarda en un registro, sin acceder a memori
 **Ejemplo**
 
 ```asm
-; Intel
-lea rax, [rbx + 8] ; rax = rbx + 8
+# Intel
+lea rax, [rbx + 8] # rax = rbx + 8
 
-; Ejemplo completo
-lea rax, [rbx + rcx * 4 + 16] ; rax = rbx + (rcx * 4) + 16
+# Ejemplo completo
+lea rax, [rbx + rcx * 4 + 16] # rax = rbx + (rcx * 4) + 16
 ```
 
 **Registros permitidos**
@@ -1688,17 +1688,17 @@ lea rax, [rbx + rcx * 4 + 16] ; rax = rbx + (rcx * 4) + 16
 - `LEA` como aritmética rápida.
 
   ```asm
-  ; Intel
-  ; Suma
-  lea, rax, [rax + 1] ; rax += 1
-  ; Equivalente a inc pero sin afectar los flags del CPU
+  # Intel
+  # Suma
+  lea, rax, [rax + 1] # rax += 1
+  # Equivalente a inc pero sin afectar los flags del CPU
   
-  ; Multiplicación
-  lea rax, [rcx * 8] ; rax *= 8
-  lea rax, [rcx + rcx * 4] ; rax = rcx * 5
+  # Multiplicación
+  lea rax, [rcx * 8] # rax *= 8
+  lea rax, [rcx + rcx * 4] # rax = rcx * 5
   
-  ; Expresiones complejas
-  lea rax, [rdi + rsi*2 + 32] ; rax = rdi + 2*rsi + 32
+  # Expresiones complejas
+  lea rax, [rdi + rsi*2 + 32] # rax = rdi + 2*rsi + 32
   ```
 
   **¿Por qué se prefiere a `LEA` por sobre `IMUL`?**
@@ -1717,30 +1717,30 @@ lea rax, [rbx + rcx * 4 + 16] ; rax = rbx + (rcx * 4) + 16
 - `LEA` vs `MOVE`
 
   ```asm
-  ; Intel
-  mov rax, [rbx] ; mov accesa al contenido de [rbx]
-  lea rax, [rbx] ; solo copia la dirección apuntada por rbx en rax sin accesar a memoria
+  # Intel
+  mov rax, [rbx] # mov accesa al contenido de [rbx]
+  lea rax, [rbx] # solo copia la dirección apuntada por rbx en rax sin accesar a memoria
   ```
 
 - Uso típico con punteros y arrays
 
   ```asm
-  ; Intel
-  ; rdi = &array[0]
-  ; rcx = i
+  # Intel
+  # rdi = &array[0]
+  # rcx = i
   lea rax, [rdi + rcx*8]
-  ; Suponiendo que los elementos son de 8 bytes
+  # Suponiendo que los elementos son de 8 bytes
   ```
 
 - RIP-relative addressing
 
   ```asm
-  ; Intel
-  ; En modo de 64 bits
-  lea rax, [rel label] ; Sintaxis GAS
-  ; rel = dirección relativa calculada desde la siguiente instrucción
-  ; o
-  lea rax, [rip + label] ; Forma real
+  # Intel
+  # En modo de 64 bits
+  lea rax, [rel label] # Sintaxis GAS
+  # rel = dirección relativa calculada desde la siguiente instrucción
+  # o
+  lea rax, [rip + label] # Forma real
   ```
 
   Tipos de rel según el tamaño del desplazamiento:
@@ -1751,7 +1751,7 @@ lea rax, [rbx + rcx * 4 + 16] ; rax = rbx + (rcx * 4) + 16
 
     ```asm
     ;Intel
-    jmp label ; rel32 (lo normal)
+    jmp label # rel32 (lo normal)
     ```
 
   En x86-64 no existe `rel64` para saltos. los saltos siguen siendo `rel8` o `rel32`. 
@@ -1785,7 +1785,7 @@ También conocidas como instrucciones bit a bit u operaciones bitwise. Son opera
 
 **¿Qué hacen?**
 
-- `AND` Cada bit del resultado es 1 solo si ambos bits correspondientes de los operandos son 1; sino 0.
+- `AND` Cada bit del resultado es 1 solo si ambos bits correspondientes de los operandos son 1# sino 0.
 - `OR` Cada bit del resultado es 1 si al menos uno de los bits correspondientes es 1.
 - `XOR` Cada bit del resultado es 1 solo si los bits correspondientes son diferentes.
 - `NOT` Invierte todos los bits (0 → 1, 1 → 0) del operando.
@@ -1799,9 +1799,9 @@ También conocidas como instrucciones bit a bit u operaciones bitwise. Son opera
 movl $0b1100, %eax   # eax = 1100 binario (decimal 12)
 andl $0b1010, %eax   # eax = eax AND 1010 binario = 1000 binario (decimal 8)
 
-; Intel
-mov eax, 12 ; Intel no tiene un literal binario, para este caso se uso el decimal
-; Pero se pueden usar tambien octales y hexadecimales
+# Intel
+mov eax, 12 # Intel no tiene un literal binario, para este caso se uso el decimal
+# Pero se pueden usar tambien octales y hexadecimales
 and eax, 10
 ```
 Aquí `eax` pasa de 1100 a 1000 porque solo el bit que está en ambas posiciones como 1 queda en 1.
@@ -1818,7 +1818,7 @@ Dado que las instrucciones tienen una fuente y un destino es inválido lo siguie
 andl $0b1100, $0b1000
 andl 1100, 1000 
 
-; Intel
+# Intel
 and 12, 8
 and dword ptr [1000], dword ptr [1100]
 ```
@@ -1852,7 +1852,7 @@ movl $0xF0F0F0F0, %eax   # Carga el valor 0xF0F0F0F0 en eax
 movl $0x0FF00FF0, %ebx   # Carga el valor 0x0FF00FF0 en ebx
 andl %ebx, %eax          # Realiza AND bit a bit entre eax y ebx, resultado queda en eax
 
-; Intel
+# Intel
 mov eax, 0xF0F0F0F0
 mov eabx, 0x0FF00FF0
 and eax, ebx
@@ -1923,7 +1923,7 @@ movl $0x0F0F0F0F, %eax   # Carga el valor 0x0F0F0F0F en eax
 movl $0x00FF00FF, %ebx   # Carga el valor 0x00FF00FF en ebx
 orl %ebx, %eax           # Realiza OR bit a bit entre eax y ebx, resultado queda en eax
 
-; Intel
+# Intel
 mov eax, 0x0F0F0F0F
 mov ebx, 0x0F0F0F0F
 or eax, ebx
@@ -1990,7 +1990,7 @@ movl $0xFF00FF00, %eax    # Carga 0xFF00FF00 en eax
 movl $0x0F0F0F0F, %ebx    # Carga 0x0F0F0F0F en ebx
 xorl %ebx, %eax           # Hace XOR bit a bit entre eax y ebx, resultado en eax
 
-; Intel
+# Intel
 mov eax, 0xFF00FF00
 mov ebx, 0x0F0F0F0F
 xor eax, ebx
@@ -2056,7 +2056,7 @@ Operación lógica mas simple, invierte bits y no toca ningún flag.
 movl $0x0F0F0F0F, %eax   # Carga un valor en eax
 notl %eax                # Aplica la negación bit a bit (NOT) sobre eax
 
-; Intel
+# Intel
 mov eax, 0x0F0F0F0F
 not eax
 ```
@@ -2109,14 +2109,14 @@ Desplaza todos los bits de un operando hacia la izquierda un número específico
 **Sintaxis**
 
 ```asm
-; Intel
+# Intel
 shl destino, cantidad
-; Cantidad empieza en 1
+# Cantidad empieza en 1
 
-; Ejemplos
-mov al, 0x03 ; al = 0000 0011b
-shl al, 1    ; al = 0000 0110b (multiplicado por 2)
-shl al, 2    ; al = 0001 1000b (múltiplicado por 4)
+# Ejemplos
+mov al, 0x03 # al = 0000 0011b
+shl al, 1    # al = 0000 0110b (multiplicado por 2)
+shl al, 2    # al = 0001 1000b (múltiplicado por 4)
 ```
 
 **Efectos sobre los flags**
@@ -2124,7 +2124,7 @@ shl al, 2    ; al = 0001 1000b (múltiplicado por 4)
 | Flag               | Descripción                                                  |
 | ------------------ | ------------------------------------------------------------ |
 | CF (Carry Flag)    | Se establece con el último bit desplazado hacia afuera (el que “se perdió” por la izquierda). |
-| OF (Overflow Flag) | Solo se actualiza si el desplazamiento es **1 bit**; indica si el resultado cambió el signo. |
+| OF (Overflow Flag) | Solo se actualiza si el desplazamiento es **1 bit**# indica si el resultado cambió el signo. |
 | SF (Sign Flag)     | Indica el bit más significativo del resultado (0=positivo, 1=negativo). |
 | ZF (Zero Flag)     | 1 si el resultado es 0.                                      |
 | PF (Parity Flag)   | 1 si el número de bits 1 en el resultado es par.             |
@@ -2134,8 +2134,8 @@ shl al, 2    ; al = 0001 1000b (múltiplicado por 4)
 1. Multiplicación rápida por 2
 
    ```asm
-   shl eax, 1 ; eax *= 2
-   shl eax, 2 ; eax *= 4
+   shl eax, 1 # eax *= 2
+   shl eax, 2 # eax *= 4
    ```
 
 2. Manipulación de bits
@@ -2143,8 +2143,8 @@ shl al, 2    ; al = 0001 1000b (múltiplicado por 4)
    Encender o mover bits hacia la izquierda
 
    ```asm
-   mov al, 0x01 ; al = 0000 0001b
-   shl al, 3    ; al = 0000 1000b
+   mov al, 0x01 # al = 0000 0001b
+   shl al, 3    # al = 0000 1000b
    ```
 
 3. Preparar máscaras o índices
@@ -2152,8 +2152,8 @@ shl al, 2    ; al = 0001 1000b (múltiplicado por 4)
    Desplazamientos para ajustar posiciones de bits en flags, máscaras o estructuras de datos.
 
    ```asm
-   mov al, 0x01 ; al = 0000 0001b
-   shl al, 1    ; al = 0000 0010b (0x02) se desplaza 1 bit a la izquierda
+   mov al, 0x01 # al = 0000 0001b
+   shl al, 1    # al = 0000 0010b (0x02) se desplaza 1 bit a la izquierda
    ```
 
 Casos especiales y advertencias
@@ -2161,9 +2161,9 @@ Casos especiales y advertencias
 - Si cantidad = 0, el resultado no cambia y los flags CF y OF no se modifican.
 
   ```asm
-  ; Ejemplo
-  mov al, 0x01 ; al = 0000 0001b
-  shl al, 0    ; al = 0000 0001b CF y OF permanecen intactos.
+  # Ejemplo
+  mov al, 0x01 # al = 0000 0001b
+  shl al, 0    # al = 0000 0001b CF y OF permanecen intactos.
   ```
 
   - `SHL` genera acarreo porque expulsa bits por la izquierda. El flag CF captura el último bit que sale por la izquierda.
@@ -2177,40 +2177,40 @@ Casos especiales y advertencias
 Paso a paso en un desplazamiento de 4 bits a la izquierda
 
 ```asm
-; Intel
-mov al, 0xDA ; al = 1101 1010b
-shl al, 4    ; al = 1010 0000b
+# Intel
+mov al, 0xDA # al = 1101 1010b
+shl al, 4    # al = 1010 0000b
 
-; inmediato original 1101 1010b 
-; Salida de bits por la izquierda
-Paso 1: [1] 1011 010- # Sale un bit 1; CF: 1
-Paso 2: [1] 0110 10-- # Sale un bit 1; CF: 1; CF anterior: 1
-Paso 3: [0] 1101 0--- # Sale un bit 0; CF: 0; CF anterior 1 
-Paso 4: [1] 1010 ---- # Sale un bit 1; CF: 1; CF anterior 0
+# inmediato original 1101 1010b 
+# Salida de bits por la izquierda
+Paso 1: [1] 1011 010- # Sale un bit 1# CF: 1
+Paso 2: [1] 0110 10-- # Sale un bit 1# CF: 1# CF anterior: 1
+Paso 3: [0] 1101 0--- # Sale un bit 0# CF: 0# CF anterior 1 
+Paso 4: [1] 1010 ---- # Sale un bit 1# CF: 1# CF anterior 0
 
-; Entrada de bits en 0 por la derecha
+# Entrada de bits en 0 por la derecha
 Paso 1: 1011 010[0] # Entra un 0 por la derecha
 Paso 2: 0110 10[00] # Entra un 0 por la derecha
 Paso 3: 1101 0[000] # Entra un 0 por la derecha
 Paso 4: 1010 [0000] # Entra un 0 por la derecha
 
-; CF: 1 (el último bit que salio por la izquierda)
-; ZF: 0 (resultado distinto de 0)
-; OF ignorado por ser un desplazamiento de > 1 bit
-; MSB: [1]010 0000b (delimitado como [x])
+# CF: 1 (el último bit que salio por la izquierda)
+# ZF: 0 (resultado distinto de 0)
+# OF ignorado por ser un desplazamiento de > 1 bit
+# MSB: [1]010 0000b (delimitado como [x])
 ```
 
 Paso a paso en un desplazamiento de 1 bits a la izquierda
 
 ```asm
-; Intel
-mov al, 0xDA ; al = 1101 1010b
-shl al, 1    ; al = 1011 01000b
+# Intel
+mov al, 0xDA # al = 1101 1010b
+shl al, 1    # al = 1011 01000b
 
-; ZF: 0 (resultado distinto de 0)
-; OF: 0 (ver fórmula mas abajo)
-; CF: 1 (el último bit que salió por la izquierda)
-; MSB: [1]011 01000b (delimitado como [x])
+# ZF: 0 (resultado distinto de 0)
+# OF: 0 (ver fórmula mas abajo)
+# CF: 1 (el último bit que salió por la izquierda)
+# MSB: [1]011 01000b (delimitado como [x])
 ```
 
 **Cálculo del flag OF en desplazamientos de 1 bit**
@@ -2239,7 +2239,7 @@ Históricamente  `SAL` existió para operaciones aritméticas con signo, pero ac
 Multiplicación rápida de enteros con signo.
 
 ```asm
-sal eax, 1; eax *= 2
+sal eax, 1# eax *= 2
 ```
 
 ## Operación `SHR` (shift logical right)
@@ -2252,10 +2252,10 @@ El desplazamiento a la derecha corresponde con una división por potencia de dos
 **Ejemplo**
 
 ```asm
-; Intel
-mov al, 0xDO ; al = 1101 0000b
-shr al, 1    ; al = 0110 1000b (Se dividió al en 2)
-shr al, 2    ; al = 0011 0111b
+# Intel
+mov al, 0xDO # al = 1101 0000b
+shr al, 1    # al = 0110 1000b (Se dividió al en 2)
+shr al, 2    # al = 0011 0111b
 ```
 
 **Efectos sobre los flags del CPU**
@@ -2278,9 +2278,9 @@ shr al, 2    ; al = 0011 0111b
 1. División rápida por potencias de dos (para enteros sin signo).
 
    ```asm
-   ; Intel
-   shr eax, 1 ; eax /= 2
-   shr eax, 3 ; eax /= 8
+   # Intel
+   shr eax, 1 # eax /= 2
+   shr eax, 3 # eax /= 8
    ```
 
 2. Manipulación de bits:
@@ -2288,34 +2288,34 @@ shr al, 2    ; al = 0011 0111b
    Se utiliza para extraer ciertos bits hacia la posición LSB.
 
    ```asm
-   ; Intel
-   mov al, 0xAC ; al = 1010 1100b
-   shr al, 4    ; al = 0000 1010b
-   ; Ingresaron 4 bits por la izquierda en cero, y se perdieron 4 bits por la derecha
-   ; CF: Contiene el último bit perdido por la derecha, un 1
-   ; ZF: 0; El resultado es distinto a 0
-   ; OF: Ignorado (solo se toma en cuenta para desplazamientos de 1 bit)
-   ; SF: 0 (MSB del resultado)
+   # Intel
+   mov al, 0xAC # al = 1010 1100b
+   shr al, 4    # al = 0000 1010b
+   # Ingresaron 4 bits por la izquierda en cero, y se perdieron 4 bits por la derecha
+   # CF: Contiene el último bit perdido por la derecha, un 1
+   # ZF: 0# El resultado es distinto a 0
+   # OF: Ignorado (solo se toma en cuenta para desplazamientos de 1 bit)
+   # SF: 0 (MSB del resultado)
    ```
    
    Paso a paso en la salida de bits por la derecha
    
    ```asm
-   ; Inmediato original: 1010 1100
-   Paso 1: -101 0110   ; Bit que sale: 0; CF: 0
-   Paso 2: --10 1011   ; Bit que sale: 0; CF: 0; CF anterior: 0
-   Paso 3: ---1 0101   ; Bit que sale: 1; CF: 1; CF anterior: 0
-   Paso 4: ---- 1010   ; Bit que sale: 1; CF: 1; CF anterior: 1
+   # Inmediato original: 1010 1100
+   Paso 1: -101 0110   # Bit que sale: 0# CF: 0
+   Paso 2: --10 1011   # Bit que sale: 0# CF: 0# CF anterior: 0
+   Paso 3: ---1 0101   # Bit que sale: 1# CF: 1# CF anterior: 0
+   Paso 4: ---- 1010   # Bit que sale: 1# CF: 1# CF anterior: 1
    ```
    
    Paso a paso en la entrada de bits por la izquierda
    
    ```asm
-   ; Inmediato original: 1010 1100
-   Paso 1: [0]101 0110 ; Entra un bit puesto a 0 por la izquierda
-   Paso 2: [00]10 1011 ; Entra un bit puesto a 0 por la izquierda
-   Paso 3: [000]1 0101 ; Entra un bit puesto a 0 por la izquierda
-   Paso 4: [0000] 1010 ; Entra un bit puesto a 0 por la izquierda
+   # Inmediato original: 1010 1100
+   Paso 1: [0]101 0110 # Entra un bit puesto a 0 por la izquierda
+   Paso 2: [00]10 1011 # Entra un bit puesto a 0 por la izquierda
+   Paso 3: [000]1 0101 # Entra un bit puesto a 0 por la izquierda
+   Paso 4: [0000] 1010 # Entra un bit puesto a 0 por la izquierda
    ```
    
    Desplazamientos de 1 bit
@@ -2323,17 +2323,17 @@ shr al, 2    ; al = 0011 0111b
    Ahora se verá como opera el flag OF en desplazamientos de 1 bit a la derecha.
    
    ```asm
-   ; Intel
-   mov al, 0x80 ; al = 1000 0000b
-   shr al, 1    ; Desplaza 1 bit a la derecha
-   ; al = 0100 0000b
-   ; Bit que sale por la derecha: 0
-   ; Bit que entra por la izquierda; 0
-   ; CF: 0
-   ; SF: 0 (MSB del resultado despues de aplicar shr)
-   ; ZF: 0 (resultado distinto a 0)
-   ; OF: 1 (MSB original antes de aplicar shr)
-   ; MSB (resultado): [0]100 0000b (delimitado como [x])
+   # Intel
+   mov al, 0x80 # al = 1000 0000b
+   shr al, 1    # Desplaza 1 bit a la derecha
+   # al = 0100 0000b
+   # Bit que sale por la derecha: 0
+   # Bit que entra por la izquierda# 0
+   # CF: 0
+   # SF: 0 (MSB del resultado despues de aplicar shr)
+   # ZF: 0 (resultado distinto a 0)
+   # OF: 1 (MSB original antes de aplicar shr)
+   # MSB (resultado): [0]100 0000b (delimitado como [x])
    ```
 
 ## Instrucción `SAR` (shift arithmetic right)
@@ -2345,23 +2345,23 @@ Desplaza un operando a la derecha manteniendo el signo del número original (bit
 **Ejemplo**
 
 ```asm
-; Intel
-sar al, 1  ; desplaza 1 bit a la derecha en registro al
-sar eax, 3 ; desplaza 3 bits a la derecha en registro eax
+# Intel
+sar al, 1  # desplaza 1 bit a la derecha en registro al
+sar eax, 3 # desplaza 3 bits a la derecha en registro eax
 
-; Ejemplo con 8 bits (signed)
-mov al, 0xF4 ; al = 1111 0100b; -12 en signed 8-bit (complemento a dos)
+# Ejemplo con 8 bits (signed)
+mov al, 0xF4 # al = 1111 0100b# -12 en signed 8-bit (complemento a dos)
 sar al, 1
 
-; al = 1111 0100b
-; Corrimiento de 1 bit a la derecha
-Paso 1: -111 1010 ; Sale bit 0 por la derecha; CF: 0
-Paso 2: [1]111 1010 ; Se replica el bit MSB preservando el signo (8-bit signed)
-; Paso 1 y 2 ocurren en la misma operación (tratándose de un corrimiento de solo 1 bit)
-; CF: 0
-; OF: Reseteado a cero (el desplazamiento aritmético no ocasiona overflow)
-; ZF: 0 (resultado distinto a cero)
-; SF: 1 (MSB dle resultado)
+# al = 1111 0100b
+# Corrimiento de 1 bit a la derecha
+Paso 1: -111 1010 # Sale bit 0 por la derecha# CF: 0
+Paso 2: [1]111 1010 # Se replica el bit MSB preservando el signo (8-bit signed)
+# Paso 1 y 2 ocurren en la misma operación (tratándose de un corrimiento de solo 1 bit)
+# CF: 0
+# OF: Reseteado a cero (el desplazamiento aritmético no ocasiona overflow)
+# ZF: 0 (resultado distinto a cero)
+# SF: 1 (MSB dle resultado)
 ```
 
 **Efecto sobre los flags del CPU**
@@ -2384,16 +2384,16 @@ Realiza una operación `AND` a nivel de bits, pero **no guarda el resultado**. T
 **Ejemplo**
 
 ```asm
-; Intel
-mov al, 0x1 ; al = 0000 0001b
-test al, 0x1 ; No se almacena ningún resultado en al
-; 0000 0001
-; 0000 0001
-; --------- (AND)
-; 0000 0001 (resultado interno)
-; ZF: 0 (resultado es distinto de 0)
-; SF: 0 (MSB del resultado interno)
-; PF: 0 (nro. de bits 1: 1 (impar))
+# Intel
+mov al, 0x1 # al = 0000 0001b
+test al, 0x1 # No se almacena ningún resultado en al
+# 0000 0001
+# 0000 0001
+# --------- (AND)
+# 0000 0001 (resultado interno)
+# ZF: 0 (resultado es distinto de 0)
+# SF: 0 (MSB del resultado interno)
+# PF: 0 (nro. de bits 1: 1 (impar))
 ```
 
 **Flags del CPU afectados por `TEST`**
@@ -2428,27 +2428,27 @@ Realiza una comparación entre dos operando, restando internamente el segundo de
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 
-; Igualdad
-mov al, 5 ; al = 0000 0101b
-cmp al, 5 ; Se compara 5 - 5 (no se guarda el resultado)
+# Igualdad
+mov al, 5 # al = 0000 0101b
+cmp al, 5 # Se compara 5 - 5 (no se guarda el resultado)
 
-; Resultado conceptual: 0
-; ZF: 1 (resultado es cero)
-; SF: 0
-; CF: 0
-; OF: 0
+# Resultado conceptual: 0
+# ZF: 1 (resultado es cero)
+# SF: 0
+# CF: 0
+# OF: 0
 
-; Desigualdad
-mov al, 3 ; al = 0000 0011b
-cmp al, 5 ; Se compara 3 - 5
+# Desigualdad
+mov al, 3 # al = 0000 0011b
+cmp al, 5 # Se compara 3 - 5
 
-; Resultado conceptual: -2 (0000 0010b)
-; ZF: 0 (resultado es distinto de cero)
-; SF: 1 (resultado negativo)
-; CF: 1 (borrow en 3 < 5 en unsigned)
-; OF: 0
+# Resultado conceptual: -2 (0000 0010b)
+# ZF: 0 (resultado es distinto de cero)
+# SF: 1 (resultado negativo)
+# CF: 1 (borrow en 3 < 5 en unsigned)
+# OF: 0
 ```
 
 **Borrow (préstamo) en la resta binaria**
@@ -2458,12 +2458,12 @@ El acarreo o préstamo (en inglés ***borrow***) ocurre cuando no hay suficiente
 Cuando `CF = 1`, el minuendo era menor que el sustraendo (en unsigned).
 
 ```asm
-; Intel
-mov al, 3 ; 0000 0011b
-cmp al, 5 ; 0000 0101b
+# Intel
+mov al, 3 # 0000 0011b
+cmp al, 5 # 0000 0101b
 
-; Internamente se hace lo siguiente
-; AL - 5 -> 3 - 5
+# Internamente se hace lo siguiente
+# AL - 5 -> 3 - 5
 ```
 
 **Resta binaria (8 bits)**
@@ -2518,9 +2518,9 @@ Nótece que el bit en la posición 3 (de derecha a izquierda)  del minuendo est�
   ---------
   1111 1110 (-2 en signed)
 
-; ¿Cómo quedaría los flags del CPU?
-; SF: 1 (MSB 1)
-; ZF: 0 (resultado distinto de cero)
+# ¿Cómo quedaría los flags del CPU?
+# SF: 1 (MSB 1)
+# ZF: 0 (resultado distinto de cero)
 ```
 
 Para restar `1 - 1`, `0 - 0`, etc, el CPU debe pedir prestado desde un bit que no existe, esto es un préstamo y se le conoce como borrow.
@@ -2551,19 +2551,19 @@ Para restar `1 - 1`, `0 - 0`, etc, el CPU debe pedir prestado desde un bit que n
 **Paso a paso**
 
 ```asm
-; Elementos
+# Elementos
 op1 = 0000 0011 (3)
 op2 = 0000 0101 (5)
 r   = 1111 1110 (-2 en signed)
 
-; Signos de los elementos
+# Signos de los elementos
 sign(op1): 0
 sign(op2): 0
 sign(r):   1
 
-; Cálculo del flag OF
+# Cálculo del flag OF
 OF = (0 ≠ 0) AND (1 ≠ 0)
-; Interpretación
+# Interpretación
 0 ≠ 0: false
 1 ≠ 0: true
 false AND true: false
@@ -2577,18 +2577,18 @@ Setea el flag `CF` (carry flag) en cero sin afectar otro flag del CPU. No usa op
 **Ejemplo**
 
 ```asm
-; Intel
-; Suma con overflow 
-mov al, 0xFF ; al = 255
-add al, 1    ; 255 + 1 = 256 → al = 0, CF = 1 (ocurrió overflow)
-; Operación posterior a la suma
+# Intel
+# Suma con overflow 
+mov al, 0xFF # al = 255
+add al, 1    # 255 + 1 = 256 → al = 0, CF = 1 (ocurrió overflow)
+# Operación posterior a la suma
 mov bl, 0
-adc bl, 5    ; bl = bl + 5 + CF
-; Si no se limpia CF y CF = 1, bl quedará en 6 y no en 5
-; Corrección
+adc bl, 5    # bl = bl + 5 + CF
+# Si no se limpia CF y CF = 1, bl quedará en 6 y no en 5
+# Corrección
 mov bl, 0
-clc          ; limpia CF dejándolo en 0
-adc bl, 5    ; bl = bl + 5 + 0 (CF = 0)
+clc          # limpia CF dejándolo en 0
+adc bl, 5    # bl = bl + 5 + 0 (CF = 0)
 ```
 
 **Usos comunes para `CLC`**
@@ -2598,10 +2598,10 @@ adc bl, 5    ; bl = bl + 5 + 0 (CF = 0)
   Cuando sumas números que ocupan más de un registro, `ADC` propaga el carry. Antes de la primera suma, se limpia CF.
 
   ```asm
-  ; Intel
-  clc          ; CF = 0
-  add rax, rbx ; suma la parte baja
-  adc rdx, rcx ; suma la parte alta + carry
+  # Intel
+  clc          # CF = 0
+  add rax, rbx # suma la parte baja
+  adc rdx, rcx # suma la parte alta + carry
   ```
 
 - Garantizar resultados correctos en `ADC` o `SBB`
@@ -2609,9 +2609,9 @@ adc bl, 5    ; bl = bl + 5 + 0 (CF = 0)
   Cualquier instrucción que use `CF` como entrada requiere de `CLC`.
 
   ```asm
-  ; Intel
+  # Intel
   clc
-  adc rax, rbx ; asegura que no hay carry previo
+  adc rax, rbx # asegura que no hay carry previo
   ```
 
 - Preparar rotaciones a través del carry
@@ -2621,9 +2621,9 @@ adc bl, 5    ; bl = bl + 5 + 0 (CF = 0)
   `RCR` Rotate through carry right
 
   ```asm
-  ; Intel
+  # Intel
   clc
-  rcl al, 1 ; rota AL un bit a la izquierda a través de CF
+  rcl al, 1 # rota AL un bit a la izquierda a través de CF
   ```
 
   Si `CF` no se limpia, entra un bit basura en la rotación.
@@ -2643,15 +2643,15 @@ Setea el flag `CF` (carry falg) en uno. No afecta ningún otro flag del CPU, tam
 **Ejemplo**
 
 ```asm
-; Intel
-mov al, 10 ; al = 10 (0000 1010b)
-mov bl, 5  ; bl = 5 (0000 0101b)
-stc        ; Fuerza CF = 1
-; Resta bl de al, considerando el borrow 
-sbb al, bl ; al = al - bl - CF
-; Resultado
-; al = 10 - 5 - 1 = 4
-; stc inicializó CF y afectó la resta
+# Intel
+mov al, 10 # al = 10 (0000 1010b)
+mov bl, 5  # bl = 5 (0000 0101b)
+stc        # Fuerza CF = 1
+# Resta bl de al, considerando el borrow 
+sbb al, bl # al = al - bl - CF
+# Resultado
+# al = 10 - 5 - 1 = 4
+# stc inicializó CF y afectó la resta
 ```
 
 **Usos de `STC`:**
@@ -2661,9 +2661,9 @@ sbb al, bl ; al = al - bl - CF
 - Preparar rotaciones a través del carry.
 
   ```asm
-  ; Intel
+  # Intel
   stc
-  rcr al, 1 ; rota al un bit a la derecha a través de CF = 1
+  rcr al, 1 # rota al un bit a la derecha a través de CF = 1
   ```
 
 - Inicializar CF para pruebas o flags
@@ -2675,9 +2675,9 @@ sbb al, bl ; al = al - bl - CF
   Si usas `ADC` o `SBB` en cadenas de operaciones, `STC` te permite agregar un 1 inicial. Útil en sumas/restas con borrow/carry predefinido.
 
   ```asm
-  ; Intel
+  # Intel
   stc
-  adc rax, rbx ; suma con CF = 1 inicial
+  adc rax, rbx # suma con CF = 1 inicial
   ```
 
 ## Instrucción `CMC` (complement carry flag)
@@ -2687,11 +2687,11 @@ Invierte el flag `CF` del CPU en el registro de estado (EFLAGS/RFLAGS). Si `CF` 
 **Ejemplo**
 
 ```asm
-; Intel
-; CF = 0 inicialmente
-cmc        ; CF ahora es uno
-adc al, bl ; suma con acarreo, usando el nuevo valor de CF
-; al = al + bl + CF
+# Intel
+# CF = 0 inicialmente
+cmc        # CF ahora es uno
+adc al, bl # suma con acarreo, usando el nuevo valor de CF
+# al = al + bl + CF
 ```
 
 Invirtiendo `CF` con `CMC` podemos forzar que la suma incluya o ignore el carry anterior según convenga.
@@ -2718,11 +2718,11 @@ Invirtiendo `CF` con `CMC` podemos forzar que la suma incluya o ignore el carry 
   Al ahcer operaciones de negación o complemento de números en ensamblador, `CMC` puede formar parte de la secuencia.
 
   ```asm
-  ; Intel
-  ; Negar un número (equivalente a -num)
-  not al     ; complementa todos los bits
-  cmc        ; complementa el carry para sbb
-  sbb al, al ; resultado final -al
+  # Intel
+  # Negar un número (equivalente a -num)
+  not al     # complementa todos los bits
+  cmc        # complementa el carry para sbb
+  sbb al, al # resultado final -al
   ```
 
   Este patrón se ve en rutinas de aritmética de bajo nivel o en rutinas de bootloader/firmware donde cada ciclo cuenta.
@@ -2747,14 +2747,14 @@ Es decir:
 **Ejemplo**
 
 ```asm
-; Intel
-mov al, 2 ; al = 0000 0010b
-sub al, 1 ; 1  = 0000 0001b
-; Resultado: 0000 0001b
-; ZF: 0
-; SF: 0 (MSB es 0)
-; CF: 0 (queda en 1 solo si ocurre borrow cuando op1 < op2)
-; OF: 0
+# Intel
+mov al, 2 # al = 0000 0010b
+sub al, 1 # 1  = 0000 0001b
+# Resultado: 0000 0001b
+# ZF: 0
+# SF: 0 (MSB es 0)
+# CF: 0 (queda en 1 solo si ocurre borrow cuando op1 < op2)
+# OF: 0
 ```
 
 Se pudiera pensar que algo está mal, porque efectivamente el bit de la posición 1 en el primer elemento requiere un préstamo para resolver `0 - 1`, pero y a pesar que sucede, la operación se resuelve de manera interna sin salir del registro porque el bit que realiza el préstamo (el de la posición 2) está en 1 y efectivamente, puede prestar y quedar en 0.
@@ -2764,13 +2764,13 @@ Se pudiera pensar que algo está mal, porque efectivamente el bit de la posició
   0000 000                1
 - -------------------------
 
-; Resultado
+# Resultado
 
   0000 000[10] 
   0000 000  1
 - ------------
   0000 000  1
-; Porque 0 - 1 -> 10 - 1 = 1
+# Porque 0 - 1 -> 10 - 1 = 1
 ```
 
 Por lo tanto, se aprecia como el préstamo no se propaga a la izquierda hasta salir del registro y del bits MSB.
@@ -2797,12 +2797,12 @@ Es la misma que la instrucción `CMP`.
 En una resta `AF = 1` si hay un préstamo entre el nibble alto y bajo, vale decir entre el bit 4 y el bit 3 (contando desde 0).
 
 ```asm
-; byte: 0000 0001
-; nibble: 4 bits
-; nibble alto: 0000 (bits 4 al 7)
-; nibble bajo: 0001 (bits 0 al 3)
+# byte: 0000 0001
+# nibble: 4 bits
+# nibble alto: 0000 (bits 4 al 7)
+# nibble bajo: 0001 (bits 0 al 3)
   
-  7654 3210 ; <- (posiciones de bits)
+  7654 3210 # <- (posiciones de bits)
 A 0000 0001 
 B 0000 1001
 - ---------
@@ -2820,29 +2820,29 @@ Realiza una resta teniendo en cuenta el flag de acarreo `CF`. Su finalidad es da
 **Ejemplo (sin borrow)**
 
 ```asm
-; Intel
-mov rax, 10  ; rax = 0000 1010b
-mov rbx, 3   ; rbx = 0000 0011b
-clc          ; Pone a 0 el flag CF
-sbb rax, rbx ; rax = 10 - 3 - 0 = 7 (0000 0111b)
+# Intel
+mov rax, 10  # rax = 0000 1010b
+mov rbx, 3   # rbx = 0000 0011b
+clc          # Pone a 0 el flag CF
+sbb rax, rbx # rax = 10 - 3 - 0 = 7 (0000 0111b)
 
-; Resultado
-; rax = 7
-; CF = 0
+# Resultado
+# rax = 7
+# CF = 0
 ```
 
 **Ejemplo (con borrow)**
 
 ```asm
-; Intel
-mov rax, 10  ; rax = 0000 1010b
-mov rbx, 3   ; rbx = 0000 0011b
-stc          ; Pone el flag CF a 1
-sbb rax, rbx ; rax = 10 - 3 - 1 = 6 (0000 0110b)
+# Intel
+mov rax, 10  # rax = 0000 1010b
+mov rbx, 3   # rbx = 0000 0011b
+stc          # Pone el flag CF a 1
+sbb rax, rbx # rax = 10 - 3 - 1 = 6 (0000 0110b)
 
-; Resultado
-; rax = 6
-; CF = 0
+# Resultado
+# rax = 6
+# CF = 0
 ```
 
 **Uso real: resta de 128 bits con dos registros**
@@ -2850,20 +2850,20 @@ sbb rax, rbx ; rax = 10 - 3 - 1 = 6 (0000 0110b)
 A continuación se realiza una resta con dos números de 128 bits, para los cuales se utilizan cuatro registros (dos por número).
 
 ```asm
-; Intel
-; A = 0x0000000000000001_FFFFFFFFFFFFFFFF
-; B = 0x0000000000000000_0000000000000001
-; RDX:RAX = A (Parte alta : Parte baja)
-; RCX:RBX = B (Parte alta : Parte baja)
+# Intel
+# A = 0x0000000000000001_FFFFFFFFFFFFFFFF
+# B = 0x0000000000000000_0000000000000001
+# RDX:RAX = A (Parte alta : Parte baja)
+# RCX:RBX = B (Parte alta : Parte baja)
 mov rdx, 0x0000000000000001
 mov rax, 0xFFFFFFFFFFFFFFFF
 mov rcx, 0x0000000000000000
 mov rbx, 0x0000000000000001
-sub rax, rbx ; Resta ambas partes bajas de 64 bits
-sbb rdx, rcx ; Resta las partes altas de 64 bits usando el borrow
-; rdx = rdx - rcx - CF
-; 1 - 0 - 1 = 0
-; Resultado final: RDX:RAX = 0x0000000000000000_FFFFFFFFFFFFFFFE
+sub rax, rbx # Resta ambas partes bajas de 64 bits
+sbb rdx, rcx # Resta las partes altas de 64 bits usando el borrow
+# rdx = rdx - rcx - CF
+# 1 - 0 - 1 = 0
+# Resultado final: RDX:RAX = 0x0000000000000000_FFFFFFFFFFFFFFFE
 ```
 
 Sin `SBB` el borrow no se propagaría afectando la operación.
@@ -2896,13 +2896,13 @@ La única diferencia con `SUB` es que `SBB` resta un bit extra usando `CF`, y es
 - Patrón de comparación que ayuda a evitar saltos a branchless code
 
   ```asm
-  ; Intel
+  # Intel
   cmp rax, rbx
   sbb rcx, rcx
   
-  ; Resultado
-  ; rax < rbx → CF = 1 → rcx = -1 (0xFFFFFFFFFFFFFFFF)
-  ; rax >= rbx → CF = 0 → rcx = 0 (0x0)
+  # Resultado
+  # rax < rbx → CF = 1 → rcx = -1 (0xFFFFFFFFFFFFFFFF)
+  # rax >= rbx → CF = 0 → rcx = 0 (0x0)
   ```
 
   **¿Qué es un branch (salto)?**
@@ -2910,11 +2910,11 @@ La única diferencia con `SUB` es que `SBB` resta un bit extra usando `CF`, y es
   Un branch (del inglés rama o ramificación) es cualquier instrucción que cambia el flujo normal del programa: `jmp`, `je/jne`, `jl/jp/jb/ja`, `call/ret`.
   
   ```asm
-  ; Intel
+  # Intel
   cmp rax, rbx
-  jl less ; jump if less, realiza un salto si el resultado de una comparación es 'menor que' usando SF != OF, cuando son distintos salta al tag
+  jl less # jump if less, realiza un salto si el resultado de una comparación es 'menor que' usando SF != OF, cuando son distintos salta al tag
   mov rcx, 0
-  jmp end ; salto incondicional al tag end
+  jmp end # salto incondicional al tag end
   less:
   mov rcx, -1
   end:
@@ -2945,7 +2945,7 @@ La única diferencia con `SUB` es que `SBB` resta un bit extra usando `CF`, y es
   **En x86:**
   
   ```asm
-  ; Intel
+  # Intel
   cmp rax, rbx
   sbb rcx, rcx
   ```
@@ -3002,9 +3002,9 @@ La única diferencia con `SUB` es que `SBB` resta un bit extra usando `CF`, y es
   xor rax, rax
   cmp rdi, rsi
   sbb rax, rax
-  ; Resultado
-  ; rax = 0xFFFFFFFFFFFFFFFF si rdi < rsi
-  ; rax = 0 si rdi <= rsi
+  # Resultado
+  # rax = 0xFFFFFFFFFFFFFFFF si rdi < rsi
+  # rax = 0 si rdi <= rsi
   ```
 
 
@@ -3017,15 +3017,15 @@ Realiza una suma aritmética (internamente se lleva a cabo a nivel binario). Sum
 **Ejemplo**
 
 ```asm
-; Intel
-mov al, 5 ; al = 0000 0101b
-add al, 3 ; al = 8 (0000 1000b)
+# Intel
+mov al, 5 # al = 0000 0101b
+add al, 3 # al = 8 (0000 1000b)
 
-; ZF: 0 (resultado distinto de cero)
-; CF: 0 (no hay acarreo)
-; SF: 0 (bit MSB del resultado)
-; AF: 0 (no hubo acarreo entre nibbles)
-; OF: 0 (no hubo overflow)
+# ZF: 0 (resultado distinto de cero)
+# CF: 0 (no hay acarreo)
+# SF: 0 (bit MSB del resultado)
+# AF: 0 (no hubo acarreo entre nibbles)
+# OF: 0 (no hubo overflow)
 ```
 
 **Flags del CPU afectados por `ADD`**
@@ -3051,13 +3051,13 @@ Fórmula: `OF=1 si y sólo si (signo(op1) == signo(op2)) AND (signo(resultado) �
 **Ejemplo de suma con overflow**
 
 ```asm
-mov al, 120 ; al = 0111 1000b
-add al, 10  ; al = 1000 0010b (-126 signed)
+mov al, 120 # al = 0111 1000b
+add al, 10  # al = 1000 0010b (-126 signed)
 
-; signo operando 1 = 0
-; signo operando 2 = 0
-; signo resultado = 1 (negativo)
-; Mismo signo en operandos, pero en el resultado el signo es negativo. OF cambia a 1
+# signo operando 1 = 0
+# signo operando 2 = 0
+# signo resultado = 1 (negativo)
+# Mismo signo en operandos, pero en el resultado el signo es negativo. OF cambia a 1
 ```
 
 **Suma binaria**
@@ -3174,22 +3174,22 @@ resultado = destino + fuente + CF
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 
-; Suma dos números de 128 bits
-; RDX:RAX + RBX:RCX (se usan dos registros de 64 bits para representar cada número)
-; RAX y RCX son la parte baja de los números
-; RDX y RBX son la parte alta de los números
+# Suma dos números de 128 bits
+# RDX:RAX + RBX:RCX (se usan dos registros de 64 bits para representar cada número)
+# RAX y RCX son la parte baja de los números
+# RDX y RBX son la parte alta de los números
 
-mov rax, 0xFFFFFFFFFFFFFFFF ; rax = 18_446_744_073_709_551_615
-mov rdx, 0x0000000000000001 ; rdx = 1
-mov rcx, 0x2                ; rcx = 2
-mov rbx, 0x0                ; rbx = 0
+mov rax, 0xFFFFFFFFFFFFFFFF # rax = 18_446_744_073_709_551_615
+mov rdx, 0x0000000000000001 # rdx = 1
+mov rcx, 0x2                # rcx = 2
+mov rbx, 0x0                # rbx = 0
 
-add rax, rcx ; Suma la parte baja
-; CF = 1 debido al overflow en 64 bits 
-adc rdx, rbx ; Suma la parte alta + carry
-; RDX:RAX ahora = 0x0000000000000004 : 0x0000000000000001 + 0x2 con acarreo
+add rax, rcx # Suma la parte baja
+# CF = 1 debido al overflow en 64 bits 
+adc rdx, rbx # Suma la parte alta + carry
+# RDX:RAX ahora = 0x0000000000000004 : 0x0000000000000001 + 0x2 con acarreo
 ```
 
 `ADC` asegura que si el `ADD` de la parte baja genera un acarreo, se propague a la parte alta.
@@ -3197,18 +3197,18 @@ adc rdx, rbx ; Suma la parte alta + carry
 **Ejemplo (16 bits en dos registros)**
 
 ```asm
-; Intel
+# Intel
 
-; Representación de un número de 16 bits en dos registros de 8 bits
-; bl:al
-; bl es la parte alta del número de 16 bits
-; al es la parte baja del número de 16 bits
-; 0x0:0xff
-mov al, 0xff ; al = 255
-mov bl, 0x00 ; bl = 0
-add al, 20   ; al = 0x13 (19)
-; CF: 1
-; OF: 0 (no hubo overflow signed)
+# Representación de un número de 16 bits en dos registros de 8 bits
+# bl:al
+# bl es la parte alta del número de 16 bits
+# al es la parte baja del número de 16 bits
+# 0x0:0xff
+mov al, 0xff # al = 255
+mov bl, 0x00 # bl = 0
+add al, 20   # al = 0x13 (19)
+# CF: 1
+# OF: 0 (no hubo overflow signed)
 ```
 
 ¿Qué sucedió, por qué `al` pasó de ser 255 a 13?
@@ -3217,11 +3217,11 @@ Lo que acabas de presenciar es un ***overflow unsigned***. `al` es un registro d
 Como 275 es un entero de 9 bits, la CPU simplemente activa el flag de acarreo `CF`  perdiendo el resto. Gráficamente es lo siguiente:
 
 ```asm
-; 275 (0x113)
-; 1 [0001 0011] -> 8 bits
-; ↑ se pierde
-; Se activan el flag CF
-; Por eso 255 + 20 = 19
+# 275 (0x113)
+# 1 [0001 0011] -> 8 bits
+# ↑ se pierde
+# Se activan el flag CF
+# Por eso 255 + 20 = 19
 ```
 
 ¿Cómo se soluciona?
@@ -3229,20 +3229,20 @@ Como 275 es un entero de 9 bits, la CPU simplemente activa el flag de acarreo `C
 Aquí es donde entra al juego la instrucción `ADC` sumando `CF` a la parte alta de nuestro número de 16 bits.
 
 ```asm
-; al = 19 (0x13)
-; bl = 0 (0x0)
-adc bl, 0 ; bl = bl + 0 + CF
-; bl = 0 + 0 + 1 = 1
+# al = 19 (0x13)
+# bl = 0 (0x0)
+adc bl, 0 # bl = bl + 0 + CF
+# bl = 0 + 0 + 1 = 1
 ```
 
 A simple vista no parece que hubiera algún sentido, hasta que consideras que el número de 16 bits se representa usando dos registros de 8 bits, de la siguiente manera:
 
 ```asm
-; bl:al
-; bl: 0x01
-; al: 0x13
-; bl:al = 0x01:0x13 = 0x113 (275)
-; al: [0000 0001] al:[0001 0011]
+# bl:al
+# bl: 0x01
+# al: 0x13
+# bl:al = 0x01:0x13 = 0x113 (275)
+# al: [0000 0001] al:[0001 0011]
 ```
 
 En la práctica decimos que al es la parte baja del número de 16 bits, es decir que constituye los bits del 0 al 7, y que bl es la parte alta del número, es decir, constituye los bits del 8 al 15, conformando así los 16 bits.
@@ -3286,11 +3286,11 @@ Internamente se aplican las reglas normales de suma binaria con acarreo interno.
 **Ejemplo**
 
 ```asm
-; Intel
-mov al, 5 ; al = 0000 0101b
-inc al    ; al = 6 (0000 0110b)
+# Intel
+mov al, 5 # al = 0000 0101b
+inc al    # al = 6 (0000 0110b)
 
-; Equivale conceptualmente a: al += 1
+# Equivale conceptualmente a: al += 1
 ```
 
 **Flags del CPU afectados por `INC**`
@@ -3324,7 +3324,7 @@ El resultado del flag OF se establece en 1 cuando el operando tenía signo posit
 - Iteradores simples
 
   ```asm
-  inc esi ; avanzar índice
+  inc esi # avanzar índice
   ```
   
 - Cuando no te importa el flag CF
@@ -3345,11 +3345,11 @@ Sintaxis: `dec op`
 **Ejemplo**
 
 ```asm
-; Intel
-mov al, 5 ; al = 0000 0101b
-dec al    ; al = 4 (0000 0100b)
+# Intel
+mov al, 5 # al = 0000 0101b
+dec al    # al = 4 (0000 0100b)
 
-; Equivale a: al -= 1
+# Equivale a: al -= 1
 ```
 
 **Flags del CPU afectados por `DEC`**
@@ -3378,7 +3378,7 @@ El overflow ocurre cuando se pasa del mínimo signed al máximo.
   ```asm
   mov ecx, 10
   loop:
-      ; código
+      # código
       dec ecx
       jnz loop
   ```
@@ -3386,13 +3386,13 @@ El overflow ocurre cuando se pasa del mínimo signed al máximo.
 - Iterar hacia atrás
 
   ```asm
-  dec esi ; retroceder índice
+  dec esi # retroceder índice
   ```
 
 - Cuando quieres preservar CF
   ```asm
-  ; CF contiene info previa importante
-  dec eax ; CF no se altera
+  # CF contiene info previa importante
+  dec eax # CF no se altera
   ```
 
 Cuando no usar `DEC`
@@ -3401,7 +3401,7 @@ Cuando no usar `DEC`
 
   ```asm
   dec eax
-  jc error ; Incorrecto
+  jc error # Incorrecto
   ```
 
 ## Instrucción `NEG` (negación aritmética)
@@ -3435,21 +3435,21 @@ En binario, negar un número es:
 **Ejemplo**
 
 ```asm
-; Intel
-; Número positivo
-mov al, 5 ; al = 0000 0101b
-neg al    ; al = 1111 1010b (-5)
+# Intel
+# Número positivo
+mov al, 5 # al = 0000 0101b
+neg al    # al = 1111 1010b (-5)
 
-; Número negativo
-mov al, -5 ; 1111 1011b
-neg al     ; 0000 0101b (5)
+# Número negativo
+mov al, -5 # 1111 1011b
+neg al     # 0000 0101b (5)
 ```
 
 **Forma conceptual de entender `NEG`**
 
 ```asm
 NEG x: x = 0 - x
-; Mientras que NOT hace lo siguiente
+# Mientras que NOT hace lo siguiente
 NOT x: x = ~x
 ```
 
@@ -3478,10 +3478,10 @@ El overflow ocurre solo en un caso puntual para esta instrucción, cuando se nie
 **Ejemplo**
 
 ```asm
-; Intel
-mov al, 0x80 ; al = -128
-neg al       ; al = -128
-; OF: 1
+# Intel
+mov al, 0x80 # al = -128
+neg al       # al = -128
+# OF: 1
 ```
 
 No existe el **128 positivo** en 8 bits, es por eso que se produce el overflow.
@@ -3506,30 +3506,30 @@ Multiplica sin signo el acumulador implícito por el operando indicado. Por lo q
 **Multiplicación de 8 bits**
 
 ```asm
-; Intel
-mov al, 5 ; al = 0000 0101b
-mov bl, 3 ; bl = 0000 0011b
-mul bl    ; 5 x 3 = 15 (0000 1111b)
+# Intel
+mov al, 5 # al = 0000 0101b
+mov bl, 3 # bl = 0000 0011b
+mul bl    # 5 x 3 = 15 (0000 1111b)
 
-; Resultado (cabe en 8 bits)
-; ax = 0000 0000 0000 1111b
-; al = 15
-; ah = 0
+# Resultado (cabe en 8 bits)
+# ax = 0000 0000 0000 1111b
+# al = 15
+# ah = 0
 ```
 
 **Multiplicación de 16 bits**
 
 ```asm
-; Intel
-mov ax, 300 ; ax = 0000 0001 0010 1100b
-mov bx, 200 ; bx = 0000 0000 1100 1000b
-mul bx      ; 300 x 200 = 60000 (sesenta mil)
+# Intel
+mov ax, 300 # ax = 0000 0001 0010 1100b
+mov bx, 200 # bx = 0000 0000 1100 1000b
+mul bx      # 300 x 200 = 60000 (sesenta mil)
 
-; Resultado: 60000 (sesenta mil) (0xEA60)
-; Se almacena en 32 bits usando DX:AX
-; DX:AX (0x0000:0xEA60)
-; (Parte alta 0x0000)   (Parte baja 0xEA60)
-; 0000 0000 0000 0000 | 1110 1010 0110 0000
+# Resultado: 60000 (sesenta mil) (0xEA60)
+# Se almacena en 32 bits usando DX:AX
+# DX:AX (0x0000:0xEA60)
+# (Parte alta 0x0000)   (Parte baja 0xEA60)
+# 0000 0000 0000 0000 | 1110 1010 0110 0000
 ```
 
 El resultado no cabe en 16 bits, se guarda en 32 bits, es decir, usando dos registros, `DX` y `AX`. Pero si `MUL` realiza una multiplicación sin signo, ¿por qué se usan dos registros siendo que el máximo teórico de 16 bits unsigned es de 65535?.
@@ -3542,18 +3542,18 @@ Cuando el resultado supera el límite de 16 bits, es decir 65536 (2¹⁶) (0xFFF
  **Multiplicación de 32 bits**
 
 ```asm
-; Intel
-mov eax, 0xFFFFFFFF ; eax = 4_294_967_295
-; 32 bits
-; 1111 1111 1111 1111 1111 1111 1111 1111
+# Intel
+mov eax, 0xFFFFFFFF # eax = 4_294_967_295
+# 32 bits
+# 1111 1111 1111 1111 1111 1111 1111 1111
 mov ebx, 2
 mul ebx
-; Resultado no cabe en 32 bits
-; Resultado 8_589_934_590 (0x1FFFFFFFE)
-; Se almacena en 64 bit usando EDX:EAX
-; En EDX se almacena la parte alta (0x00000001)
-; En EAX se almacena la parte baja (0xFFFFFFFE)
-; Se genera overflow: OF = 1
+# Resultado no cabe en 32 bits
+# Resultado 8_589_934_590 (0x1FFFFFFFE)
+# Se almacena en 64 bit usando EDX:EAX
+# En EDX se almacena la parte alta (0x00000001)
+# En EAX se almacena la parte baja (0xFFFFFFFE)
+# Se genera overflow: OF = 1
 ```
 
 **Flags del CPU afectados por `MUL`**
@@ -3605,13 +3605,13 @@ En la forma de un operando, esto ocurre cuando la parte alta del resultado no es
 Se usa un registro implícito como multiplicando (`AL`, `AX`, `EAX`, `RAX`), el resultado puede ser más grande que el registro original, en cuyo caso la parte alta del resultado va a `DX / EDX / RDX`.
 
 ```asm
-; Intel 16 bits
-mov ax, -10 ; ax = 1111 1111 1111 0110b (en complemento a dos)
-mov bx, 3   ; bx = 0000 0000 0000 0011b
-imul bx     ; DX:AX = -30
-; La parte alta del número queda en el registro dx, y la baja en ax
+# Intel 16 bits
+mov ax, -10 # ax = 1111 1111 1111 0110b (en complemento a dos)
+mov bx, 3   # bx = 0000 0000 0000 0011b
+imul bx     # DX:AX = -30
+# La parte alta del número queda en el registro dx, y la baja en ax
 ;-30 = 1111 1111 1111 1111 | 1111 1111 1110 0010
-;         ↑ DX = FFFF             ↑ AX = FFE2
+#         ↑ DX = FFFF             ↑ AX = FFE2
 ```
 
 En éste caso, el registro DX es una extensión del registro AX. Por lo que `CF` y `OF` quedan en cero.
@@ -3621,16 +3621,16 @@ En éste caso, el registro DX es una extensión del registro AX. Por lo que `CF`
 Esta forma guarda solo la parte baja del resultado (no usa registros implícitos). Por lo que el resultado se trunca al tamaño del registro de destino.
 
 ```asm
-; Intel 8 bits
-mov al, 50 ; al = 0011 0010b
-mov bl, 5  ; bl = 0000 0101
+# Intel 8 bits
+mov al, 50 # al = 0011 0010b
+mov bl, 5  # bl = 0000 0101
 imul al, bl
-; Resultado debería ser 250 (50 * 5), pero 250 no cabe en al (8 bits), por lo que se trunca a 8 bits.
-; 250 en 16 bits: 0000 0000 1111 1010
-; 250 truncado a 8 bits: 1111 1010b
-; al es interpretado como un int8 con signo, es decir como -6
-; CF = 1
-; OF = 1
+# Resultado debería ser 250 (50 * 5), pero 250 no cabe en al (8 bits), por lo que se trunca a 8 bits.
+# 250 en 16 bits: 0000 0000 1111 1010
+# 250 truncado a 8 bits: 1111 1010b
+# al es interpretado como un int8 con signo, es decir como -6
+# CF = 1
+# OF = 1
 ```
 
 En éste ejemplo, el truncamiento no recuerda el signo (se pierde), por lo que el resultado en 8 bits se interpreta como -6.
@@ -3640,14 +3640,14 @@ En éste ejemplo, el truncamiento no recuerda el signo (se pierde), por lo que e
 No existe forma con tres operandos para 8 bits. Pero si está disponible para 16, 32 y 64 bits. Ésta forma se añadió mas tarde en x86, se pensó para optimizaciones de compiladores (en 8 bits no valía la pena).
 
 ```asm
-; Intel 16 bits
-; 300 * -3 = -900
-mov bx, 300     ; bx = 0000 0001 0010 1100b
-imul ax, bx, -3 ; ax = (int16)bx * (int16)-3
-; Resultado
-; ax = -900 (1111 1100 0111 1100b en complemento a dos)
-; CF = 0
-; OF = 0
+# Intel 16 bits
+# 300 * -3 = -900
+mov bx, 300     # bx = 0000 0001 0010 1100b
+imul ax, bx, -3 # ax = (int16)bx * (int16)-3
+# Resultado
+# ax = -900 (1111 1100 0111 1100b en complemento a dos)
+# CF = 0
+# OF = 0
 ```
 
 En éste caso el resultado cabe en 16 bits, de lo contrario se hubiera truncado.
@@ -3659,7 +3659,7 @@ En éste caso el resultado cabe en 16 bits, de lo contrario se hubiera truncado.
 - Multiplicar por constantes
 
   ```asm
-  ; Intel (ejemplos)
+  # Intel (ejemplos)
   imul eax, ecx, 10
   imul edx, esi, -4
   ```
@@ -3669,9 +3669,9 @@ En éste caso el resultado cabe en 16 bits, de lo contrario se hubiera truncado.
   Muy típico en C/C++
 
   ```asm
-  ; Intel
-  ; C: arr[i]
-  imul eax, ecx, 4 ; i * sizeof (int)
+  # Intel
+  # C: arr[i]
+  imul eax, ecx, 4 # i * sizeof (int)
   add eax, arr
   ```
 
@@ -3682,7 +3682,7 @@ En éste caso el resultado cabe en 16 bits, de lo contrario se hubiera truncado.
   Pero si el multiplicador no es uno de esos se usa `IMUL.`
 
   ```asm
-  ; Intel
+  # Intel
   imul eax, eax, 3
   ```
 
@@ -3691,9 +3691,9 @@ En éste caso el resultado cabe en 16 bits, de lo contrario se hubiera truncado.
   `IMUL` es la forma correcta de detectar overflow en multiplicación con signo.
 
   ```asm
-  ; Intel
+  # Intel
   imul eax, ebx
-  jo overflow_handler ; jo = jump if overflow
+  jo overflow_handler # jo = jump if overflow
   ```
 
   Esta forma es muy usada en: validaciones, código seguro y/o librerías matemáticas.
@@ -3705,7 +3705,7 @@ En éste caso el resultado cabe en 16 bits, de lo contrario se hubiera truncado.
   `IMUL` aparece mucho en: ofuscación simple, keygens, checksums, mezclado de valores.
 
   ```asm
-  ; Intel
+  # Intel
   imul eax, eax, 0x343FD
   add eax, 0x269EC3
   ```
@@ -3729,38 +3729,38 @@ El operando puede ser registro, memoria o inmediato.
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 
-; 16 bits
+# 16 bits
 push ax
-; Equivale a
-; sp = sp - 2
-; [sp] = ax
+# Equivale a
+# sp = sp - 2
+# [sp] = ax
 
-; Con memoria
+# Con memoria
 push word [var]
 
-; 32 bits
+# 32 bits
 push eax
-; Equivale a
-; esp = esp - 4
-; [esp] = eax
+# Equivale a
+# esp = esp - 4
+# [esp] = eax
 
-; Con memoria
+# Con memoria
 push dword [var]
 
-; 64 bits
+# 64 bits
 push rax
-; Equivale a
-; rsp = rsp - 8
-; [rsp] = rax
+# Equivale a
+# rsp = rsp - 8
+# [rsp] = rax
 
-; Con memoria
+# Con memoria
 push qword [var]
 
-; Con inmediatos (se extienden con signo y se empuja al tamaño de la pila)
+# Con inmediatos (se extienden con signo y se empuja al tamaño de la pila)
 push 10
-push -1 ; empuja 0xFFFF / 0xFFFFFFFF / 0xFFFFFFFFFFFFFFFF
+push -1 # empuja 0xFFFF / 0xFFFFFFFF / 0xFFFFFFFFFFFFFFFF
 push 0x1234
 ```
 
@@ -3773,7 +3773,7 @@ push 0x1234
 -  Registros de control no son pusheables (`CR0`, `CR2`, `CR3`, `CR4`, `CR8`). Se accede a ellos via mov:
 
   ```asm
-  ; Intel
+  # Intel
   mov reg, crX
   mov crX, reg
   ```
@@ -3796,9 +3796,9 @@ push 0x1234
 - El tamaño de la pila manda (no el operando). Es decir que el dato empujado siempre coincide con el tamaño de la pila, no con el literal.
 
   ```asm
-  ; Intel
-  ; Ejemplo en 32 bits
-  push 1 ; Empuja 00000001h   (4 bytes) 
+  # Intel
+  # Ejemplo en 32 bits
+  push 1 # Empuja 00000001h   (4 bytes) 
   ```
 
 - El inmediato se extiende con signo.
@@ -3806,16 +3806,16 @@ push 0x1234
   Dado que el signo se indica por le MSB, se extiende.
 
   ```asm
-  ; Intel
-  ; Ejemplo en 32 bits
+  # Intel
+  # Ejemplo en 32 bits
   push 0xFF
-  ; No empuja 0x000000FF si no 0xFFFFFFFF
+  # No empuja 0x000000FF si no 0xFFFFFFFF
   ```
 
 - `PUSH SP / ESP / RSP` es especial.
 
   ```asm
-  ; Intel
+  # Intel
   push sp
   ```
 
@@ -3836,15 +3836,15 @@ push 0x1234
 - El orden importa.
 
   ```asm
-  ; Intel
+  # Intel
   push ax
   push bx
   push cx
   
-  ; Luego
-  pop dx ; dx = cx
-  pop bx ; bx = bx
-  pop ax ; ax = ax
+  # Luego
+  pop dx # dx = cx
+  pop bx # bx = bx
+  pop ax # ax = ax
   ```
 
 - `PUSH` guarda temporalmente hasta que se ejecute `POP`, o hasta que la pila se reutilice, por lo que nunca es memoria segura.
@@ -3866,26 +3866,26 @@ Saca (extrae) un valor desde la pila y lo carga en un registro o en memoria, aju
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 
-; 16 bits en real mode / DOS
+# 16 bits en real mode / DOS
 mov ax, 0x1234
-push ax ; SP = SP - 2, [SP] = 0x1234
-pop bx  ; BX = 0x1234, SP = SP + 2 (SP aumenta 2 bytes)
-; La pila queda como antes del push
+push ax # SP = SP - 2, [SP] = 0x1234
+pop bx  # BX = 0x1234, SP = SP + 2 (SP aumenta 2 bytes)
+# La pila queda como antes del push
 
-; 32 bits
+# 32 bits
 push 0xDEADBEEF
-pop eax ; ESP aumenta 4 bytes
+pop eax # ESP aumenta 4 bytes
 
-; 64 bits
+# 64 bits
 push rax
-pop rbx ; RSP aumenta 7 bytes
+pop rbx # RSP aumenta 7 bytes
 
-; 32 bits con memoria
+# 32 bits con memoria
 pop dword [resultado]
 
-; 64 bits con memoria
+# 64 bits con memoria
 pop qword [resultado]
 ```
 
@@ -3913,12 +3913,12 @@ Directiva del ensamblador que se utiliza para reservar espacio para la pila en e
   **Ejemplos**
 
   ```asm
-  .stack 100h        ; Reserva 256 bytes de pila
-  .stack 4096        ; Reserva 4096 bytes (4 KB)
-  .stack 200h, DWORD ; Reserva 512 bytes en unidades de 4 bytes
+  .stack 100h        # Reserva 256 bytes de pila
+  .stack 4096        # Reserva 4096 bytes (4 KB)
+  .stack 200h, DWORD # Reserva 512 bytes en unidades de 4 bytes
   ```
 
-  En ensambladores como NASM, esta directiva solo le indica al ensamblador cuánto espacio reservar para el **stack segment**; el CPU no necesita saber `.stack`, solo usa `ESP/RSP` para apuntar a la pila.
+  En ensambladores como NASM, esta directiva solo le indica al ensamblador cuánto espacio reservar para el **stack segment**# el CPU no necesita saber `.stack`, solo usa `ESP/RSP` para apuntar a la pila.
 
 ## Variantes de la instrucción `PUSH` (`PUSHF / PUSHFD / PUSHFQ`)
 
@@ -3935,9 +3935,9 @@ Existen tres variantes que permiten empujar los flags del CPU de un tamaño espe
 **Ejemplo**
 
 ```asm
-; Intel
-pushfd  ; Guarda EFLAGS en el stack
-pop eax ; eax = flags
+# Intel
+pushfd  # Guarda EFLAGS en el stack
+pop eax # eax = flags
 ```
 
 **Usos típicos**
@@ -3960,42 +3960,42 @@ Ambas instrucciones empujan todos los registros generales en el stack de una sol
 **Ejemplo**
 
 ```asm
-; Intel
-; Modo de 16 bits
+# Intel
+# Modo de 16 bits
 pusha
-; Equivale a
+# Equivale a
 push ax
 push cx
 push dx
 push bx
-push sp   ; valor ORIGINAL de SP (antes de pusha)
+push sp   # valor ORIGINAL de SP (antes de pusha)
 push bp
 push si
 push di
-; Detalle importante
-; El SP que se guarda no es el SP ya decrementado, sino el valor original antes del pusha.
-; Resultado
-; Empuja 8 registros (2 bytes c/u)
-; 8 x 2 = 16 bytes
-; Decrementa SP en 16 bytes
+# Detalle importante
+# El SP que se guarda no es el SP ya decrementado, sino el valor original antes del pusha.
+# Resultado
+# Empuja 8 registros (2 bytes c/u)
+# 8 x 2 = 16 bytes
+# Decrementa SP en 16 bytes
 
-; Modo de 32 bits
+# Modo de 32 bits
 pushad
-; Equivale a
+# Equivale a
 push eax
 push ecx
 push edx
 push ebx
-push esp   ; valor ORIGINAL de ESP
+push esp   # valor ORIGINAL de ESP
 push ebp
 push esi
 push edi
-; Detalle importante
-; El ESP guardado es el valor antes del pushad (no el ESP modificado).
-; Resultado
-; Empuja 8 registros (4 bytes c/u)
-; 8 x 4 = 32 bytes
-; Decrementa ESP en 32 bytes
+# Detalle importante
+# El ESP guardado es el valor antes del pushad (no el ESP modificado).
+# Resultado
+# Empuja 8 registros (4 bytes c/u)
+# 8 x 4 = 32 bytes
+# Decrementa ESP en 32 bytes
 ```
 
 **¿Por qué guardar el SP/ESP original?**
@@ -4022,21 +4022,21 @@ El CPU filtra qué bits pueden cambiar, dependiendo de:
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 
-; Restaurado del flag DF
-pushfq ; Guarda flags
-cld    ; DF = 0
-std    ; DF = 1
-popfq  ; Restaura DF al valor original
+# Restaurado del flag DF
+pushfq # Guarda flags
+cld    # DF = 0
+std    # DF = 1
+popfq  # Restaura DF al valor original
 
-; Donde no funciona como se espera
+# Donde no funciona como se espera
 pushfq
-popfq ; Intento de cambiar IF desde ring 3
-; Resultado
-; IF permanece igual
-; No hubo excepción
-; El bit simplemente se ignoró
+popfq # Intento de cambiar IF desde ring 3
+# Resultado
+# IF permanece igual
+# No hubo excepción
+# El bit simplemente se ignoró
 ```
 
 **Flags del CPU que si son restaurados (generalmente)**
@@ -4096,38 +4096,38 @@ Usos típicos
 - Manipular `DF`.
 
   ```asm
-  ; Intel
+  # Intel
   pushfq
   cld
-  ; operaciones string
+  # operaciones string
   popfq
   ```
 
 - Debug / Trampas
 
   ```asm
-  ; Intel
+  # Intel
   pushfq
-  or qword [rsp], 0x100  ; setea TF (bit 8 de RFLAGS)
-  popfq                  ; single-step
-  ; Cuando se setea TF = 1 el CPU entra en single-step mode, Esto significa que después de ejecutar cada instrucción, el CPU lanza una excepcin #DB (Debug Exception).
-  ; No se interrumpe antes de la instrucción, sino después.
+  or qword [rsp], 0x100  # setea TF (bit 8 de RFLAGS)
+  popfq                  # single-step
+  # Cuando se setea TF = 1 el CPU entra en single-step mode, Esto significa que después de ejecutar cada instrucción, el CPU lanza una excepcin #DB (Debug Exception).
+  # No se interrumpe antes de la instrucción, sino después.
   
-  ; Ejemplo de breakpoint
+  # Ejemplo de breakpoint
   int3
-  ; Trampa especial de debug
-  ; Un solo byte 0xCC
-  ; Usada por gdb, x64dbg, etc
-  ; El programa se detiene justo después de ejecutarla
+  # Trampa especial de debug
+  # Un solo byte 0xCC
+  # Usada por gdb, x64dbg, etc
+  # El programa se detiene justo después de ejecutarla
   
-  ; Ejemplo de trampa moderna y rápida
+  # Ejemplo de trampa moderna y rápida
   syscall
-  ; Entrada controlada por kernel (muy usada en x86-64)
+  # Entrada controlada por kernel (muy usada en x86-64)
   
-  ; Ejemplo de trampa en x86
+  # Ejemplo de trampa en x86
   int 0x80
-  ; Se usa en Linux x86 para llamadas al sistema
-  ; El CPU guarda EIP/RIP, CS y EFLAGS para luego saltar al handler del sistema operativo
+  # Se usa en Linux x86 para llamadas al sistema
+  # El CPU guarda EIP/RIP, CS y EFLAGS para luego saltar al handler del sistema operativo
   ```
   
   **¿Qué son las trampas?**
@@ -4164,40 +4164,40 @@ Son las instrucciones complementarias de `PUSHA / PUSHAD`. Sacan del stack todos
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 
-; Modo de 16 bits
+# Modo de 16 bits
 popa
-; Equivale a
+# Equivale a
 pop di
 pop si
 pop bp
-pop sp   ; Se descarta
+pop sp   # Se descarta
 pop bx
 pop dx
 pop cx
 pop ax
-; Importante: el valor de SP se lee desde el stack pero no se restaura en SP
-; Resultado
-; Se consumen 16 bytes desde el stack
-; SP incrementa en 16 bytes
-; SP no es restaurado
+# Importante: el valor de SP se lee desde el stack pero no se restaura en SP
+# Resultado
+# Se consumen 16 bytes desde el stack
+# SP incrementa en 16 bytes
+# SP no es restaurado
 
-; Modo de 32 bits
+# Modo de 32 bits
 popad
-; Equivale a
+# Equivale a
 pop edi
 pop esi
 pop ebp
-pop esp   ; Se descarta
+pop esp   # Se descarta
 pop ebx
 pop edx
 pop ecx
 pop eax
-; Importante: ESP no se restaura pése a que si es leído desde el stack.
-; Resultado
-; Se consumen 32 bytes
-; ESP es incrementado en 32 bytes
+# Importante: ESP no se restaura pése a que si es leído desde el stack.
+# Resultado
+# Se consumen 32 bytes
+# ESP es incrementado en 32 bytes
 ```
 
 **¿Por qué no se restauran `SP / ESP`?**
@@ -4231,13 +4231,13 @@ Permite realizar **división entera sin signo**. Tiene varias modalidades según
 **Ejemplo**
 
 ```asm
-; Intel
-mov ax, 100 ; ax = 100
-mov bl, 7   ; divisor = 7
+# Intel
+mov ax, 100 # ax = 100
+mov bl, 7   # divisor = 7
 div bl
-; Resultado
-; al = 14 (100 / 7)
-; ah = 2 (100 % 7)
+# Resultado
+# al = 14 (100 / 7)
+# ah = 2 (100 % 7)
 ```
 
 **Importante:** Aunque el divisor sea de 8 bits, el dividendo siempre es `AX`.
@@ -4258,15 +4258,15 @@ div bl
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mov dx, 0
 mov ax, 1000
 mov bx, 30
 div bx
-; Resultado
-; ax = 33
-; dx = 10
-; dx:ax forman el dividendo de 32 bits
+# Resultado
+# ax = 33
+# dx = 10
+# dx:ax forman el dividendo de 32 bits
 ```
 
 **División de 32 bits**
@@ -4285,14 +4285,14 @@ div bx
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mov edx, 0
 mov eax, 100000
 mov ecx, 300
 div ecx
-; Resultado
-; eax = 333
-; edx = 100
+# Resultado
+# eax = 333
+# edx = 100
 ```
 
 **División de 64 bits**
@@ -4311,14 +4311,14 @@ div ecx
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mov rdx, 0
 mov rax, 100000000000
 mov rbx, 3000
 div rbx
-; Resultado
-; rax = 33333333333
-; rdx = 1000
+# Resultado
+# rax = 33333333333
+# rdx = 1000
 ```
 
 **Nota:** el dividendo puedo ser de 128 bits.
@@ -4373,18 +4373,18 @@ Convierte un valor con signo de 8 bits a 16 bits, extendiendo el bit de signo. T
 **Ejemplo**
 
 ```asm
-; Intel
-; Valor positivo
-mov al, 0x7F ; 0111 1111b (127)
-cbw          ; ax = 0x007F
-; MSB de al es 0
-; ax = 0000 0000 0111 1111
+# Intel
+# Valor positivo
+mov al, 0x7F # 0111 1111b (127)
+cbw          # ax = 0x007F
+# MSB de al es 0
+# ax = 0000 0000 0111 1111
 
-; Valor negativo
-mov al, 0x80 ; 10000000b (-128) (en complemento a dos)
-cbw          ; ax = 0xFF80
-; MSB de al es 1
-; ax = 1111 1111 1000 0000
+# Valor negativo
+mov al, 0x80 # 10000000b (-128) (en complemento a dos)
+cbw          # ax = 0xFF80
+# MSB de al es 1
+# ax = 1111 1111 1000 0000
 ```
 
 ### Instrucción `CWDE` (convert word to dbubleword extended)
@@ -4400,14 +4400,14 @@ Es decir, preserva el valor numérico con signo.
 **Ejemplo**
 
 ```asm
-; Intel
-; Valor positivo
-mov ax, 0x007F ; 127 (0000 0000 0111 1111)
-cwde           ; eax = 0x0000007F (0000 0000 0000 0000 0000 0000 0111 1111)
+# Intel
+# Valor positivo
+mov ax, 0x007F # 127 (0000 0000 0111 1111)
+cwde           # eax = 0x0000007F (0000 0000 0000 0000 0000 0000 0111 1111)
 
-; Valor negativo
-mov ax, 0xFF80 ; -128 (1111 1111 1000 0000)
-cwde           ; EAX = 0xFFFFFF80 (1111 1111 1111 1111 1111 1111 1000 0000)
+# Valor negativo
+mov ax, 0xFF80 # -128 (1111 1111 1000 0000)
+cwde           # EAX = 0xFFFFFF80 (1111 1111 1111 1111 1111 1111 1000 0000)
 ```
 
 ### Instrucción `CDQE` (convert doubleword to quadword extended)
@@ -4418,18 +4418,18 @@ Toma el valor de `EAX` (32 bits) y lo extiende con signo, dejando el resultado e
 **Ejemplo**
 
 ```asm
-; Intel
-; Valor positivo
-mov eax, 0x0000007F ; 127 (0000 0000 0000 0000 0000 0000 0111 1111)
-cdqe                ; rax = 0x000000000000007F
-; RAX: 0000 0000 0000 0000 0000 0000 0000 0000
-;      0000 0000 0000 0000 0000 0000 0111 1111
+# Intel
+# Valor positivo
+mov eax, 0x0000007F # 127 (0000 0000 0000 0000 0000 0000 0111 1111)
+cdqe                # rax = 0x000000000000007F
+# RAX: 0000 0000 0000 0000 0000 0000 0000 0000
+#      0000 0000 0000 0000 0000 0000 0111 1111
 
-; Valor negativo
-mov eax, 0xFFFFFF80 ; -128 (1111 1111 1111 1111 1111 1111 1000 0000)
-cdqe                ; rax = 0xFFFFFFFFFFFFFF80
-; RAX: 1111 1111 1111 1111 1111 1111 1111 1111
-;      1111 1111 1111 1111 1111 1111 1000 0000
+# Valor negativo
+mov eax, 0xFFFFFF80 # -128 (1111 1111 1111 1111 1111 1111 1000 0000)
+cdqe                # rax = 0xFFFFFFFFFFFFFF80
+# RAX: 1111 1111 1111 1111 1111 1111 1111 1111
+#      1111 1111 1111 1111 1111 1111 1000 0000
 ```
 
 ### Instrucción `CWD` (convert word to doubleword)
@@ -4453,18 +4453,18 @@ Toma el valor con signo de `AX` (16 bits) y lo extiende con signo en `DX:AX` (32
 **Ejemplo**
 
 ```asm
-; Intel
-; Valor positivo
-mov ax, 0x1234 ; 0001 0010 0011 0100
-cwd            ; dx = 0x0000
-; Resultado
-; DX:AX = 0000:1234
+# Intel
+# Valor positivo
+mov ax, 0x1234 # 0001 0010 0011 0100
+cwd            # dx = 0x0000
+# Resultado
+# DX:AX = 0000:1234
 
-; Valor negativo
-mov ax, 0xFF80 ; -128 (16 bits)
-cwd            ; dx = 0xFFFF
-; Resultado
-; DX:AX = FFFF:FF80 (-128 en 32 bits)
+# Valor negativo
+mov ax, 0xFF80 # -128 (16 bits)
+cwd            # dx = 0xFFFF
+# Resultado
+# DX:AX = FFFF:FF80 (-128 en 32 bits)
 ```
 
 ### Instrucción `CDQ` (convert doubleword to quadword)
@@ -4481,31 +4481,31 @@ No modifica `EAX`, solo prepara `EDX`.
 **Ejemplo**
 
 ```asm
-; Intel
-; Valor positivo
+# Intel
+# Valor positivo
 mov eax, 123
 cdq
-; Resultado
-; EAX = 0x0000007B
-; EDX = 0x00000000
-; EDX:EAX = 00000000:0000007B
+# Resultado
+# EAX = 0x0000007B
+# EDX = 0x00000000
+# EDX:EAX = 00000000:0000007B
 
-; Valor negativo
-mov eax, -1 ; eax = 0xFFFFFFFF
-; eax = 1111 1111 1111 1111 1111 1111 1111 1111
+# Valor negativo
+mov eax, -1 # eax = 0xFFFFFFFF
+# eax = 1111 1111 1111 1111 1111 1111 1111 1111
 cdq
-; Resultado
-; EAX = 0xFFFFFFFF
-; EDX = 0xFFFFFFFF
-; EDX:EAX = FFFFFFFF:FFFFFFFF
+# Resultado
+# EAX = 0xFFFFFFFF
+# EDX = 0xFFFFFFFF
+# EDX:EAX = FFFFFFFF:FFFFFFFF
 
-; Valor límite
-mov eax, 0x80000000 ; eax = -2147483648
+# Valor límite
+mov eax, 0x80000000 # eax = -2147483648
 cdq
-; Resultado
-; EAX = 0x80000000
-; EDX = 0xFFFFFFFF
-; EDX:EAX FFFFFFFF:80000000
+# Resultado
+# EAX = 0x80000000
+# EDX = 0xFFFFFFFF
+# EDX:EAX FFFFFFFF:80000000
 ```
 
 ### Instrucción `CQO` (convert quadword to octword)
@@ -4522,22 +4522,22 @@ Formando un entero con signo de 128 bits en el par `RDX:RAX`.
 **Ejemplo**
 
 ```asm
-; Intel
-; Valor positivo
+# Intel
+# Valor positivo
 mov rax, 42
 cqo
-; Resultado
-; RDX = 0x0000000000000000
-; RAX = 0x000000000000002A
-; RDX:RAX 0000000000000000:000000000000002A
+# Resultado
+# RDX = 0x0000000000000000
+# RAX = 0x000000000000002A
+# RDX:RAX 0000000000000000:000000000000002A
 
-; Valor negativo
+# Valor negativo
 mov rax, 042
 cqo
-; Resultado
-; RAX = 0xFFFFFFFFFFFFFFD6
-; RDX = 0xFFFFFFFFFFFFFFFF
-; RDX:RAX FFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFD6
+# Resultado
+# RAX = 0xFFFFFFFFFFFFFFD6
+# RDX = 0xFFFFFFFFFFFFFFFF
+# RDX:RAX FFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFD6
 ```
 
 ## De vuelta a `IDIV`
@@ -4545,15 +4545,15 @@ cqo
 **Ejemplo (división de 8 bits `CBW`)**
 
 ```asm
-; Intel
-; Dividir: -20 / 3 usando CBW
-mov al, -20 ; al = -20 (0xEC)
-cbw         ; extiende signo AL -> AX (ah = 0xFF)
-mov bl, 3   ; divisor
-idiv bl     ; ax / bl = -20 / 3
-; Resultado
-; AL = -6 (cociente)
-; AH = -2 (resto)
+# Intel
+# Dividir: -20 / 3 usando CBW
+mov al, -20 # al = -20 (0xEC)
+cbw         # extiende signo AL -> AX (ah = 0xFF)
+mov bl, 3   # divisor
+idiv bl     # ax / bl = -20 / 3
+# Resultado
+# AL = -6 (cociente)
+# AH = -2 (resto)
 ```
 
 **¿Qué sucede si no se usa `CBW`?**
@@ -4565,43 +4565,43 @@ idiv bl     ; ax / bl = -20 / 3
 **Ejemplo (división de 16 bits con `CWD`)**
 
 ```asm
-; Intel
-; Dividir -100 / 9
-mov ax, -100 ; ax = -100 (0xFF9C)
-cwd          ; extiende signo de AX en DX -> DX:AX
-mov bx, 9    ; divisor (r/m16)
-idiv bx      ; (DX:AX) / BX
-; Resultado
-; AX = -11 (cociente)
-; DX = -1 (resto)
+# Intel
+# Dividir -100 / 9
+mov ax, -100 # ax = -100 (0xFF9C)
+cwd          # extiende signo de AX en DX -> DX:AX
+mov bx, 9    # divisor (r/m16)
+idiv bx      # (DX:AX) / BX
+# Resultado
+# AX = -11 (cociente)
+# DX = -1 (resto)
 ```
 
 **Ejemplo (división de 32 bits con `CDQ`)**
 
 ```asm
-; Intel
-; Dividir -1_000_000 / 3
+# Intel
+# Dividir -1_000_000 / 3
 mov eax, -1000000
-cdq        ; extiende el signo de EAX a EDX:EAX
-mov ecx, 3 ; divisor (r/m32)
-idiv ecx   ; (EDX:EAX) / ECX
-; Resultado
-; EAX = -333333 (cociente)
-; EDX = -1 (resto)
+cdq        # extiende el signo de EAX a EDX:EAX
+mov ecx, 3 # divisor (r/m32)
+idiv ecx   # (EDX:EAX) / ECX
+# Resultado
+# EAX = -333333 (cociente)
+# EDX = -1 (resto)
 ```
 
 **Ejemplo (división de 64 bits con `CQO`)**
 
 ```asm
-; Intel
-; Dividir -1_000_000_000_000 / 7
-mov rax, -1000000000000 ; RAX = -1e12
-cqo                     ; extiende el signo de RAX a RDX:RAX
-mov rcx, 7              ; divisor (r/m64)
-idiv rcx                ; (RDX:RAX) / RCX
-; Resultado
-; RAX = -142857142857 (cociente)
-; RDX = -1 (resto)
+# Intel
+# Dividir -1_000_000_000_000 / 7
+mov rax, -1000000000000 # RAX = -1e12
+cqo                     # extiende el signo de RAX a RDX:RAX
+mov rcx, 7              # divisor (r/m64)
+idiv rcx                # (RDX:RAX) / RCX
+# Resultado
+# RAX = -142857142857 (cociente)
+# RDX = -1 (resto)
 ```
 
 **Ejemplo (división de 32 bits con `CWDE`)**
@@ -4612,16 +4612,16 @@ Se tiene un valor con signo en `AX` (16 bits) y se quiere:
 - Dividirlo usando `IDIV r/m32`.
 
 ```asm
-; Intel
-; Dividir -300 / 7
-mov ax, -300 ; ax = -300 (0xFED4)
-cwde         ; extiende AX a EAX con signo
-cdq          ; extiende EAX a EDX:EAX
-mov ecx, 7   ; divisor (32 bits)
-idiv ecx     ; (EDX:EAX) / ECX
-; Resultado
-; EAX = -42 (cociente)
-; EDX = -6 (resto)
+# Intel
+# Dividir -300 / 7
+mov ax, -300 # ax = -300 (0xFED4)
+cwde         # extiende AX a EAX con signo
+cdq          # extiende EAX a EDX:EAX
+mov ecx, 7   # divisor (32 bits)
+idiv ecx     # (EDX:EAX) / ECX
+# Resultado
+# EAX = -42 (cociente)
+# EDX = -6 (resto)
 ```
 
 **Ejemplo (división de 64 bits con `CDQE`)**
@@ -4632,18 +4632,18 @@ Se tiene un valor con signo en `EAX` (32 bits) y se quiere:
 - Dividir usando `IDIV r/m64`.
 
 ```asm
-; Intel
-; Dividir -2_000_000 / 9
-mov eax, -2000000 ; eax = 0xFFE17B80
-cdqe              ; extiende EAX a RAX
-cqo               ; extiende RAX a RDX:RAX
-; RDX = 0xFFFFFFFFFFFFFFFF
-; RAX = 0xFFFFFFFFFFE17B80 (-2_000_000)
-mov rcx, 9        ; divisor (64 bits)
-idiv rcx          ; (RDX:RAX) / RCX
-; Resultado
-; RAX = -222_222
-; RDX = -2
+# Intel
+# Dividir -2_000_000 / 9
+mov eax, -2000000 # eax = 0xFFE17B80
+cdqe              # extiende EAX a RAX
+cqo               # extiende RAX a RDX:RAX
+# RDX = 0xFFFFFFFFFFFFFFFF
+# RAX = 0xFFFFFFFFFFE17B80 (-2_000_000)
+mov rcx, 9        # divisor (64 bits)
+idiv rcx          # (RDX:RAX) / RCX
+# Resultado
+# RAX = -222_222
+# RDX = -2
 ```
 
 ### Excepción #DE (Divide Error)
@@ -4655,11 +4655,11 @@ idiv rcx          ; (RDX:RAX) / RCX
 - Dividir por 0
 
   ```asm
-  ; Intel
+  # Intel
   mov eax, 10
   cdq
   mov ecx, 0
-  idiv ecx ; #DE
+  idiv ecx # #DE
   ```
 
 - El cociente no cabe en el registro destino
@@ -4669,12 +4669,12 @@ idiv rcx          ; (RDX:RAX) / RCX
   **Ejemplo clásico de overflow (16 bits)**
 
   ```asm
-  ; Intel
-  ; 32_768 / 1 da overflow en AX
-  mov ax, 0x8000 ; ax = -32_768
+  # Intel
+  # 32_768 / 1 da overflow en AX
+  mov ax, 0x8000 # ax = -32_768
   cwd
   mov bx, -1
-  idiv bx        ; #DE
+  idiv bx        # #DE
   ```
 
   **¿Por qué falla?**
@@ -4684,11 +4684,11 @@ idiv rcx          ; (RDX:RAX) / RCX
   **Ejemplo en 32 bits**
 
   ```asm
-  ; Intel
-  mov eax, 0x80000000 ; -2_147_483_648
+  # Intel
+  mov eax, 0x80000000 # -2_147_483_648
   cdq
   mov ecx, -1
-  idiv ecx            ; #DE
+  idiv ecx            # #DE
   ```
 
   Mismo problema, `-2_147_483_648 / -1 = +2_147_483_648  (overflow)`.
@@ -4702,19 +4702,19 @@ Prueba un bit específico en un registro o en memoria y copia su valor a `CF` (C
 **Ejemplo**
 
 ```asm
-; Intel
-; Bit en registro
-mov eax, 0xA4 ; eax = 1010 0100b
-bt eax, 5     ; prueba el bit 5 de EAX
-; EAX = 0xA4 (no cambia)
-; CF = 1 porque el bit 5 es uno
+# Intel
+# Bit en registro
+mov eax, 0xA4 # eax = 1010 0100b
+bt eax, 5     # prueba el bit 5 de EAX
+# EAX = 0xA4 (no cambia)
+# CF = 1 porque el bit 5 es uno
 
-; Bit con registro como índice
-mov eax, 0xFFF ; eax = 4095 (0000 0000 0000 0000 0000 1111 1111 1111b)
+# Bit con registro como índice
+mov eax, 0xFFF # eax = 4095 (0000 0000 0000 0000 0000 1111 1111 1111b)
 mov ecx, 7
-bt eax, ecx    ; prueba el bit 7 de eax
-; EAX = 0xFFF (no cambia)
-; CF = 1 porque el bit 7 es uno
+bt eax, ecx    # prueba el bit 7 de eax
+# EAX = 0xFFF (no cambia)
+# CF = 1 porque el bit 7 es uno
 ```
 
 ## Instrucción `BTS` (bit test and set)
@@ -4726,20 +4726,20 @@ Prueba un bit específico en un registro o memoria, copia su valor a `CF` (Carry
 Ejemplo
 
 ```asm
-; Intel
-; Bit en registro
-mov eax, 0x24 ; eax = 0010 0100b
-bts eax, 5    ; prueba el bit 5 y lo pone en uno
-; Bit 5 = 1 por lo que CF = 1
-; Después de BTS, EAX = 0010_0100b | 0010_0100b = 0010_0100b
-; En este caso el bit 5 ya estaba en uno, así que no cambia
-; CF captura el valor original del bit y luego bts lo setea en uno
+# Intel
+# Bit en registro
+mov eax, 0x24 # eax = 0010 0100b
+bts eax, 5    # prueba el bit 5 y lo pone en uno
+# Bit 5 = 1 por lo que CF = 1
+# Después de BTS, EAX = 0010_0100b | 0010_0100b = 0010_0100b
+# En este caso el bit 5 ya estaba en uno, así que no cambia
+# CF captura el valor original del bit y luego bts lo setea en uno
 
-; Bit en memoria
-mov dword [var], 0x0000 ; [var] 0000 0000 0000 0000 0000 0000 0000 0000
-bts dword [var], 3 ; [var] = 0000 0000 0000 0000 0000 0000 0000 1000
-; CF = 0 porque el bit 3 original estaba en cero
-; [var] = 0x0008 (bit 3 ahora en uno)
+# Bit en memoria
+mov dword [var], 0x0000 # [var] 0000 0000 0000 0000 0000 0000 0000 0000
+bts dword [var], 3 # [var] = 0000 0000 0000 0000 0000 0000 0000 1000
+# CF = 0 porque el bit 3 original estaba en cero
+# [var] = 0x0008 (bit 3 ahora en uno)
 ```
 
 ## Instrucción `BTR` (bit test and reset)
@@ -4751,20 +4751,20 @@ Prueba un bit específico en un registro o memoria, copia su valor a `CF` (Carry
 **Ejemplo**
 
 ```asm
-; Intel
-; Bit en registro
-mov eax, 0x2C ; eax = 0000 0000 0000 0000 0000 0000 0010 1100
-btr eax, 5    ; prueba el bit 5 y lo pone en cero
-; EAX = 0000 0000 0000 0000 0000 0000 0000 1100
-; Bit 5 original = 1 por lo tanto CF = 1
-; Después de BTR, el bit 5 de EAX queda en cero
+# Intel
+# Bit en registro
+mov eax, 0x2C # eax = 0000 0000 0000 0000 0000 0000 0010 1100
+btr eax, 5    # prueba el bit 5 y lo pone en cero
+# EAX = 0000 0000 0000 0000 0000 0000 0000 1100
+# Bit 5 original = 1 por lo tanto CF = 1
+# Después de BTR, el bit 5 de EAX queda en cero
 
-; Bit en memoria
-mov dword [var], 0x0008 ; [var] = 0000 0000 0000 0000 0000 0000 0000 1000
-btr dword [var], 3      ; prueba el bit 3 y lo pone en cero
-; [var] = 0000 0000 0000 0000 0000 0000 0000 0000
-; CF = 1 porque el bit original era uno
-; Bit 3 después de BTR queda en cero
+# Bit en memoria
+mov dword [var], 0x0008 # [var] = 0000 0000 0000 0000 0000 0000 0000 1000
+btr dword [var], 3      # prueba el bit 3 y lo pone en cero
+# [var] = 0000 0000 0000 0000 0000 0000 0000 0000
+# CF = 1 porque el bit original era uno
+# Bit 3 después de BTR queda en cero
 ```
 
 ## Instrucción `BTC` (bit test and complement)
@@ -4783,12 +4783,12 @@ Donde `src` es la fuente donde está el bit a manipular, y puede ser un registro
 **Ejemplo: **
 
 ```asm
-; Intel
-mov eax, 10 ; eax = 0000 0000 0000 1010
-btc eax, 1  ; Complementa el bit 1
-; eax = 0000 0000 0000 1000
-; CF = 1 porque el bit 1 original estaba en uno
-; El bit 1 queda en cero
+# Intel
+mov eax, 10 # eax = 0000 0000 0000 1010
+btc eax, 1  # Complementa el bit 1
+# eax = 0000 0000 0000 1000
+# CF = 1 porque el bit 1 original estaba en uno
+# El bit 1 queda en cero
 ```
 
 ## Instrucción `ROL` (rotate left)
@@ -4805,18 +4805,18 @@ Rota los bits de un operando hacia la izquierda. Los bits que salen por la izqui
 **Sintaxis:**
 
 ```asm
-ROL r/m, cl  ; número de bits a rotar determinado por CL
-ROL r/m, imm ; número de bits a rotar determinado por un inmediato
+ROL r/m, cl  # número de bits a rotar determinado por CL
+ROL r/m, imm # número de bits a rotar determinado por un inmediato
 ```
 
 **Ejemplo**
 
 ```asm
-; Intel
-mov al, 0x99 ; al = 1001 1001b
-rol al, 1    ; rota 1 bit a la izquierda
-; AL = 0011 0011b
-; CF = 1 porque el bit que salió por la izquierda era 1
+# Intel
+mov al, 0x99 # al = 1001 1001b
+rol al, 1    # rota 1 bit a la izquierda
+# AL = 0011 0011b
+# CF = 1 porque el bit que salió por la izquierda era 1
 ```
 
 **Usos comunes**
@@ -4846,36 +4846,36 @@ Rota los bits del operando a la derecha, reingresando por la izquierda los bits 
   **Fórmula: ** `OF = XOR(MSB_RESULTADO, BIT(MSB_RESULTADO - 1))`
 
   ```asm
-  ; Resultado = 1010 1010
-  ; MSB = 1
-  ; MSB - 1 = 0
+  # Resultado = 1010 1010
+  # MSB = 1
+  # MSB - 1 = 0
   ```
 
 **Sintaxis:**
 
 ```asm
-ROR r/mX, CL ; rnúmero de bits a rotar determinado por CL
-ROR r/mX, 1  ; número de bits a rotar determinado por un inmediato
-; X: 8, 16, 32, 64
+ROR r/mX, CL # rnúmero de bits a rotar determinado por CL
+ROR r/mX, 1  # número de bits a rotar determinado por un inmediato
+# X: 8, 16, 32, 64
 ```
 
 **Ejemplo**
 
 ```asm
-; Intel
-; Rotación de 1 bit
-mov al, 0xB1 ; al = 1011 0001b
-ror al, 1    ; rota 1 bit a la derecha
-; AL = 1101 1000b (0xD8)
-; CF = 1 porque el último bit rotado es un uno
-; OF = 0 porque XOR(1,1) = 0
+# Intel
+# Rotación de 1 bit
+mov al, 0xB1 # al = 1011 0001b
+ror al, 1    # rota 1 bit a la derecha
+# AL = 1101 1000b (0xD8)
+# CF = 1 porque el último bit rotado es un uno
+# OF = 0 porque XOR(1,1) = 0
 
-; Rotación de 2 bits
-mov al, 0xB1 ; 1011 0001b
-ror al, 2    ; rota 2 bits a la derecha
-; AL = 0110 1100
-; CF = 0 porque el último rotado fue un cero
-; OF indefinido porque se rotaron dos bits
+# Rotación de 2 bits
+mov al, 0xB1 # 1011 0001b
+ror al, 2    # rota 2 bits a la derecha
+# AL = 0110 1100
+# CF = 0 porque el último rotado fue un cero
+# OF indefinido porque se rotaron dos bits
 ```
 
 ## Rotaciones pares respecto al tamaño del registro
@@ -4883,7 +4883,7 @@ ror al, 2    ; rota 2 bits a la derecha
 Supongamos un registro de 8 bits como `AL`.
 
 ```asm
-; Intel
+# Intel
 rol al, 8
 ```
 
@@ -4923,17 +4923,17 @@ Rota a la derecha a través del carry. A diferencia de una rotación normal `ROR
 **Ejemplo (rotación de 1 bit)**
 
 ```asm
-; Intel
-; Rotación de 1 bit
-; CF = 1
-mov al, 0xB6 ; al = 1011 0110b
-rcr al, 1 ; Cada bit se mueve una posición a la derecha
-; El bit LSB (0) se va a CF 1011 011[0] -> CF
-; CF = 0
-; El CF original (1) entra como el bit MSB
-; CF original -> [1]101 1011
-; Todos los demás bits de mueven a la derecha
-; AL = 1101 1011
+# Intel
+# Rotación de 1 bit
+# CF = 1
+mov al, 0xB6 # al = 1011 0110b
+rcr al, 1 # Cada bit se mueve una posición a la derecha
+# El bit LSB (0) se va a CF 1011 011[0] -> CF
+# CF = 0
+# El CF original (1) entra como el bit MSB
+# CF original -> [1]101 1011
+# Todos los demás bits de mueven a la derecha
+# AL = 1101 1011
 ```
 
 **Ejemplo (rotación de `n > 1` bits)**
@@ -4943,33 +4943,33 @@ Cuando `n > 1`, el desplazamiento se realiza en pasos de rotación (incluyendo `
 **Paso a paso**
 
 ```asm
-; Intel
-; CF = 1
-mov al, 0b10110110 ; al = 0xB6
+# Intel
+# CF = 1
+mov al, 0b10110110 # al = 0xB6
 rcr al, 3
-; Primera rotación
-; AL = 1011 0110
-; CF = 1
-; LSB (0) -> CF (0)
-; CF (original) -> MSB (1)
-; AL = 1101 1011
-; CF = 0
+# Primera rotación
+# AL = 1011 0110
+# CF = 1
+# LSB (0) -> CF (0)
+# CF (original) -> MSB (1)
+# AL = 1101 1011
+# CF = 0
 
-; Segunda rotación
-; AL = 1101 1011
-; CF = 0
-; LSB (1) -> CF (1)
-; CF anterior (0) -> MSB (0)
-; AL = 0110 1101
-; CF = 1
+# Segunda rotación
+# AL = 1101 1011
+# CF = 0
+# LSB (1) -> CF (1)
+# CF anterior (0) -> MSB (0)
+# AL = 0110 1101
+# CF = 1
 
-; Tercera rotación
-; AL = 0110 1101
-; CF = 1
-; LSB (1) -> CF (1)
-; CF anterior (1) -> MSB (1)
-; AL = 1011 0110
-; CF = 1
+# Tercera rotación
+# AL = 0110 1101
+# CF = 1
+# LSB (1) -> CF (1)
+# CF anterior (1) -> MSB (1)
+# AL = 1011 0110
+# CF = 1
 ```
 
 ## Instrucción RCL (rotate through carry left)
@@ -4994,48 +4994,48 @@ Toma un registro o un valor en memoria y lo rota hacia la izquierda usando `CF` 
 **Ejemplo (rotación de 1 bit)**
 
 ```asm
-; Intel
-; Rotación de 1 bit
-; CF = 1
-mov al, 0xB6 ; al = 1011 0110b
+# Intel
+# Rotación de 1 bit
+# CF = 1
+mov al, 0xB6 # al = 1011 0110b
 rcl al, 1
-; MSB -> CF (1)
-; CF anterior -> LSB (1)
-; AL = 0110 1101
-; CF = 1
+# MSB -> CF (1)
+# CF anterior -> LSB (1)
+# AL = 0110 1101
+# CF = 1
 ```
 
 **Ejemplo (rotación de 3 bits)**
 
 ```asm
-; Intel
-; Rotación de 3 bits
-; CF = 1
-mov al, 0xB6 ; al = 1011 0110b
+# Intel
+# Rotación de 3 bits
+# CF = 1
+mov al, 0xB6 # al = 1011 0110b
 rcl al, 3
-; Primera rotación
-; AL = 1011 0110
-; CF = 1
-; MSB -> CF (1)
-; CF anterior -> LSB (1)
-; AL = 0110 1101
-; CF = 1
+# Primera rotación
+# AL = 1011 0110
+# CF = 1
+# MSB -> CF (1)
+# CF anterior -> LSB (1)
+# AL = 0110 1101
+# CF = 1
 
-; Segunda rotación
-; AL = 0110 1101
-; CF = 1
-; MSB -> CF (0)
-; CF anterior -> LSB (1)
-; AL = 1101 1011
-; CF = 0
+# Segunda rotación
+# AL = 0110 1101
+# CF = 1
+# MSB -> CF (0)
+# CF anterior -> LSB (1)
+# AL = 1101 1011
+# CF = 0
 
-; Tercera rotación
-; AL =  1101 1011
-; CF = 0
-; MSB -> CF (1)
-; CF anterior -> LSB (0)
-; AL = 1011 0110
-; CF = 1
+# Tercera rotación
+# AL =  1101 1011
+# CF = 0
+# MSB -> CF (1)
+# CF anterior -> LSB (0)
+# AL = 1011 0110
+# CF = 1
 ```
 
 ## ¿Qué es un `OPCODE` en x86-64?
@@ -5059,7 +5059,7 @@ En x86-64 aparece el prefijo `REX` (acrónimo: **R**egister **EX**tension) de 1 
 
 ```asm
 REAX = 0100WRXB
-; W R X B son las extensiones
+# W R X B son las extensiones
 
 Bit: 7 6 5 4 3 2 1 0
      0 1 0 0 W R X B
@@ -5113,28 +5113,28 @@ Luego `REX` ya no existe y solo afectó la decodificación.
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mov eax, ebx
-; Código máquina
-; 89 D8
-; Registros solo eax-edi
-; Operando implícitamente de 32 bits
+# Código máquina
+# 89 D8
+# Registros solo eax-edi
+# Operando implícitamente de 32 bits
 
-; Con REX
+# Con REX
 mov rax, rbx
-; Código máquina
-; 48 89 D8
-; 48 = REX.W
-; El CPU ve: Esto es 64 bits y usa registros de 64 bits
+# Código máquina
+# 48 89 D8
+# 48 = REX.W
+# El CPU ve: Esto es 64 bits y usa registros de 64 bits
 
-; Registros extendidos
+# Registros extendidos
 mov r8, rax
-; Código máquina
+# Código máquina
 49 89 C0
-; 49 = 01001001
-; W = 1
-; B = 1 -> R8
-; Sin ese byte esa instrucción no existe para el CPU
+# 49 = 01001001
+# W = 1
+# B = 1 -> R8
+# Sin ese byte esa instrucción no existe para el CPU
 ```
 
 ### `OPCODE` principal
@@ -5162,13 +5162,13 @@ mod |  reg  | r/m
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mov rax, rbx
-; Código máquina
+# Código máquina
 48 89 D8
-; mod = 11 (registro)
-; reg = 011 (rbx)
-; r/m = 000 (rax)
+# mod = 11 (registro)
+# reg = 011 (rbx)
+# r/m = 000 (rax)
 ```
 
 ### `SIB` (Scale Index Base)
@@ -5176,11 +5176,11 @@ mov rax, rbx
 Se usa cuando hay escalado:
 
 ```asm
-; Intel
+# Intel
 mov rax, [rbx + rcx*4]
-; Si no hay escalado no hay SIB
-; base = rbx
-; index = rcx (1, 2, 4 u 8)
+# Si no hay escalado no hay SIB
+# base = rbx
+# index = rcx (1, 2, 4 u 8)
 ```
 
 ### Displacement (offsets reales)
@@ -5188,9 +5188,9 @@ mov rax, [rbx + rcx*4]
 En x86-64 el direccionamiento RIP-relative es siempre con un displacement de 32 bits, aunque el valor sea pequeño. Es decir, un entero de 32 bits con signo.
 
 ```asm
-; Intel
+# Intel
 mov eax, [rip + 0x1234]
-; dirección de memoria efectiva = RIP siguiente + dirección de 32 bits
+# dirección de memoria efectiva = RIP siguiente + dirección de 32 bits
 ```
 
 Rango efectivo del desplazamiento: `-2^31` (-2 GB) a `+2^31 - 1` (+2 GB).
@@ -5200,19 +5200,19 @@ Rango efectivo del desplazamiento: `-2^31` (-2 GB) a `+2^31 - 1` (+2 GB).
 El ensamblador/linker debe recurrir a una dirección de memoria de 64 bits.
 
 ```asm
-; Intel
-mov rax, 0x1122334455667788 ; imm64
-; Esto ya no es RIP-relative
+# Intel
+mov rax, 0x1122334455667788 # imm64
+# Esto ya no es RIP-relative
 ```
 
 ### Inmediatos (valores literales)
 
 ```asm
-; Intel
+# Intel
 mov eax, 1
-; Bytes
-; B8 01 00 00 00
-; 01 00 00 00 es el inmediato
+# Bytes
+# B8 01 00 00 00
+# 01 00 00 00 es el inmediato
 ```
 
 ### Relación con los saltos en x86-64
@@ -5225,27 +5225,27 @@ Los saltos no guardan direcciones, guardan `RIP_siguiente + offset`, donde `offs
 | near          | E9     | 32 bits |
 
 ```asm
-; Intel
+# Intel
 jmp short label
-; Bytes
-; EB xx
-; xx es el desplazamiento con signo desde la siguiente instrucción
+# Bytes
+# EB xx
+# xx es el desplazamiento con signo desde la siguiente instrucción
 
-; salto tipo near 64 bits
+# salto tipo near 64 bits
 start:
-	nop             ; 1 byte
-	nop             ; 1 byte
-	jmp near target ; salto relativo de 32 bits
-	nop             ; no se ejecuta
-	nop             ; no se ejecuta
+	nop             # 1 byte
+	nop             # 1 byte
+	jmp near target # salto relativo de 32 bits
+	nop             # no se ejecuta
+	nop             # no se ejecuta
 
 target:
 	nop
-; opcode de jmp near
-; E9 xx xx xx xx (rel32)
-; E9 es el op code de jmp near
-; rel32 es el desplazamiento con signo de 32 bits
-; El offset es relativo al RIP de la instrucción siguiente
+# opcode de jmp near
+# E9 xx xx xx xx (rel32)
+# E9 es el op code de jmp near
+# rel32 es el desplazamiento con signo de 32 bits
+# El offset es relativo al RIP de la instrucción siguiente
 ```
 
 **Si se cuentan las direcciones:**
@@ -5294,7 +5294,7 @@ Las etiquetas son nombres simbólicos que representan una dirección de memoria 
 
 ```asm
 nombre_etiqueta:
-    ; instrucciones o datos
+    # instrucciones o datos
 ```
 
 El carácter `:` (dos puntos) indica que es una etiqueta.
@@ -5309,13 +5309,13 @@ El carácter `:` (dos puntos) indica que es una etiqueta.
    global _start
    
    _start:
-       ; Programa principal
+       # Programa principal
    hola:
-       ; Código
+       # Código
    fin:
-       ; Código
+       # Código
    section .data
-       ; Código
+       # Código
    ```
 
    En el ejemplo `hola` y `fin` son etiquetas.
@@ -5326,14 +5326,14 @@ El carácter `:` (dos puntos) indica que es una etiqueta.
 
    ```asm
    section .data
-       contador: db 0     ; un byte inicializado a 0
-       texto: db "hola",0 ; cadena terminada en null 
+       contador: db 0     # un byte inicializado a 0
+       texto: db "hola",0 # cadena terminada en null 
    ```
 
    `contador` y `texto` son etiquetas de datos (variables). Se pueden usar en instrucciones como:
 
    ```asm
-   mov al, [contador] ; carga el valor de contador en AL
+   mov al, [contador] # carga el valor de contador en AL
    ```
 
 **Reglas para los nombres de etiquetas**
@@ -5348,11 +5348,11 @@ El carácter `:` (dos puntos) indica que es una etiqueta.
 Algunas sintaxis como NASM permiten etiquetas locales usando el prefijo `.` (punto).
 
 ```asm
-; NASM
+# NASM
 inicio:
-	; Código
-.loop: ; Etiqueta local
-	; Código
+	# Código
+.loop: # Etiqueta local
+	# Código
 ```
 
 En el ejemplo anterior `.loop` es una etiqueta local.
@@ -5374,27 +5374,27 @@ El destino es relativo al instruction pointer según el modo. Se considera como 
 **Ejemplo**
 
 ```asm
-; Intel
-; 16 bits
+# Intel
+# 16 bits
 start:
 	mov ax, 1
 	jmp start
-; IP = IP siguiente + offset
-; offset de 8 a 16 bits
+# IP = IP siguiente + offset
+# offset de 8 a 16 bits
 
-; 32 bits
+# 32 bits
 start:
 	mov eax, 1
 	jmp start
-; EIP = EIP siguiente + offset
-; offset de 8 a 32 bits
+# EIP = EIP siguiente + offset
+# offset de 8 a 32 bits
 
-; 64 bits
+# 64 bits
 start:
 	mov rax, 1
 	jmp start
-; RIP = RIP siguiente + offset
-; offset de 32 bits (no existe un offset de 64 bits)
+# RIP = RIP siguiente + offset
+# offset de 32 bits (no existe un offset de 64 bits)
 ```
 
 **2. Salto corto (short  jump)**
@@ -5404,18 +5404,18 @@ Son desplazamientos de 8 bits con un rango de `-128` a `+127` bytes, medidos des
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 section .text
 global _start
 
 _start:
 	mov eax, 1
-	jmp short lopp ; Salto corto (offset de 8 bits)
-	mov eax, 2     ; Instrucción saltada
+	jmp short lopp # Salto corto (offset de 8 bits)
+	mov eax, 2     # Instrucción saltada
 	
 loop:
 	inc eax
-	jmp short loop ; salto corto hacia atrás
+	jmp short loop # salto corto hacia atrás
 ```
 
 El ensamblador verifica que `loop` esté a menos de `±128` bytes.
@@ -5424,7 +5424,7 @@ Codifica el salto como `EB xx` donde `xx` es el offset relativo `destio - IP_sig
 **3. Salto cercano (near jump)**
 
 ```asm
-; Intel
+# Intel
 jmp near etiqueta
 ```
 
@@ -5433,7 +5433,7 @@ Tiene un desplazamiento de 16 a 32 bits.
 **4. Salto indirecto**
 
 ```asm
-; Intel
+# Intel
 jmp rax
 jmp [memoria]
 ```
@@ -5441,9 +5441,9 @@ jmp [memoria]
 El destino no está codificado directamente, sino que está en un registro o en memoria.
 
 ```asm
-; Intel
-jmp rax         ; RIP = rax
-jmp [table+rcx] ; salto por tabla
+# Intel
+jmp rax         # RIP = rax
+jmp [table+rcx] # salto por tabla
 ```
 
 Se usa mucho en: switch/case, jump tables, virtualización, obfuscación , ROP (return-oriented programming) / explotación.
@@ -5451,7 +5451,7 @@ Se usa mucho en: switch/case, jump tables, virtualización, obfuscación , ROP (
 **5. Salto lejano**
 
 ```asm
-; Intel
+# Intel
 jmp far seg:offset
 ```
 
@@ -5476,20 +5476,20 @@ El `ZF` se activa cuando una operación previa produce un resultado 0, típicame
 **Ejemplo**
 
 ```asm
-; Intel
-cmp eax, ebx ; Internamente hace eax - ebx
-je etiqueta  ; Salta si eax == ebx a etiqueta:
+# Intel
+cmp eax, ebx # Internamente hace eax - ebx
+je etiqueta  # Salta si eax == ebx a etiqueta:
 
-; Ejemplo paso a paso
+# Ejemplo paso a paso
 mov eax, 5
-cmp eax, 5 ; 5 - 5 = 0 -> ZF = 1
-je ok      ; Salta porque ZF = 1
+cmp eax, 5 # 5 - 5 = 0 -> ZF = 1
+je ok      # Salta porque ZF = 1
 
-mov ebx, 0 ; Instrucción saltada
-ok:        ; Etiqueta a la que salta JE
-mov ebx, 1 ; Esta instrucción se ejecuta
-; Resultado
-; EBX = 1
+mov ebx, 0 # Instrucción saltada
+ok:        # Etiqueta a la que salta JE
+mov ebx, 1 # Esta instrucción se ejecuta
+# Resultado
+# EBX = 1
 ```
 
 **Tamaños de salto**
@@ -5520,10 +5520,10 @@ Pudiera parecer que `JZ` es una instrucción distinta a `JE`, no obstante ambas 
 **Ejemplo**
 
 ```asm
-; Intel
-test eax, eax ; eax & eax
-jz etiqueta   ; Salta si ZF = 1 después de una operación lógica
-; Si eax == eax el resultado será 0 y por lo tanto ZF = 1
+# Intel
+test eax, eax # eax & eax
+jz etiqueta   # Salta si ZF = 1 después de una operación lógica
+# Si eax == eax el resultado será 0 y por lo tanto ZF = 1
 ```
 
 `JZ` es semánticamente mas claro que `JE` para el presente contexto.
@@ -5555,9 +5555,9 @@ Usada normalmente después de instrucciones como: `CMP`, `TEST`, `SUB`, `ADD`, e
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 cmp eax, ebx
-jne etiqueta ; Salta a etiqueta si eax - ebx != 0
+jne etiqueta # Salta a etiqueta si eax - ebx != 0
 ```
 
 **Equivalente en alto nivel**
@@ -5570,17 +5570,17 @@ if (eax != ebx)
 **Ejemplo simple**
 
 ```asm
-; Intel
+# Intel
 mov eax, 5
 mvo ebx, 3
 cmp eax, ebx
-jne no_iguales ; 5 - 3 != 0 (salta)
+jne no_iguales # 5 - 3 != 0 (salta)
 
 iguales:
-	; Este código no se ejecuta
+	# Este código no se ejecuta
 	jmp fin
 no_iguales:
-	; Este codigo sí se ejecuta
+	# Este codigo sí se ejecuta
 fin:
 ```
 
@@ -5615,26 +5615,26 @@ Es sinónima de la instrucción `JNE`, ya que ambas verifican `ZF = 0` para real
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mov eax, 5
-sub eax, 5    ; eax = 0 → ZF = 1
-jnz etiqueta: ; No salta
+sub eax, 5    # eax = 0 → ZF = 1
+jnz etiqueta: # No salta
 
 mov eax, 5
-sub eax, 3   ; eax = 2 → ZF = 0 (resultado distinto de cero)
-jnz etiqueta ; Sí salta
+sub eax, 3   # eax = 2 → ZF = 0 (resultado distinto de cero)
+jnz etiqueta # Sí salta
 ```
 
 **Ejemplo en bucle clásico**
 
 ```asm
-; Intel
+# Intel
 mov ecx, 5
 loop_start:
-	; Cuerpo del bucle
-	dec ecx ; ZF = 1 cuando ECX llega a 0
+	# Cuerpo del bucle
+	dec ecx # ZF = 1 cuando ECX llega a 0
 	jnz loop_start
-; El bucle se repite mientras ECX != 0
+# El bucle se repite mientras ECX != 0
 ```
 
 **Tamaño del salto**
@@ -5663,24 +5663,24 @@ Salto condicional. Depende exclusivamente de `SF` (Sign Flag). Salta si el resul
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo básico
-mov eax, -5   ; eax = 0xFFFFFFFB (11111111 11111111 11111111 11111011)
-test eax, eax ; eax & eax = eax (no cambia EAX, solo ajusta los flags)
-; SF = 1
-js negativo   ; Salta a la etiqueta netagivo
+# Intel
+# Ejemplo básico
+mov eax, -5   # eax = 0xFFFFFFFB (11111111 11111111 11111111 11111011)
+test eax, eax # eax & eax = eax (no cambia EAX, solo ajusta los flags)
+# SF = 1
+js negativo   # Salta a la etiqueta netagivo
 
 negativo:
-	; Código ejecutado después del salto
+	# Código ejecutado después del salto
 
-; TEST realiza un AND lógico entre los operandos (mismo registro) solo para afectar los flags, sin guardar el resultado.
+# TEST realiza un AND lógico entre los operandos (mismo registro) solo para afectar los flags, sin guardar el resultado.
 
-; Ejemplo comparando valores con signo
-cmp eax, ebx ; eax - ebx
-js salto     ; Resultado de la resta negativo, SF = 1, js salta.
+# Ejemplo comparando valores con signo
+cmp eax, ebx # eax - ebx
+js salto     # Resultado de la resta negativo, SF = 1, js salta.
 
 salto:
-	; Código ejecutado después del salto
+	# Código ejecutado después del salto
 ```
 
 **Tamaños del salto**
@@ -5708,19 +5708,19 @@ No modifica los flags del CPU, lee solo `SF` (Sign Flag).
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo básico
-mov eax, 5    ; eax = 00000000 00000000 00000000 00000101
-test eax, eax ; SF = 0 porque eax AND eax = eax
-jns salto     ; SF = 0, salta
+# Intel
+# Ejemplo básico
+mov eax, 5    # eax = 00000000 00000000 00000000 00000101
+test eax, eax # SF = 0 porque eax AND eax = eax
+jns salto     # SF = 0, salta
 
 salto:
-	; Código que se ejecuta después del salto
+	# Código que se ejecuta después del salto
 
-; Ejemplo con número negativo
-mov eax, -5   ; eax = 11111111 11111111 11111111 11111011
-test eax, eax ; SF = 1
-jns salto     ; SF = 1, no salta
+# Ejemplo con número negativo
+mov eax, -5   # eax = 11111111 11111111 11111111 11111011
+test eax, eax # SF = 1
+jns salto     # SF = 1, no salta
 ```
 
 **Tamaños del salto**
@@ -5753,20 +5753,20 @@ El flag se ajusta principalmente por: `ADD`, `SUB`, `IMUL`, `INC`, `DEC`.
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo de overflow con signo
-mov al, 127 ; 0111 1111  (+127)
-add al, 1   ; resultado = 1000 0000 (-128)
+# Intel
+# Ejemplo de overflow con signo
+mov al, 127 # 0111 1111  (+127)
+add al, 1   # resultado = 1000 0000 (-128)
 jo etiqueta
-; 127 + 1 = 128 (no cabe en int8 con signo)
-; OF = 1 indicando overflow
-; jo salta al detectar OF = 1
+# 127 + 1 = 128 (no cabe en int8 con signo)
+# OF = 1 indicando overflow
+# jo salta al detectar OF = 1
 
-; Ejemplo sin overflow
+# Ejemplo sin overflow
 mov al, 5
-add al, 3 ; resultado = 8
-jo etiqueta ; No salta
-; OF = 0 (no se produjo overflow)
+add al, 3 # resultado = 8
+jo etiqueta # No salta
+# OF = 0 (no se produjo overflow)
 ```
 
 **Tamaños del salto**
@@ -5787,18 +5787,18 @@ Salto condicional. Salta si el flag `OF` esta en cero, es decir, cuando el resul
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo sin overflow
-; OF = 0
+# Intel
+# Ejemplo sin overflow
+# OF = 0
 mov al, 100
-add al, 20 ; 100 + 20 = 120 (cabe en AL en 8 bits, OF no se modifica).
-jno etiqueta ; Salta porque OF = 0
+add al, 20 # 100 + 20 = 120 (cabe en AL en 8 bits, OF no se modifica).
+jno etiqueta # Salta porque OF = 0
 
-; Ejemplo con overflow
-; OF = 0 Inicial
+# Ejemplo con overflow
+# OF = 0 Inicial
 mov al, 127
-add al, 1    ; overflow (127 + 1 = -128)
-jno etiqueta ; No salta porque OF = 1
+add al, 1    # overflow (127 + 1 = -128)
+jno etiqueta # No salta porque OF = 1
 ```
 
 ## Instrucción `JC` (jump if carry)
@@ -5810,16 +5810,16 @@ Salto condicional. Salta si hubo acarreo, es decir cuando `CF = 1`. Normalmente 
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo con acarreo
+# Intel
+# Ejemplo con acarreo
 mov al, 255
-add al, 1 ; AL = 0, CF = 1 porque 255 + 1 desborda el registro de 8 bits
-jc etiqueta  ; Salta porque CF = 1
+add al, 1 # AL = 0, CF = 1 porque 255 + 1 desborda el registro de 8 bits
+jc etiqueta  # Salta porque CF = 1
 
-; Ejemplo sin acarreo
+# Ejemplo sin acarreo
 mov al, 100
-add al, 10  ; AL = 110, CF = 0 porque no se desborda el registro de 8 bits
-jc etiqueta ; No salta porque CF = 0
+add al, 10  # AL = 110, CF = 0 porque no se desborda el registro de 8 bits
+jc etiqueta # No salta porque CF = 0
 ```
 
 ## Instrucción `JNC` (jump if not carry)
@@ -5831,24 +5831,24 @@ Salto condicional. Salta si `CF = 0`. Es complementaria a `JC`. No modifica ning
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejmplo de suma simple
-mov al, 200  ; AL = 200
-add al, 100  ; AL = 200 + 100 = 44 (por desbordamiento en 8 bits)
-; Overflow porque 200 + 100 = 300 mod 256 = 44
-jnc etiqueta ; No salta porque CF = 1 (overflow unsigned)
+# Intel
+# Ejmplo de suma simple
+mov al, 200  # AL = 200
+add al, 100  # AL = 200 + 100 = 44 (por desbordamiento en 8 bits)
+# Overflow porque 200 + 100 = 300 mod 256 = 44
+jnc etiqueta # No salta porque CF = 1 (overflow unsigned)
 
-; Ejemplo con resta
-mov al, 50  ; AL = 0011 0010
-sub al, 100 ; AL = 50 - 100 = -50 (signed) o 206 (unsigned)
-; 100 = 0110 0100
-;     0011 0010   (50)
-;   - 0110 0100   (100)
-;   -----------
-; (1) 1100 1110
-; (1): borrow (acarreo)
-; CF = 1
-jnc etiqueta ; no salta porque CF = 1
+# Ejemplo con resta
+mov al, 50  # AL = 0011 0010
+sub al, 100 # AL = 50 - 100 = -50 (signed) o 206 (unsigned)
+# 100 = 0110 0100
+#     0011 0010   (50)
+#   - 0110 0100   (100)
+#   -----------
+# (1) 1100 1110
+# (1): borrow (acarreo)
+# CF = 1
+jnc etiqueta # no salta porque CF = 1
 ```
 
 ## Instrucción `JB` (jump if below)
@@ -5859,13 +5859,13 @@ La diferencia de `JC` es semántica, mientras ésta se usa en un contexto aritm�
 **Sintaxis:** `JB etiqueta`
 
 ```asm
-; Intel
-; Comparación unsigned
+# Intel
+# Comparación unsigned
 cmp al, bl
 jb menor_unsigned
-; ¿AL es menor a BL (sin signo)?
+# ¿AL es menor a BL (sin signo)?
 
-; En cambio si se usara jc, quien leyera el código pensaría en acarreo, mas no en comparación sin signo.
+# En cambio si se usara jc, quien leyera el código pensaría en acarreo, mas no en comparación sin signo.
 ```
 
 ## Instrucción `JNAE` (jump if not abobe or equal)
@@ -5878,11 +5878,11 @@ Nuevamente la diferencia respecto a `JC` y `JB` es semántica para el programado
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mov al, 50
-cmp al, 100   ; 50 - 100 requiere borrow (CF = 1)
-jnae etiqueta ; Salta porque CF = 1
-; El borrow nos dice que 50 < 100 en unsigned
+cmp al, 100   # 50 - 100 requiere borrow (CF = 1)
+jnae etiqueta # Salta porque CF = 1
+# El borrow nos dice que 50 < 100 en unsigned
 ```
 
 ## Instrucción `JAE` (jump if above or equal)
@@ -5895,24 +5895,24 @@ La diferencia respecto a `JNC` nuevamente es solo semántica para el programador
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo con cmp
-cmp a, b ; hace a - b (no guarda el resultado, ajusta flags solamente)
-jae etiqueta ; Salta solo si CF = 0
+# Intel
+# Ejemplo con cmp
+cmp a, b # hace a - b (no guarda el resultado, ajusta flags solamente)
+jae etiqueta # Salta solo si CF = 0
 
-; Ejemplo con sub
+# Ejemplo con sub
 sub a, b
 jae etiqueta
 
-; Ejemplo simple en 8 bits
+# Ejemplo simple en 8 bits
 mov al, 100
-cmp al, 50      ; 100 - 50 = 50
-jae mayor_igual ; CF = 0, salta
+cmp al, 50      # 100 - 50 = 50
+jae mayor_igual # CF = 0, salta
 
-; Caso contrario
+# Caso contrario
 mov al, 50
-cmp al, 100     ; 50 - 100 → borrow
-jae mayor_igual ; CF = 1 → no salta
+cmp al, 100     # 50 - 100 → borrow
+jae mayor_igual # CF = 1 → no salta
 ```
 
 ## Instrucción `JNB` (jump if not below)
@@ -5925,19 +5925,19 @@ A diferencia de sus instrucciones similares semánticamente, `JNE` se usa cuando
 **Ejemplo**
 
 ```asm
-; Intel
-; Aritmética
+# Intel
+# Aritmética
 add al, bl
 jnc sin_overflow
 
-; Comparación unsigned
+# Comparación unsigned
 cmp al, bl
 jnb mayor_o_igual
 
-; Ejemplo práctico
+# Ejemplo práctico
 mov al, 5
-cmp al, 3 ; 5 - 3 = 2, CF = 0
-jnb etiqueta ; CF = 0, salta
+cmp al, 3 # 5 - 3 = 2, CF = 0
+jnb etiqueta # CF = 0, salta
 ```
 
 ## Instrucción `JA` (jump if above)
@@ -5949,27 +5949,27 @@ Salto condicional. Salta si el primer operando es estrictamente mayor que el der
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo unsigned
-mov al, 200 ; 200 unsigned
-mov bl, 100 ; 100 unsigned
-cmp al, bl  ; AL - BL = 200 - 100 = 100
-ja mayor    ; Salta porque ZF = 0 y CF = 0 (comparación unsigned)
+# Intel
+# Ejemplo unsigned
+mov al, 200 # 200 unsigned
+mov bl, 100 # 100 unsigned
+cmp al, bl  # AL - BL = 200 - 100 = 100
+ja mayor    # Salta porque ZF = 0 y CF = 0 (comparación unsigned)
 
-; Ejemplo donde no salta
+# Ejemplo donde no salta
 mov al, 100
 mov bl, 200
-cmp al, bl  ; AL - BL = 100 - 200
-ja mayor    ; no salta porque CF = 1 (hubo borrow)  y ZF = 0
+cmp al, bl  # AL - BL = 100 - 200
+ja mayor    # no salta porque CF = 1 (hubo borrow)  y ZF = 0
 
-; Ejemplo valores negativos (trampa común)
-mov al, -1 ; 0xFF = 255 unsigned
+# Ejemplo valores negativos (trampa común)
+mov al, -1 # 0xFF = 255 unsigned
 mov bl, 1
-cmp al, bl ; AL - BL = 255 - 1
-ja mayor   ; sí salta
-; Porque:
-; -1 con signo = -1
-; -1 sin signo = 255
+cmp al, bl # AL - BL = 255 - 1
+ja mayor   # sí salta
+# Porque:
+# -1 con signo = -1
+# -1 sin signo = 255
 ```
 
 A simple vista se piensa "-1 no puede ser mayor que 1", pero eso solo funciona con números con signo. `JA` no usa signo, usa unsigned.
@@ -6020,30 +6020,30 @@ Salto condicional. Salta si es menor o igual en comparación unsigned. Es decir 
 **Ejemplo**
 
 ```asm
-; Intel
-; Menor (unsigned)
+# Intel
+# Menor (unsigned)
 mov al, 50
 mov bl, 100
-cmp al, bl        ; AL - BL = 50 - 100 → borrow
-jbe menor_o_igual ; Salta porque CF = 1 y ZF = 0
+cmp al, bl        # AL - BL = 50 - 100 → borrow
+jbe menor_o_igual # Salta porque CF = 1 y ZF = 0
 
-; Igual
+# Igual
 mov al, 100
 mov bl, 100
-cmp al, bl  ; 100 - 100 = 0
-jbe menor_o_igual ; Salta porque ZF = 1 y CF = 0
+cmp al, bl  # 100 - 100 = 0
+jbe menor_o_igual # Salta porque ZF = 1 y CF = 0
 
-; Mayor
+# Mayor
 mov al, 200
 mov bl, 100
-cmp al, bl        ; 200 - 100
-jbe menor_o_igual ; No salta porque CF = 0 y ZF = 0
+cmp al, bl        # 200 - 100
+jbe menor_o_igual # No salta porque CF = 0 y ZF = 0
 
-; Menor o igual (unsigned)
+# Menor o igual (unsigned)
 mov al, 30
 mov bl, 50
-cmp al, bl      ; 30 - 50 → borrow
-jbe menor_igual ; CF = 1 -> salta
+cmp al, bl      # 30 - 50 → borrow
+jbe menor_igual # CF = 1 -> salta
 ```
 
 ## Instrucción `JG` (juimp if greater)
@@ -6064,19 +6064,19 @@ Ambas juntas indican que el resultado de la resta fue mayor que cero (interpreta
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo simple (signed)
+# Intel
+# Ejemplo simple (signed)
 mov al, 10
 mov bl, 5
-cmp al, bl ; 10 - 5 = 5, ZF = 0 y CF = 0
-jg mayor   ; Salta
+cmp al, bl # 10 - 5 = 5, ZF = 0 y CF = 0
+jg mayor   # Salta
 
-; Ejemplo trampa
-mov al, -1 ; 0xFF = -1 (signed)
-mov bl, 1  ; 1
-cmp al, bl ; -1 - 1 = -2
+# Ejemplo trampa
+mov al, -1 # 0xFF = -1 (signed)
+mov bl, 1  # 1
+cmp al, bl # -1 - 1 = -2
 
-jg mayor   ; no salta
+jg mayor   # no salta
 ```
 
 Aunque `0xFF` es 255 unsigend, para `JG` se interpreta como -1 y `-1 > 1 → falso`.
@@ -6099,24 +6099,24 @@ Si ambos coinciden, el número es >= 0 en comparación signed, es decir: mayor q
 **Ejemplo**
 
 ```asm
-; Intel
-; Mayor (signed)
+# Intel
+# Mayor (signed)
 mov al, 10
 mov bl, 5
-cmp al, bl        ; 10 - 5 = 5, SF = 0 y OF = 0
-jge mayor_o_igual ; Salta
+cmp al, bl        # 10 - 5 = 5, SF = 0 y OF = 0
+jge mayor_o_igual # Salta
 
-; Igual
+# Igual
 mov al, -3
 mov bl, -3
-cmp al, bl        ; -3 - (-3) = 0, SF = 0 y OF = 0
-jge mayor_o_igual ; salta
+cmp al, bl        # -3 - (-3) = 0, SF = 0 y OF = 0
+jge mayor_o_igual # salta
 
-; Menor
+# Menor
 mov al, -10
 mov bl, 5
-cmp al, bl        ; -10 - 5 = -15, SF = 1 y OF = 0
-jge mayor_o_igual ; No salta
+cmp al, bl        # -10 - 5 = -15, SF = 1 y OF = 0
+jge mayor_o_igual # No salta
 ```
 
 ## Instrucción `JL` (jump if less)
@@ -6139,24 +6139,24 @@ Cuando `SF != OF`, el resultado es negativo real y eso implica `x < y`.
 **Ejemplo**
 
 ```asm
-; Intel
-; Simple
+# Intel
+# Simple
 mov al, -10
 mov bl, 5
-cmp al, bl ; -10 - 5 = -15
-jl menor   ; Salta porque SF != OF
-; -10 < 5 → correcto
+cmp al, bl # -10 - 5 = -15
+jl menor   # Salta porque SF != OF
+# -10 < 5 → correcto
 
-; Ejemplo en donde unsigned fallaría
-mov al, 200 ; 200 unsigned = -56 signed
+# Ejemplo en donde unsigned fallaría
+mov al, 200 # 200 unsigned = -56 signed
 mov bl, 100
-cmp al, bl  ; 200 - 100
+cmp al, bl  # 200 - 100
 jl menor
-; Interpretación signed
-; -56 < 100 → salta
-; Interpretación unsigned
-; 200 > 100 → no salta
-; Por esto JL se usa solo para signed y se usa JB para unsigned
+# Interpretación signed
+# -56 < 100 → salta
+# Interpretación unsigned
+# 200 > 100 → no salta
+# Por esto JL se usa solo para signed y se usa JB para unsigned
 ```
 
 ## Instrucción `JLE` (jump if less or equal)
@@ -6178,15 +6178,15 @@ Salto condicional. Salta si es menor o igual en una comparación con signo. Es d
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mov eax, -5
 mov ebx, 3
-cmp eax, ebx ; -5 - 3 = -8
-; Flags
-; ZF = 0 (no son iguales)
-; SF = 1 (resultado negativo)
-; OF = 0 (sin overflow)
-jle etiqueta ; Salta ZF = 1 || SF != OF
+cmp eax, ebx # -5 - 3 = -8
+# Flags
+# ZF = 0 (no son iguales)
+# SF = 1 (resultado negativo)
+# OF = 0 (sin overflow)
+jle etiqueta # Salta ZF = 1 || SF != OF
 ```
 
 ## Instrucción `JP` (jump if parity)
@@ -6203,16 +6203,16 @@ Salto condicional. Salta si el bit de paridad está activo. Es decir `PF = 1`. N
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo en donde salta
-mov al, 3   ; 0000 0011 → 2 bits encendidos (PF = 1)
-test al, al ; actualiza flags según AL
-jp etiqueta ; salta porque PF = 1
+# Intel
+# Ejemplo en donde salta
+mov al, 3   # 0000 0011 → 2 bits encendidos (PF = 1)
+test al, al # actualiza flags según AL
+jp etiqueta # salta porque PF = 1
 
-; Ejemplo donde no salta
-mov al, 7   ; 0000 0111 → 3 bits encendidos (PF = 0)
-test al, al ; actualiza flags según AL
-jp etiqueta ; no salta porque PF = 0
+# Ejemplo donde no salta
+mov al, 7   # 0000 0111 → 3 bits encendidos (PF = 0)
+test al, al # actualiza flags según AL
+jp etiqueta # no salta porque PF = 0
 ```
 
 **Usos comunes**
@@ -6234,16 +6234,16 @@ Salto condicional. Tiene el mismo `opcode` que `JP` y un sentido mas semántico 
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo en donde salta
-mov al, 3   ; 0000 0011 → 2 bits encendidos (PF = 1)
-test al, al ; actualiza flags según AL
-jpe etiqueta ; salta porque PF = 1
+# Intel
+# Ejemplo en donde salta
+mov al, 3   # 0000 0011 → 2 bits encendidos (PF = 1)
+test al, al # actualiza flags según AL
+jpe etiqueta # salta porque PF = 1
 
-; Ejemplo donde no salta
-mov al, 7   ; 0000 0111 → 3 bits encendidos (PF = 0)
-test al, al ; actualiza flags según AL
-jpe etiqueta ; no salta porque PF = 0
+# Ejemplo donde no salta
+mov al, 7   # 0000 0111 → 3 bits encendidos (PF = 0)
+test al, al # actualiza flags según AL
+jpe etiqueta # no salta porque PF = 0
 ```
 
 ## Instrucción `JNP` (jmp if not parity)
@@ -6256,16 +6256,16 @@ No modifica los flags del CPU. Lee solo `PF`.
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo en donde no salta
-mov al, 5    ; 0000 0101 → tiene 2 bits encendidos (PF = 1)
-test al, al  ; actualiza flags según AL
-jnp etiqueta ; No salta porque PF = 1
+# Intel
+# Ejemplo en donde no salta
+mov al, 5    # 0000 0101 → tiene 2 bits encendidos (PF = 1)
+test al, al  # actualiza flags según AL
+jnp etiqueta # No salta porque PF = 1
 
-; Ejemplo en donde salta
-mov al, 7    ; 0000 0111 → 3 bits encendidos (PF = 0)
-test al, al  ; actualiza flags según AL
-jnp etiqueta ; salta porque PF = 0
+# Ejemplo en donde salta
+mov al, 7    # 0000 0111 → 3 bits encendidos (PF = 0)
+test al, al  # actualiza flags según AL
+jnp etiqueta # salta porque PF = 0
 ```
 
 ## Instrucción `JPO` (jump if parity odd)
@@ -6278,16 +6278,16 @@ No modifica los flags del CPU. Lee solo `PF`.
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo en donde no salta
-mov al, 5    ; 0000 0101 → tiene 2 bits encendidos (PF = 1)
-test al, al  ; actualiza flags según AL
-jpo etiqueta ; No salta porque PF = 1
+# Intel
+# Ejemplo en donde no salta
+mov al, 5    # 0000 0101 → tiene 2 bits encendidos (PF = 1)
+test al, al  # actualiza flags según AL
+jpo etiqueta # No salta porque PF = 1
 
-; Ejemplo en donde salta
-mov al, 7    ; 0000 0111 → 3 bits encendidos (PF = 0)
-test al, al  ; actualiza flags según AL
-jpo etiqueta ; salta porque PF = 0
+# Ejemplo en donde salta
+mov al, 7    # 0000 0111 → 3 bits encendidos (PF = 0)
+test al, al  # actualiza flags según AL
+jpo etiqueta # salta porque PF = 0
 ```
 
 ## Instrucción `LOOP`
@@ -6307,18 +6307,18 @@ Es decir, "repite mientras RCX no llegue a cero".
 **Ejemplo**
 
 ```asm
-; Intel
-mov rcx, 5 ; número de iteraciones
+# Intel
+mov rcx, 5 # número de iteraciones
 inicio:
-	; código del bucle
+	# código del bucle
 	loop inicio
-; Ejecución
-; - Iteración 1: RCX = 5 → se decrementa a 4 → salta
-; - Iteración 2: RCX = 4 → 3 → salta
-; - Iteración 3: RCX = 3 → 2 → salta
-; - Iteración 4: RCX = 2 → 1 → salta
-; - Iteración 5: RCX = 1 → 0 → NO salta → sale del bucle
-; El bloque se ejecuta exactamente 5 veces
+# Ejecución
+# - Iteración 1: RCX = 5 → se decrementa a 4 → salta
+# - Iteración 2: RCX = 4 → 3 → salta
+# - Iteración 3: RCX = 3 → 2 → salta
+# - Iteración 4: RCX = 2 → 1 → salta
+# - Iteración 5: RCX = 1 → 0 → NO salta → sale del bucle
+# El bloque se ejecuta exactamente 5 veces
 ```
 
 **No usa los flags del CPU**
@@ -6334,10 +6334,10 @@ inicio:
 **¿Qué haría un compilador moderno?**
 
 ```asm
-; Intel
+# Intel
 mov rcx, 5
 inicio:
-	; trabajo del bucle
+	# trabajo del bucle
 	dec rcx
 	jnz inicio
 ```
@@ -6360,27 +6360,27 @@ Saltan si `(RCX/ECX/CX != 0) AND (ZF == 1)`. Ambas leen `ZF` y usan a `RCX/ECX/C
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 
-; Ejemplo con loope
-mov rcx, 5 ; máximo 5 iteraciones
+# Ejemplo con loope
+mov rcx, 5 # máximo 5 iteraciones
 bucle:
-	; código
+	# código
 	mov al, [rsi]
-	cmp al,  [rdi] ; ZF = 1 si son iguales
-	loope bucle    ; repite si RCX != 0 y ZF = 1
-	; loope decrementa rcx y salta a la etiqueta bucle
-; El bucle se detiene si encuentra una diferencia (ZF = 0), o se agotan las iteraciones (RCX = 0).
+	cmp al,  [rdi] # ZF = 1 si son iguales
+	loope bucle    # repite si RCX != 0 y ZF = 1
+	# loope decrementa rcx y salta a la etiqueta bucle
+# El bucle se detiene si encuentra una diferencia (ZF = 0), o se agotan las iteraciones (RCX = 0).
 
-; Ejemplo con loopz
-mov rcx, 3    ; máximo 3 iteraciones
-mov al, [val] ; carga valor inicial
+# Ejemplo con loopz
+mov rcx, 3    # máximo 3 iteraciones
+mov al, [val] # carga valor inicial
 bucle:
-	; código
-	test al, al ; ZF = 1 si AL == 0
-	loopz bucle ; repite mientras RCX != 0 y ZF == 1
-	; loopz decrementa RCX y salta a la etiqueta bucle
-; El bucle se repetirá máximo tres veces o hasta que AL sea distinto de cero.
+	# código
+	test al, al # ZF = 1 si AL == 0
+	loopz bucle # repite mientras RCX != 0 y ZF == 1
+	# loopz decrementa RCX y salta a la etiqueta bucle
+# El bucle se repetirá máximo tres veces o hasta que AL sea distinto de cero.
 ```
 
 ## Variantes `LOOPNE` y `LOOPNZ`
@@ -6399,23 +6399,23 @@ Saltan si `(RCX/ECX/CX != 0) AND (ZF == 0)`.  Ambas leen `ZF` y usan a `RCX/ECX/
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo con loopne
-mov rcx, 5   ; inicializa el contador en 5
-xor rax, rax ; setea ZF en cero (simulando una condición no cero).
+# Intel
+# Ejemplo con loopne
+mov rcx, 5   # inicializa el contador en 5
+xor rax, rax # setea ZF en cero (simulando una condición no cero).
 bucle:
-	; código
+	# código
 	loopne bucle
-	; loopne decrementa rcx y salta si RCX != 0 y ZF = 0
-; El bucle puede iterar hasta 5 veces
+	# loopne decrementa rcx y salta si RCX != 0 y ZF = 0
+# El bucle puede iterar hasta 5 veces
 
-; Ejemplo con loopnz
-mov rcx, 5      ; inicializa el contador en 5
-xor rax, rax    ; ZF = 0
+# Ejemplo con loopnz
+mov rcx, 5      # inicializa el contador en 5
+xor rax, rax    # ZF = 0
 bucle:
-    ; código
-    loopnz bucle ; decrementa RCX y salta si RCX != 0 y ZF = 0
-; Ejemplo con loopnz
+    # código
+    loopnz bucle # decrementa RCX y salta si RCX != 0 y ZF = 0
+# Ejemplo con loopnz
 ```
 
 ## Instrución `JCXZ` (jum if CX zero)
@@ -6428,24 +6428,24 @@ No modifica ningún flag del CPU ni tampoco los lee.
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo simple
-mov cx, 0  ; inicializa CX a cero
-jcxz fin ; como CX = 0, salta a la etiqueta fin
-; Código saltado
+# Intel
+# Ejemplo simple
+mov cx, 0  # inicializa CX a cero
+jcxz fin # como CX = 0, salta a la etiqueta fin
+# Código saltado
 mov ax, 0x1234
 fin:
-	mov ax, 0x5678 ; Código que se ejecuta
+	mov ax, 0x5678 # Código que se ejecuta
 	
-; Ejemplo en donde se usa a CX como contador
-mov cx, 5       ; contador de iteraciones
+# Ejemplo en donde se usa a CX como contador
+mov cx, 5       # contador de iteraciones
 bucle:
-; hacer algo
-loop bucle      ; decrementa CX y salta si CX != 0
-jcxz fin        ; si CX ya es 0, termina el bucle
-jmp bucle       ; repetir
+# hacer algo
+loop bucle      # decrementa CX y salta si CX != 0
+jcxz fin        # si CX ya es 0, termina el bucle
+jmp bucle       # repetir
 fin:
-; código después del bucle
+# código después del bucle
 ```
 
 **Nota:** En la actualidad su uso es menor a `LOOP` y sus variantes.
@@ -6477,22 +6477,22 @@ Copia el valor de un registro o memoria de menor tamaño a un registro más gran
 **Ejemplo**
 
 ```asm
-; Intel
-; 8 bits a 32 bits
-movzx eax, byte ptr [rbx] ; Copia 1 byte desde memoria en RBX a EAX
-; Los 24 bits altos de EAX se ponen a cero
+# Intel
+# 8 bits a 32 bits
+movzx eax, byte ptr [rbx] # Copia 1 byte desde memoria en RBX a EAX
+# Los 24 bits altos de EAX se ponen a cero
 
-; 8 bits a 16 bits
-movzx dx, al ; Copia AL (8 bits) a DX (16 bits)
-; Los 8 bits altos de DX se ponen a cero
+# 8 bits a 16 bits
+movzx dx, al # Copia AL (8 bits) a DX (16 bits)
+# Los 8 bits altos de DX se ponen a cero
 
-; 16 bits a  32 bits
-movzx ecx, bx; Copia BX (16 bits) a ECX (32 bits)
-; Los 16 bits altos de ECX se ponen a cero
+# 16 bits a  32 bits
+movzx ecx, bx# Copia BX (16 bits) a ECX (32 bits)
+# Los 16 bits altos de ECX se ponen a cero
 
-; 8 bits a 64 bits
-movzx rax, al ; Copia AL (8 bits) a RAX (64 bits)
-; Los 56 bits altos de RAX se ponen a 0
+# 8 bits a 64 bits
+movzx rax, al # Copia AL (8 bits) a RAX (64 bits)
+# Los 56 bits altos de RAX se ponen a 0
 ```
 
 ## Instrucción `MOVSX` (move with sign-extend)
@@ -6516,20 +6516,20 @@ Copia un valor de tamaño pequeño a un registro mas grande teniendo en cuenta e
 **Ejemplo**
 
 ```asm
-; Intel
-; 8 bits a 64 bits
-movsx rax, al  ; al = 8 bits, rax = 64 bits
-; Si AL = 127 (0x7F), RAX = 0x000000000000007F
-; Si AL = -16 (0xF0), RAX = 0xFFFFFFFFFFFFFFF0
+# Intel
+# 8 bits a 64 bits
+movsx rax, al  # al = 8 bits, rax = 64 bits
+# Si AL = 127 (0x7F), RAX = 0x000000000000007F
+# Si AL = -16 (0xF0), RAX = 0xFFFFFFFFFFFFFFF0
 
-; 16 bits a 32 bits
-movsx eax, bx  ; bx = 16 bits, eax = 32 bits
-; Si bx = 0x1234, eax = 0x00001234
-; Si bx = 0xF234 (-3564 decimal), eax = 0xFFFFF234
+# 16 bits a 32 bits
+movsx eax, bx  # bx = 16 bits, eax = 32 bits
+# Si bx = 0x1234, eax = 0x00001234
+# Si bx = 0xF234 (-3564 decimal), eax = 0xFFFFF234
 
-; Desde memoria a registro
-movsx rdx, byte ptr [rbx]  ; toma 8 bits de memoria y extiende a 64 bits
-; [rbx] es la dirección de memoria de donde se lee el byte
+# Desde memoria a registro
+movsx rdx, byte ptr [rbx]  # toma 8 bits de memoria y extiende a 64 bits
+# [rbx] es la dirección de memoria de donde se lee el byte
 ```
 
 ## Instrucción `SETcc` (set byte on condition)
@@ -6541,8 +6541,8 @@ La instrucción es un mnemónico genérico que significa "set byte on condition"
 **Operandos de 32/64 bits:** No tiene. Para usar el resultado en registros más grandes, hay que extender con `MOVXZ`.
 
 ```asm
-; Intel
-movzx eax, al ; Extiende AL (8 bits) a EAX (32 bits)
+# Intel
+movzx eax, al # Extiende AL (8 bits) a EAX (32 bits)
 ```
 
 **Sintaxis:** `SETcc r/m8`
@@ -6577,12 +6577,12 @@ movzx eax, al ; Extiende AL (8 bits) a EAX (32 bits)
 **Ejemplo**
 
 ```asm
-; Intel
-sete al         ; AL = 1 si ZF=1, AL=0 si ZF=0
-setne bl        ; BL = 1 si ZF=0, BL=0 si ZF=1
-setl cl         ; CL = 1 si SF≠OF, CL=0 si SF=OF
-setg dl         ; DL = 1 si ZF=0 y SF=OF, DL=0 si ZF=1 o SF≠OF
-seto byte [res] ; escribe 1/0 en memoria
+# Intel
+sete al         # AL = 1 si ZF=1, AL=0 si ZF=0
+setne bl        # BL = 1 si ZF=0, BL=0 si ZF=1
+setl cl         # CL = 1 si SF≠OF, CL=0 si SF=OF
+setg dl         # DL = 1 si ZF=0 y SF=OF, DL=0 si ZF=1 o SF≠OF
+seto byte [res] # escribe 1/0 en memoria
 ```
 
 **Usos comunes**
@@ -6592,11 +6592,11 @@ seto byte [res] ; escribe 1/0 en memoria
    Es el uso más típico de `SETcc`. Simular un booleano.
 
    ```asm
-   ; Intel
+   # Intel
    mov rax, 10
-   cmp rax, 20       ; ajusta ZF, SF, OF, CF según rax - 20
-   setl al           ; AL = 1 si RAX < 20 (signed), AL = 0 si no
-   movzx rax, al     ; extendemos a 64 bits si necesitamos usarlo como entero
+   cmp rax, 20       # ajusta ZF, SF, OF, CF según rax - 20
+   setl al           # AL = 1 si RAX < 20 (signed), AL = 0 si no
+   movzx rax, al     # extendemos a 64 bits si necesitamos usarlo como entero
    ```
 
    ```
@@ -6610,14 +6610,14 @@ seto byte [res] ; escribe 1/0 en memoria
 
    Se puede usar `SETcc` para hacer operaciones condicionales sin saltos.
    ```asm
-   ; Intel
-   ; Ejemplo de suma solo si una condición es verdadera
+   # Intel
+   # Ejemplo de suma solo si una condición es verdadera
    mov rax, 5
    mov rbx, 10
-   cmp rax, rbx       ; verifica si rax < rbx
-   setl cl            ; CL = 1 si rax < rbx, 0 si no
-   movzx rcx, cl      ; RCX = 0 o 1
-   add rax, rcx       ; suma 1 a rax si se cumplió la condición
+   cmp rax, rbx       # verifica si rax < rbx
+   setl cl            # CL = 1 si rax < rbx, 0 si no
+   movzx rcx, cl      # RCX = 0 o 1
+   add rax, rcx       # suma 1 a rax si se cumplió la condición
    ```
 
    Evita usar un `JLE` y un bloque extra de código, muy útil para optimización de bucles o cálculos de vectores.
@@ -6627,9 +6627,9 @@ seto byte [res] ; escribe 1/0 en memoria
    `SETcc` puede escribir directamente en memoria de 8 bits.
 
    ```asm
-   ; Intel
+   # Intel
    cmp rax, rbx
-   sete byte [res]   ; res = 1 si RAX = RBX, 0 si no
+   sete byte [res]   # res = 1 si RAX = RBX, 0 si no
    ```
 
    Muy útil para flags de estado, estructuras de datos tipo bitfield, o para buffers que indican `true/false`.
@@ -6639,9 +6639,9 @@ seto byte [res] ; escribe 1/0 en memoria
    Algunas condiciones son más raras, pero se usan en algoritmos de criptografía, checksum o codificación, donde los flags de overflow o paridad importan.
 
    ```asm
-   ; Intel
+   # Intel
    test al, al
-   seto bl           ; BL = 1 si hubo overflow
+   seto bl           # BL = 1 si hubo overflow
    ```
 
 5. Uso combinado con `MOVZX` para cálculos enteros.
@@ -6649,11 +6649,11 @@ seto byte [res] ; escribe 1/0 en memoria
    Como `SETcc` solo escribe 1 byte, si se quiere usar el resultado como entero de 32/64 bits:
 
    ```asm
-   ; Intel
+   # Intel
    cmp rax, rbx
-   setg cl           ; CL = 1 si RAX > RBX (signed)
-   movzx rcx, cl     ; RCX = 0 o 1
-   imul rcx, 5       ; multiplicar condicionalmente
+   setg cl           # CL = 1 si RAX > RBX (signed)
+   movzx rcx, cl     # RCX = 0 o 1
+   imul rcx, 5       # multiplicar condicionalmente
    ```
 
    Esto permite hacer aritmética condicional sin ramas, muy útil en bucles vectorizados o simd.
@@ -6694,14 +6694,14 @@ No afecta los flags del CPU. Dependiendo de `cc` es el flag que lee.
 **Ejemplo**
 
 ```asm
-; Intel
-; Mueve RBX a RAX solo si ZF = 1
-cmp rdx, rcx   ; Compara rdx con rcx (afecta flags)
-cmove rax, rbx ; Solo mueve rbx → rax si ZF = 1
+# Intel
+# Mueve RBX a RAX solo si ZF = 1
+cmp rdx, rcx   # Compara rdx con rcx (afecta flags)
+cmove rax, rbx # Solo mueve rbx → rax si ZF = 1
 
-; Mueve RBX a RAX solo si ZF = 0
+# Mueve RBX a RAX solo si ZF = 0
 cmp rdx, rcx
-cmovne rax, rbx ; Solo mueve si ZF = 0 (rdx != rcx)
+cmovne rax, rbx # Solo mueve si ZF = 0 (rdx != rcx)
 ```
 
 **Usos típicos**
@@ -6737,15 +6737,15 @@ A pesar de que `POPCNT` no es una instrucción aritmética, si toca los flags de
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplos válidos
-popcnt eax, ebx ; 32 bits
-popcnt rax, rbx ; 64 bits
+# Intel
+# Ejemplos válidos
+popcnt eax, ebx # 32 bits
+popcnt rax, rbx # 64 bits
 popcnt ecx, [mem]
 
-; Ejemplo en 64 bits
+# Ejemplo en 64 bits
 mov rax, 0b10101101
-popcnt rbx, rax     ; rbx = 5
+popcnt rbx, rax     # rbx = 5
 ```
 
 No existe forma de 8 a 16 bits por lo que no puedes usar `AL` o `AX`.
@@ -6754,7 +6754,7 @@ Usos comunes
 
 - Comprobar si un número es potencia de 2. Una potencia de 2 tiene exactamente un bit encendido.
   ```asm
-  ; Intel
+  # Intel
   popcnt rcx, rax
   cmp rcx, 1
   je es_potencia_de_dos
@@ -6768,10 +6768,10 @@ Usos comunes
 
 - Máscaras de permisos
   ```asm
-  ; Intel
-  ; rax = máscara de permisos
+  # Intel
+  # rax = máscara de permisos
   popcnt rcx, rax
-  ; rcx = cantidad de permisos activos
+  # rcx = cantidad de permisos activos
   ```
 
 - Análisis binario / reversing
@@ -6791,14 +6791,14 @@ Usos comunes
 En asm x86-64 una función suele tener la siguiente forma:
 
 ```asm
-; Intel
-nombre_funcion:  ; etiqueta que define la función
-	push rbp     ; guarda el valor actual de RBP (base pointer)
-	mov rbp, rsp ; crea un nuevo frame de pila
-	; código de la función
-	mov rsp, rbp ; restaura el stack pointer
-	pop rbp      ; restaura RBP
-	ret          ; vuelve a la instrucción después del CALL
+# Intel
+nombre_funcion:  # etiqueta que define la función
+	push rbp     # guarda el valor actual de RBP (base pointer)
+	mov rbp, rsp # crea un nuevo frame de pila
+	# código de la función
+	mov rsp, rbp # restaura el stack pointer
+	pop rbp      # restaura RBP
+	ret          # vuelve a la instrucción después del CALL
 ```
 
 **¿Qué es un stack frame?**
@@ -6865,19 +6865,19 @@ Esto define el frame de la función en la pila. Desde ahora, `RBP` es el punto f
 Para reservar espacio bien se puede usar `SUB` respecto de `RSP`.
 
 ``` asm
-; Intel
+# Intel
 una_funcion:
-	; Prólogo de la función
+	# Prólogo de la función
     push rbp
     mov rbp, rsp
-    sub rsp, 8   ; Reserva 8 bytes en la pila (variable local)
+    sub rsp, 8   # Reserva 8 bytes en la pila (variable local)
 
-    ; Usa la variable local
-    mov qword ptr [rbp-8], 42  ; Variable_local = 42
-    mov rax, qword ptr [rbp-8] ; RAX = variable_local
+    # Usa la variable local
+    mov qword ptr [rbp-8], 42  # Variable_local = 42
+    mov rax, qword ptr [rbp-8] # RAX = variable_local
 
-    ; Se debe restaurar la pila antes de salir de la función
-    add rsp, 8 ; Libera el espacio reservado
+    # Se debe restaurar la pila antes de salir de la función
+    add rsp, 8 # Libera el espacio reservado
 
     pop rbp
     ret
@@ -6900,16 +6900,16 @@ Direcciones bajas
 Aquí es en donde a las variables locales se accede con desplazamientos negativos:
 
 ```asm
-; Intel
-mov eax, [rbp-4] ; Asigna el contenido de una variable local a EAX 
+# Intel
+mov eax, [rbp-4] # Asigna el contenido de una variable local a EAX 
 ```
 
 Y los parámetros o retornos se acceden con desplazamientos positivos:
 
 ```asm
-; Intel
-mov rax, [rbp+8] ; Dirección de retorno
-mov rax, [rbp+16] ; primer argumento (convención antigua)
+# Intel
+mov rax, [rbp+8] # Dirección de retorno
+mov rax, [rbp+16] # primer argumento (convención antigua)
 ```
 
 **¿Por qué no usar solo `RSP`?**
@@ -6919,7 +6919,7 @@ mov rax, [rbp+16] ; primer argumento (convención antigua)
 **Destruir el stack frame**
 
 ```asm
-; Intel
+# Intel
 mov rsp, rbp
 pop rbp
 ret
@@ -6965,6 +6965,124 @@ Finalmente `RET` saca la dirección de retorno desde la pila y salta a ella, dev
 
 Esto significa que el primer argumento debe ir en `RDI`, el segundo en `RSI`, etc, hasta `R9`.
 
+### Etiquetas locales dentro de la función
+
+GAS permite variables locales en forma de etiquetas con `1:`, `2:`, etc, que solo existen dentro del contexto de la función:
+
+```asm
+# Intel
+fn:
+	# Prólogo
+	push rbp
+	mv rbp, rsp
+	sub rsp, 8
+	
+	jmp skip_var
+	
+	1: .byte 0x55   # pseudo variable (1 byte)
+	2: .quad 0x1234 # pseudo variable (8 bytes)
+	
+	skip_var:
+    mov al, [1] 
+    mov rax, [2]
+
+	# Epílogo
+    mov rsp, rbp
+    pop rbp
+    ret
+```
+
+**¿Por qué es necesario realizar un salto con `JMP`?**
+
+Antes que nada, cabe recordar que lo que se ve arriba corresponde a la sección `.text`, es decir que es una sección de código ejecutable.
+
+Recordar que la anatomía básica de un programa asm en GAS es la siguiente:
+
+```asm
+.intel_syntax noprefix
+.section .data
+	var: .int 10
+.section .text
+.global _start
+_start:
+	# Código de la función
+```
+
+Si no se realizara un salto obviando las etiquetas `1:` y `2:`, el CPU intentaría ejecutar esos bytes causando un error. Lo que indica que principalmente, todo lo que hay en la sección `.text` debe ser información ejecutable y/o información que pueda ser manipulada/utilizada por los `opcodes` ejecutables.
+
+**¿Cómo se ve la memoria en las etiquetas?**
+
+Cuando se define una etiqueta `1: .byte 'A'`, la etiqueta `1:` apunta exactamente a la dirección donde comienza el dato definido por `.byte`. No apunta "antes" ni "después", mas bien al primer byte del valor `A`. Entonces se ve algo así:
+
+```
+Dirección: 0x1000
+Contenido: 0x41 ('A')
+Etiqueta 1: apunta a 0x1000
+```
+
+Por lo que `[1]`, `[1b]` o `[1f]` accederán al valor en `0x1000`, es decir a `A` (0x41).
+
+Es posible usar los postfijos `b` (backward) y `f` (forward) para accesar a etiquetas locales numéricas que se repiten varias veces en relación a la posición actual. Recordar que dentro de la memoria del programa, es decir, la que almacena su código en disco, existen posiciones.
+
+Veamos el siguiente ejemplo:
+
+```asm
+Direcciones (código):
+0x1000: 1: .byte 'A'
+0x1001: 1: .byte 'B'
+0x1002: código ...
+```
+
+Si una instrucción está en `0x1003`:
+
+| Referencia | Apunta a:                                                    |
+| ---------- | ------------------------------------------------------------ |
+| `1b`       | 0x1001 (la segunda `1:` hacia atrás)                         |
+| `1f`       | no hay ninguna `1:` adelante, error si no hay etiqueta hacia adelante |
+
+La etiqueta no incrementa ni retrocede por sí sola. `b` o `f` solo elige cuál de las etiquetas con ese número usar como punto de referencia.
+
+Para el ejemplo anterior, `1f` causaría un error, ya que no existe una etiqueta posterior a `0x1003`, la cual pudiera ser accedida desde la instrucción de la dirección `0x1003`.
+
+### Variables con nombre dentro de la función
+
+Si se quiere algo parecido a `.data` pero local y temporal, se puede hacer un macro o pseudo-etiqueta usando la directiva `equ`. Solo funciona con variables de stack.
+
+**Sintaxis:** `nombre = valor` o `nombre equ valor`
+
+```asm
+# Intel
+buf_size equ 16 # define un tamaño de buffer
+my_var  = rbp-8 # define un alias a un offset de stack
+```
+
+Cada vez que se escriba `[my_var]`, el ensamblador lo reemplazará por `[rbp-8]`. La diferencia con una etiqueta normal, es que `labek: .quad 0` si ocupa memoria en `.data`, `.bss` o `.text`, en cambio `equ` no. Solo es un nombre simbólico temporal.
+
+**Ejemplo completo**
+
+```asm
+# Intel
+funcion:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 16      # reservo stack para variables
+
+    var1 = rbp-8
+    var2 = rbp-16
+
+    mov QWORD PTR [var1], 42
+    mov QWORD PTR [var2], 100
+
+    mov rax, [var1]
+    add rax, [var2]
+
+    mov rsp, rbp
+    pop rbp
+    ret
+```
+
+`var1` y `var2` son los alias para las variables de stack. No ocupan memoria extra, pero hacen que el código sea mucho más legible.
+
 ## Instrucción `CALL`
 
 Llama a una función (semánticamente hablando). Técnicamente realiza dos acciones atómicas:
@@ -6976,7 +7094,7 @@ Llama a una función (semánticamente hablando). Técnicamente realiza dos accio
    Equivale conceptualmente a:
 
    ```asm
-   ; Intel
+   # Intel
    push dirección_de_retorno
    jmp destino
    ```
@@ -6992,18 +7110,18 @@ No modifica los flags del CPU. En 64 bits el retorno que se empuja es una direcc
 **Ejemplo**
 
 ```asm
-; Intel
-call mi_funcion    ; salto directo
-call rax           ; salto indirecto usando un registro
-call [tabla + rbx] ; salto indirecto desde memoria
+# Intel
+call mi_funcion    # salto directo
+call rax           # salto indirecto usando un registro
+call [tabla + rbx] # salto indirecto desde memoria
 ```
 
 **¿Qué sucede en la pila?**
 
 ```asm
-; Intel
+# Intel
 0x401000: call mi_funcion
-0x401005: mov rax, 1   ; siguiente instrucción
+0x401005: mov rax, 1   # siguiente instrucción
 ```
 
 Cuando se ejecuta `call mi_funcion` el CPU empuja `0x401005` en la pila.
@@ -7025,7 +7143,7 @@ Carga `RIP = dirección de mi_funcion`. Luego dentro de la función, al ejecutar
 2. Llamada indirecta.
 
    ```asm
-   ; Intel
+   # Intel
    call rax
    call [direccion]
    ```
@@ -7094,11 +7212,11 @@ Admite dos formas, una básica sin operador y otra con un inmediato de 16 bits p
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mi_funcion:
 	push rbp
 	mov rbp, rsp
-	; código de la función
+	# código de la función
 	pop rbp
 	ret
 ```
@@ -7126,14 +7244,14 @@ Su `opcode` es `90` (hexadecimal), mide exactamente 1 byte.
   Cuando se quiere reemplazar una instrucción sin cambiar el tamaño del código se usa `NOP`.
 
   ```asm
-  ; Intel
-  mov eax, 1 ; B8 01 00 00 00 (5 bytes)
-  ; Para reemplazar esta instrucción se usaría NOP (5 veces)
-  nop ; (1 byte)
-  nop ; (1 byte)
-  nop ; (1 byte)
-  nop ; (1 byte)
-  nop ; (1 byte)
+  # Intel
+  mov eax, 1 # B8 01 00 00 00 (5 bytes)
+  # Para reemplazar esta instrucción se usaría NOP (5 veces)
+  nop # (1 byte)
+  nop # (1 byte)
+  nop # (1 byte)
+  nop # (1 byte)
+  nop # (1 byte)
   ```
 
   **Nótece** que la cantidad de `NOP` a utilizar viene dada por el largo en bytes de la instrucción a reemplazar. El largo final se verá en el ejecutable particular, puesto que muchas instrucciones dependen de como sean codificadas en `opcodes`. (Pero a nivel conceptual se esboza la idea). 
@@ -7145,7 +7263,7 @@ Su `opcode` es `90` (hexadecimal), mide exactamente 1 byte.
   Aunque no es la forma ideal de hacer esperas, se usa para pequeñas pausas o en bucles de espera.
 
   ```asm
-  ; Intel
+  # Intel
   wait:
   	not
   	not
@@ -7165,7 +7283,7 @@ En realidad el `opcode` de `NOP` es un alias de `xchg eax, eax`, que permite int
 En x86-64 existen `NOPs` de múltiples bytes (multi-byte NOPs`) para relleno más eficiente.
 
 ```asm
-; Intel
+# Intel
 nop
 nop word ptr [rax+rax]
 nop dword ptr [rax+rax]
@@ -7192,20 +7310,20 @@ Intercambia (swap) el contenido de dos operandos sin usar un registro temporal. 
 **Ejemplo**
 
 ```asm
-; Intel
-; Ejemplo básico
+# Intel
+# Ejemplo básico
 mov rax, 10
 mov rbx, 20
 xchg rax, rbx
-; RAX = 20
-; RBX = 10
+# RAX = 20
+# RBX = 10
 
-; Ejemplo con memoria
+# Ejemplo con memoria
 mov [rbp-8], 2
 mov rax, 3
 xchg rax, [rbp-8]
-; [rbp-8] = 3
-; RAX = 2
+# [rbp-8] = 3
+# RAX = 2
 ```
 
 **`LOCK` implícito**
@@ -7213,7 +7331,7 @@ xchg rax, [rbp-8]
 Cuando uno de los operandos es memoria, la instrucción es atómica, es decir, equivale a usar el prefijo `LOCK`.
 
 ```asm
-; Intel
+# Intel
 xchg rax, [variable_compartida]
 ```
 
@@ -7224,7 +7342,7 @@ Esto garantiza que ningún otro hilo o CPU pueda acceder a esa dirección de mem
 Existe una codificación mas corta cuando uno de los operandos es `RAX`.
 
 ```asm
-; Intel
+# Intel
 xchg rax, rbx
 ```
 
@@ -7241,7 +7359,7 @@ Se codifica en un byte menos que otras combinaciones. Por eso a veces se ve en c
 Si bien `XCHG reg, reg` es rápido. `XCHG reg, [mem]` es mas lento porque es atómico por hardware. Por lo que si no se necesita atomicidad, es mejor usar el intercambio clásico.
 
 ```asm
-; Intel
+# Intel
 mov rcx, [mem]
 mov [mem], rax
 mov rax, rcx
@@ -7254,7 +7372,7 @@ mov rax, rcx
 Crea automáticamente el stack frame de una función, es decir, prepara la pila para las variables locales y encadena el frame anterior. Es una secuencia compacta de la secuencia clásica manual. 
 
 ```asm
-; Intel
+# Intel
 push rbp
 mov rbp, rsp
 sub rsp, tamaño
@@ -7267,12 +7385,12 @@ En la práctica moderna `nivel` casi siempre es cero y `tamaño` es el espacio p
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 enter 32, 0
-; Equivale a
-push rbp     ; guarda el frame pointer anterior
-mov rbp, rsp ; nuevo frame
-sub rsp, 32  ; reserva 32 bytes para avariables locales
+# Equivale a
+push rbp     # guarda el frame pointer anterior
+mov rbp, rsp # nuevo frame
+sub rsp, 32  # reserva 32 bytes para avariables locales
 ```
 
 Es decir:
@@ -7284,15 +7402,15 @@ Es decir:
 **Ejemplo simple**
 
 ```asm
-; Intel
+# Intel
 mi_funcion:
-    enter 16, 0     ; crea frame y reserva 16 bytes
+    enter 16, 0     # crea frame y reserva 16 bytes
     mov  qword [rbp-8], 5
     mov  qword [rbp-16], 10
     leave
     ret
 
-; Equivalente sin Enter
+# Equivalente sin Enter
 mi_funcion:
     push rbp
     mov  rbp, rsp
@@ -7313,7 +7431,7 @@ Cuando `nivel > 0`, `ENTER` copia valores antiguos de `RBP` para permitir acceso
 **Ejemplo conceptual**
 
 ```asm
-; Intel
+# Intel
 enter 16, 2
 ```
 
@@ -7339,10 +7457,10 @@ Destruye el stack frame actual de una función y restaura el frame anterior. Es 
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 mi_funcion:
     enter 16, 0
-    ; cuerpo de la función
+    # cuerpo de la función
     leave
     ret
 ```
@@ -7350,9 +7468,9 @@ mi_funcion:
 Internamente `LEAVE` equivale a:
 
 ```asm
-; Intel
-mov rsp, rbp   ; restaura el stack pointer al inicio del frame
-pop rbp        ; recupera el RBP anterior (frame del caller)
+# Intel
+mov rsp, rbp   # restaura el stack pointer al inicio del frame
+pop rbp        # recupera el RBP anterior (frame del caller)
 ```
 
 Es decir que:
@@ -7363,7 +7481,7 @@ Es decir que:
 **Importante:** En funciones sin frame pointer no se usa. Muchos compiladores modernos no usan `RBP` como frame pointer para optimizar.
 
 ```asm
-; Intel
+# Intel
 mi_funcion:
     sub rsp, 32
     ...
@@ -7378,14 +7496,14 @@ Tal y como se ve, no hay `ENTER` ni `LEAVE`, solo ajustes manuales de `RSP`.
 Al igual que `ENTER`, es más lenta que la secuencia manual. Limita optimizaciones del compilador. En x86-64, el uso de `RBP` como frame pointer es opcional, por eso, se suele ver más esto:
 
 ```asm
-; Intel
+# Intel
 push rbp
 mov rbp, rsp
 ...
 pop rbp
 ret
 
-; O directamente
+# O directamente
 sub rsp, 32
 ...
 add rsp, 32
@@ -7416,12 +7534,12 @@ Van ubicados en las secciones: `.data`, `.bss`, `.rodata` y/o `.text`.
    Normalmente usa los operadores `DB`, `DW`, `DD`, `DUP` con valores inicializados.
 
    ```asm
-   ; Intel
+   # Intel
    .section .data
    	mensaje:
-   		.ascii "Hola\0" ; Cadena con terminador nulo
+   		.ascii "Hola\0" # Cadena con terminador nulo
        buffer:
-       	.byte 0,0,0,0   ; Buffer de 4 bytes inicializados en cero
+       	.byte 0,0,0,0   # Buffer de 4 bytes inicializados en cero
    ```
 
    **Nota:** `.ascii` define cadena sin terminador automáticamente, por eso se debe agregar un carácter `\0` nulo al final.
@@ -7431,18 +7549,18 @@ Van ubicados en las secciones: `.data`, `.bss`, `.rodata` y/o `.text`.
    GAS no soporta `?` ni `DUP`, se usa `.skip N` para reservar N bytes sin inicializar.
 
    ```asm
-   ; Intel
+   # Intel
    .section .bss
    	buffer2:
-   		.skip 4 ; Reserva 4 bytes sin inicializar
+   		.skip 4 # Reserva 4 bytes sin inicializar
    ```
 
    Equivalente en MASM/TASM
 
    ```asm
-   ; Intel
+   # Intel
    BSS SEGMENT
-   buffer2 DB 4 DUP(?) ; Reserva 4 bytes sin inicializar
+   buffer2 DB 4 DUP(?) # Reserva 4 bytes sin inicializar
    ```
 
    - `DB` define bytes.
@@ -7452,7 +7570,7 @@ Van ubicados en las secciones: `.data`, `.bss`, `.rodata` y/o `.text`.
 3. `.rodata`: Datos de solo lectura
 
    ```asm
-   ; Intel
+   # Intel
    .section .rodata
    	saludo:
    		.ascii "Hola Mundo\0"
@@ -7475,19 +7593,19 @@ Se usa para reservar espacio en memoria y opcionalmente inicializarlo con valore
 **Ejemplo**
 
 ```asm
-; Intel
-; Define un solo byte con un valor
-mi_byte db 0x7F ; Un byte con valor hexadecimal 7F
+# Intel
+# Define un solo byte con un valor
+mi_byte db 0x7F # Un byte con valor hexadecimal 7F
 
-; Define varios bytes
-array_bytes db 1, 2, 3, 4, 5 ; 5 bytes consecutivos
+# Define varios bytes
+array_bytes db 1, 2, 3, 4, 5 # 5 bytes consecutivos
 
-; Definir un string
-mensaje db 'Hola Mundo', 0 ; String terminado en null (0)
-; Cada caracter usa un byte. El 0 al final es tipico para C-Style strings
+# Definir un string
+mensaje db 'Hola Mundo', 0 # String terminado en null (0)
+# Cada caracter usa un byte. El 0 al final es tipico para C-Style strings
 
-; Reserva bytes sin inicializar
-buffer db 10 dup(?) ; Reserva 10 bytes sin inicializar
+# Reserva bytes sin inicializar
+buffer db 10 dup(?) # Reserva 10 bytes sin inicializar
 ```
 
 ### Operador `DW` (define word)
@@ -7505,15 +7623,15 @@ Se usa para reservar espacio en memoria y opcionalmente inicializarlo con un val
 **Ejemplo**
 
 ```asm
-; Intel
-; Definir una sola palabra con valor
-mi_numero DW 1234h      ; 16 bits inicializados con 0x1234
+# Intel
+# Definir una sola palabra con valor
+mi_numero DW 1234h      # 16 bits inicializados con 0x1234
 
-; Definir un arreglo de 3 palabras
-mi_arreglo DW 1, 2, 3   ; 3 palabras consecutivas
+# Definir un arreglo de 3 palabras
+mi_arreglo DW 1, 2, 3   # 3 palabras consecutivas
 
-; Reservar espacio sin inicializar
-mi_espacio DW ?         ; 1 palabra reservada, sin valor inicial
+# Reservar espacio sin inicializar
+mi_espacio DW ?         # 1 palabra reservada, sin valor inicial
 ```
 
 **Importante**
@@ -7537,15 +7655,15 @@ Se usa para reservar una "**doubleword**" (que en x86-64 es de 32 bits (4 bytes)
 **Ejemplo**
 
 ```asm
-; Intel
-; Definir un entero de 32 bits
-mi_entero DD 12345678h   ; 4 bytes con valor 0x12345678
+# Intel
+# Definir un entero de 32 bits
+mi_entero DD 12345678h   # 4 bytes con valor 0x12345678
 
-; Definir un arreglo de 3 doublewords
-mi_arreglo DD 1, 2, 3    ; 12 bytes en total (3*4)
+# Definir un arreglo de 3 doublewords
+mi_arreglo DD 1, 2, 3    # 12 bytes en total (3*4)
 
-; Reservar espacio sin inicializar
-mi_espacio DD ?          ; 4 bytes reservados
+# Reservar espacio sin inicializar
+mi_espacio DD ?          # 4 bytes reservados
 ```
 
 **Acceso en registros**
@@ -7553,9 +7671,9 @@ mi_espacio DD ?          ; 4 bytes reservados
 Para manipular un `DD` se usa un registro de 32 bits: `EAX`, `EBX`, `ECX`, `EDX`.
 
 ```asm
-; Intel
-mov eax, mi_entero   ; carga el valor de 32 bits en EAX
-mov [mi_arreglo+4], 5 ; escribe 5 en el segundo elemento del arreglo
+# Intel
+mov eax, mi_entero   # carga el valor de 32 bits en EAX
+mov [mi_arreglo+4], 5 # escribe 5 en el segundo elemento del arreglo
 ```
 
 ### Operador `DQ` (define quadword)
@@ -7573,15 +7691,15 @@ Se usa para reservar memoria para enteros de 64 bits, punteros de 64 bits o valo
 **Ejemplo**
 
 ```asm
-; Intel
-; Definir un entero de 64 bits
-mi_entero64 DQ 123456789ABCDEF0h  ; 8 bytes con este valor
+# Intel
+# Definir un entero de 64 bits
+mi_entero64 DQ 123456789ABCDEF0h  # 8 bytes con este valor
 
-; Definir un arreglo de 2 quadwords
-mi_arreglo64 DQ 1, 2               ; 16 bytes en total
+# Definir un arreglo de 2 quadwords
+mi_arreglo64 DQ 1, 2               # 16 bytes en total
 
-; Reservar espacio sin inicializar
-mi_espacio64 DQ ?                   ; 8 bytes reservados
+# Reservar espacio sin inicializar
+mi_espacio64 DQ ?                   # 8 bytes reservados
 ```
 
 **Acceso en registros**
@@ -7589,9 +7707,9 @@ mi_espacio64 DQ ?                   ; 8 bytes reservados
 Para manipular un `DQ` se usa un registro de 64 bits: `RAX`, `RBX`, `RCX`, `RDX`, etc.
 
 ```asm
-; Intel
-mov rax, mi_entero64      ; carga el valor de 64 bits en RAX
-mov [mi_arreglo64+8], 5   ; escribe 5 en el segundo elemento del arreglo
+# Intel
+mov rax, mi_entero64      # carga el valor de 64 bits en RAX
+mov [mi_arreglo64+8], 5   # escribe 5 en el segundo elemento del arreglo
 ```
 
 ### Operador `DUP`(duplicate)
@@ -7607,19 +7725,19 @@ Se usa para repetir un valor o un patrón al inicializar datos en memoria. Sirve
 **Ejemplo**
 
 ```asm
-; Intel
+# Intel
 .DATA
 
-; Definir 10 bytes inicializados a 0
+# Definir 10 bytes inicializados a 0
 mi_buffer DB 10 DUP (0)  
 
-; Definir 5 palabras (16 bits) inicializadas a 1234h
+# Definir 5 palabras (16 bits) inicializadas a 1234h
 mis_palabras DW 5 DUP (1234h)
 
-; Definir 3 doublewords (32 bits) inicializadas a 0
+# Definir 3 doublewords (32 bits) inicializadas a 0
 mis_dwords DD 3 DUP (0)
 
-; Definir 4 quadwords (64 bits) inicializadas a 0
+# Definir 4 quadwords (64 bits) inicializadas a 0
 mis_qwords DQ 4 DUP (0)
 ```
 
@@ -7637,8 +7755,8 @@ mis_qwords DQ 4 DUP (0)
 3. Se puede usar expresiones dentro de los paréntesis, no solo con números constantes:
 
    ```asm
-   ; Intel
-   DW 4 DUP (100 + 2) ; inicializa 4 palabras con 102
+   # Intel
+   DW 4 DUP (100 + 2) # inicializa 4 palabras con 102
    ```
 
 ## Prefijo `REP` (repeat)
@@ -7650,15 +7768,15 @@ Modifica instrucciones que soportan repetición como las de movimiento o compara
 **Ejemplo**
 
 ```asm
-; Intel
-; Copia 10 bytes de [RSI] a [RDI]
-mov rcx, 10 ; número de bytes
-rep movsb   ; mueve 1 byte de RSI a RDI RCX veces
+# Intel
+# Copia 10 bytes de [RSI] a [RDI]
+mov rcx, 10 # número de bytes
+rep movsb   # mueve 1 byte de RSI a RDI RCX veces
 
-; Pone 5 palabras de 16 bits en AX en [RDI]
+# Pone 5 palabras de 16 bits en AX en [RDI]
 mov ax, 0x1234
 mov rcx, 5
-rep stosw ; almacena AX en RDI 5 veces
+rep stosw # almacena AX en RDI 5 veces
 ```
 
 ### Variantes
@@ -7670,9 +7788,9 @@ Existen variantes condicionales que combinan `REP` con saltos por cero o no cero
 - `REPNE` / `REPNZ`: Repite mientras `ZF = 0`.
 
   ```asm
-  ; Intel
+  # Intel
   mov rcx, 10
-  repe cmpsb  ; compara bytes en RSI y RDI, repite mientras sean iguales y RCX > 0
+  repe cmpsb  # compara bytes en RSI y RDI, repite mientras sean iguales y RCX > 0
   ```
 
 **Nota:** `REP` es muy útil para operaciones de memoria masiva, porque evita escribir bucles manuales en ensamblador.
@@ -7699,13 +7817,13 @@ Borra el flag de dirección `DF` (Direction Flag). Es decir que setea `DF = 0` a
 **Ejemplo**
 
 ```asm
-; Intel
-; Suponiendo que se quiere copiar 5 bytes de src a dst
-cld               ; Asegura que DF=0, avanzamos hacia adelante
-mov rcx, 5        ; Contador
-mov rsi, src      ; Fuente
-mov rdi, dst      ; Destino
-rep movsb         ; Copia rcx bytes de [rsi] a [rdi]
+# Intel
+# Suponiendo que se quiere copiar 5 bytes de src a dst
+cld               # Asegura que DF=0, avanzamos hacia adelante
+mov rcx, 5        # Contador
+mov rsi, src      # Fuente
+mov rdi, dst      # Destino
+rep movsb         # Copia rcx bytes de [rsi] a [rdi]
 ```
 
 `CLD` asegura que `REP MOVSB` copie hacia adelante incrementando `RSI` y `RDI`.
@@ -7724,14 +7842,14 @@ Enciende el flag `DF`. Es decir setea `DF = 1` asegurando que las instrucciones 
 **Ejemplo**
 
 ```asm
-; Intel
-; Copiar 5 bytes desde el final de src hasta dst (hacia atrás)
-std               ; DF = 1, avanza hacia atrás
+# Intel
+# Copiar 5 bytes desde el final de src hasta dst (hacia atrás)
+std               # DF = 1, avanza hacia atrás
 mov rcx, 5
-lea rsi, [src+4]  ; apunta al último byte de src
-lea rdi, [dst+4]  ; apunta al último byte de dst
-rep movsb         ; copia rcx bytes de [rsi] a [rdi] decrementando punteros
-cld               ; es recomendable restaurar DF = 0 después de realizar la operación
+lea rsi, [src+4]  # apunta al último byte de src
+lea rdi, [dst+4]  # apunta al último byte de dst
+rep movsb         # copia rcx bytes de [rsi] a [rdi] decrementando punteros
+cld               # es recomendable restaurar DF = 0 después de realizar la operación
 ```
 
 **Nota:** Siempre que se use `STD` es buena práctica restaurar `DF` con `CLD` al terminar la operación, para no afectar código que espera `DF = 0`.
@@ -7769,28 +7887,28 @@ Y los sufijos determinan el tamaño que mueve:
 **Ejemplo mínimo sin `REP`**
 
 ```asm
-; Intel
+# Intel
 section .data
 origen db 'H','i','!',0
-destino db 4 dup(0) ; byfufer de 4 bytes
+destino db 4 dup(0) # byfufer de 4 bytes
 
 section .text
 global _start
 _start:
-    mov rsi, origen     ; puntero al origen
-    mov rdi, destino    ; puntero al destino
-    cld                 ; asegura que DF=0 (incrementa)
+    mov rsi, origen     # puntero al origen
+    mov rdi, destino    # puntero al destino
+    cld                 # asegura que DF=0 (incrementa)
     
-    movsb               ; mueve 1 byte de [RSI] a [RDI]
-    movsb               ; mueve otro byte
-    movsb               ; mueve otro byte
-    movsb               ; mueve el null terminator
+    movsb               # mueve 1 byte de [RSI] a [RDI]
+    movsb               # mueve otro byte
+    movsb               # mueve otro byte
+    movsb               # mueve el null terminator
 ```
 
 **Ejemplo con `REP MOSB` (más eficiente)**
 
 ```asm
-; Intel
+# Intel
 section .data
 origen db 'Hola',0
 destino db 5 dup(0)
@@ -7800,9 +7918,9 @@ global _start
 _start:
     mov rsi, origen
     mov rdi, destino
-    mov rcx, 5          ; número de bytes a copiar
-    cld                  ; DF=0
-    rep movsb           ; repite movsb RCX veces
+    mov rcx, 5          # número de bytes a copiar
+    cld                  # DF=0
+    rep movsb           # repite movsb RCX veces
 ```
 
 `REP MOVSB` hace lo mismo que el ejemplo anterior de manera mas eficiente. `RCX` se decrementa hasta cero.
@@ -7854,16 +7972,16 @@ Lee un elemento desde memoria y lo carga en un registro, avanzando y retrocedien
 **Ejemplo**
 
 ```asm
-; Intel
-; Lee bytes de una cadena uno por uno
-cld             ; DF = 0, avanzar
-mov rsi, texto  ; RSI apunta al inicio
+# Intel
+# Lee bytes de una cadena uno por uno
+cld             # DF = 0, avanzar
+mov rsi, texto  # RSI apunta al inicio
 
-lodsb           ; AL = [RSI], RSI++
-; ahora AL tiene el primer byte
+lodsb           # AL = [RSI], RSI++
+# ahora AL tiene el primer byte
 
-lodsb           ; AL = [RSI], RSI++
-; ahora AL tiene el segundo byte
+lodsb           # AL = [RSI], RSI++
+# ahora AL tiene el segundo byte
 ```
 
 Si el texto es `ABC`:
@@ -7874,24 +7992,24 @@ Si el texto es `ABC`:
 **Ejemplo 2**
 
 ```asm
-; Intel
-; Leer palabras de 16 bits
+# Intel
+# Leer palabras de 16 bits
 cld
-mov rsi, datos    ; datos: dw 100, 200, 300
+mov rsi, datos    # datos: dw 100, 200, 300
 
-lodsw             ; AX = 100, RSI += 2
-lodsw             ; AX = 200, RSI += 2
+lodsw             # AX = 100, RSI += 2
+lodsw             # AX = 200, RSI += 2
 ```
 
 **Ejemplo 3**
 
 ```asm
-; Intel
+# Intel
 cld
 mov rsi, buffer
 mov rcx, 5
 
-rep lodsb          ; ejecuta LODSB 5 veces
+rep lodsb          # ejecuta LODSB 5 veces
 ```
 
 Equivale a:
@@ -7940,12 +8058,12 @@ El incremento o decremento depende de `DF`.
 **Ejemplo**
 
 ```asm
-; Intel
-; Guarda un byte en memoria
-cld                 ; DF = 0 (avanza)
-mov rdi, buffer     ; destino
-mov al, 0x41        ; 'A'
-stosb               ; [RDI] = AL, RDI++
+# Intel
+# Guarda un byte en memoria
+cld                 # DF = 0 (avanza)
+mov rdi, buffer     # destino
+mov al, 0x41        # 'A'
+stosb               # [RDI] = AL, RDI++
 ```
 
 Luego de que se ejecuta `STOSB`:
@@ -7958,12 +8076,12 @@ RDI = buffer + 1
 **Ejemplo 2**
 
 ```asm
-; Intel
-; Guarda 2 bytes
+# Intel
+# Guarda 2 bytes
 cld
 mov rdi, buffer
 mov ax, 0x1234
-stosw               ; escribe 0x1234 en memoria
+stosw               # escribe 0x1234 en memoria
 ```
 
 **Ejemplo 3**
@@ -7971,13 +8089,13 @@ stosw               ; escribe 0x1234 en memoria
 `STOS` se usa mucho para rellenar memoria (como `memset` en C).
 
 ```asm
-; Intel
-; Rellenar un buffer con ceros (64 bits)
+# Intel
+# Rellenar un buffer con ceros (64 bits)
 cld
-mov rdi, buffer     ; destino
-xor rax, rax        ; valor a escribir = 0
-mov rcx, 16         ; número de elementos
-rep stosq           ; escribe 16 * 8 bytes = 128 bytes
+mov rdi, buffer     # destino
+xor rax, rax        # valor a escribir = 0
+mov rcx, 16         # número de elementos
+rep stosq           # escribe 16 * 8 bytes = 128 bytes
 ```
 
 Equivale a
@@ -7989,13 +8107,13 @@ memset(buffer, 0, 128);
 **Ejemplo 3**
 
 ```asm
-; Intel
-; Escribe hacia atrás
-std                 ; DF = 1 (retrocede)
+# Intel
+# Escribe hacia atrás
+std                 # DF = 1 (retrocede)
 mov rdi, buffer+7
 mov al, 0xFF
-stosb               ; escribe en [RDI], luego RDI--
-cld                 ; DF = 0 (resetea DF)
+stosb               # escribe en [RDI], luego RDI--
+cld                 # DF = 0 (resetea DF)
 ```
 
 **Usos comunes**
@@ -8066,14 +8184,14 @@ Finalmente incrementa o decrementa `RDI` según el tamaño del dato y el estado 
 **Ejemplo**
 
 ```asm
-; Intel
-; Busca el byte 0x41 'A' en un buffer
-cld                 ; DF = 0 → avanzar hacia adelante
-mov al, 0x41        ; valor a buscar ('A')
-mov rdi, buffer     ; dirección del buffer
-mov rcx, 100        ; número de bytes a revisar
+# Intel
+# Busca el byte 0x41 'A' en un buffer
+cld                 # DF = 0 → avanzar hacia adelante
+mov al, 0x41        # valor a buscar ('A')
+mov rdi, buffer     # dirección del buffer
+mov rcx, 100        # número de bytes a revisar
 
-repne scasb         ; busca AL en [RDI]
+repne scasb         # busca AL en [RDI]
 ```
 
 **¿Qué hace?**
@@ -8089,15 +8207,15 @@ Al terminar se obtiene `ZF = 1` si el valor fue encontrado, en tal caso `REPNE` 
 **Ejemplo 2**
 
 ```asm
-; Intel
-; Ejemplo mínimo sin usar el prefijo REP
+# Intel
+# Ejemplo mínimo sin usar el prefijo REP
 mov al, 0x30
 mov rdi, buffer
 scasb
 
-; Equivale a
+# Equivale a
 cmp al, byte [rdi]
-add rdi, 1    ; o sub si DF=1
+add rdi, 1    # o sub si DF=1
 ```
 
 **Usos comunes**
@@ -8115,7 +8233,7 @@ Compara dos strings en memoria, elemento por elemento, sin almacenar el resultad
 `CMPS` compara un dato apuntado por `RSI` (fuente), con un dato apuntado por `RDI` (destino). Internamente equivale a:
 
 ```asm
-; Intel
+# Intel
 CMP [RDI], [RSI]
 ```
 
@@ -8153,17 +8271,17 @@ Luego actualiza lso flags del CPU según el resultado, y avanza o retrocede ambo
 **Ejemplo**
 
 ```asm
-; Intel
-; Compara dos cadenas byte a byte
-cld           ; avanzar hacia adelante
+# Intel
+# Compara dos cadenas byte a byte
+cld           # avanzar hacia adelante
 mov rsi, str1
 mov rdi, str2
 mov rcx, len
 
-repe cmpsb    ; compara byte a byte mientras sean iguales    
-; Al terminar:
-; ZF = 1 → cadenas iguales
-; ZF = 0 → se encontró diferencia
+repe cmpsb    # compara byte a byte mientras sean iguales    
+# Al terminar:
+# ZF = 1 → cadenas iguales
+# ZF = 0 → se encontró diferencia
 ```
 
 Equivalente en C
@@ -8175,7 +8293,7 @@ int iguales = (memcmp(str1, str2, len) == 0);
 Equivalente conceptual
 
 ```
-for (i = 0; i < len; i++) {
+for (i = 0# i < len# i++) {
     if (str1[i] != str2[i])
         break;
 }
@@ -8184,14 +8302,14 @@ for (i = 0; i < len; i++) {
 **Comparación manual vs `CMPS`**
 
 ```asm
-; Intel
-; Manual
+# Intel
+# Manual
 mov al, [rsi]
 cmp al, [rdi]
 inc rsi
 inc rdi
 
-; Con CMPSB
+# Con CMPSB
 cmpsb
 ```
 
@@ -8248,7 +8366,7 @@ write(1, "Hola\n", 5);
 **Equivalente en 64 bits**
 
 ```asm
-; Intel
+# Intel
 section .data
     msg db "Hola", 10
     len equ $ - msg
@@ -8257,14 +8375,14 @@ section .text
 global _start
 
 _start:
-    mov rax, 1        ; syscall: sys_write
-    mov rdi, 1        ; fd = 1 (stdout)
-    mov rsi, msg      ; dirección del mensaje
-    mov rdx, len      ; tamaño
-    syscall           ; llamada al kernel
+    mov rax, 1        # syscall: sys_write
+    mov rdi, 1        # fd = 1 (stdout)
+    mov rsi, msg      # dirección del mensaje
+    mov rdx, len      # tamaño
+    syscall           # llamada al kernel
 
-    mov rax, 60       ; syscall: sys_exit
-    xor rdi, rdi      ; código de salida = 0
+    mov rax, 60       # syscall: sys_exit
+    xor rdi, rdi      # código de salida = 0
     syscall
 ```
 
@@ -8282,7 +8400,7 @@ Luego `SYSCALL` transfiere el control al kernel.
 **Equivalente en 32 bits**
 
 ```asm
-; Intel
+# Intel
 mov eax, 4      # write
 mov ebx, 1      # stdout
 mov ecx, msg    # buffer
@@ -8293,9 +8411,9 @@ int 0x80
 **Salir del programa**
 
 ```asm
-; Intel
-mov rax, 60   ; sys_exit
-mov rdi, 0    ; código de retorno
+# Intel
+mov rax, 60   # sys_exit
+mov rdi, 0    # código de retorno
 syscall
 ```
 
