@@ -177,5 +177,5 @@ elif [[ $f_debug -eq 1 ]]; then
         exit 1
     fi
 
-    gdb ./"$bin"
+    gdb -q ./"$bin"
 fi
