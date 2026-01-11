@@ -177,5 +177,10 @@ elif [[ $f_debug -eq 1 ]]; then
         exit 1
     fi
 
-    gdb -q ./"$bin"
+    bin_file="${bin##*/}"
+    cd $exercise_folder
+    gdb -q \
+        -ex "set debuginfod enabled off" \
+        ./"${bin_file}"
+    cd ..
 fi
