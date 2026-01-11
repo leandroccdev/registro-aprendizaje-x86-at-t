@@ -135,6 +135,7 @@ function do_compile {
         -nostdlib \
         "-m$_arch" \
         -g \
+        -O0 \
         -o "$bin_file" \
         "$src_file"
 
