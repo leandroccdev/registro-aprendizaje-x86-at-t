@@ -1,14 +1,15 @@
 #! /usr/bin/bash
 # Parameters
-# $1: [-d|--run]
+# $1: [-d|--run|-c]
 # --run: Run the compiled file
 # -d:    Starts gdb debugging session
-#
+# -c:    Compile the program
 # Run: ./compile.sh [-d|--run] exercise-folder/file.s
 
 # Flags
 f_debug=0
 f_run=0
+f_compile=0
 
 #region Analyse parameters
 if [[ $# -eq 0 ]]; then
@@ -18,8 +19,9 @@ fi
 
 [[ "$@" =~ "--run" ]] && f_run=1
 [[ "$@" =~ "-d" ]] && f_debug=1
+[[ "$@" =~ "-c" ]] && f_compile=1
 
-if [[ $f_debug -eq 1 && $f_run -eq 1 ]]; then
+if [[ $f_debug -eq 1 && $f_run -eq 1 && $f_compile -eq 1 ]]; then
     echo "Error: Can't run and debug at the same time!"
     exit 1
 fi
@@ -159,14 +161,14 @@ function do_compile {
 clean_file "$obj" > /dev/null
 clean_file "$bin" > /dev/null
 
-# Check that at least one of -d or --run was given
-if [[ $f_run -eq 0 && $f_debug -eq 0 ]]; then
-    echo "Error: -d or --run not given!"
+# Check that at least one of -d, --run or -c was given
+if [[ $f_run -eq 0 && $f_debug -eq 0 && $f_compile -eq 0 ]]; then
+    echo "Error: -d,--run or -c not given!"
     exit 1
 fi
 
-# Assemble for running
-if [[ $f_run -eq 1 ]]; then
+# Assemble the program
+if [[ $f_run -eq 1 || $f_compile -eq 1 ]]; then
     do_assemble "$src" "$obj" "$arch"
     do_link "$obj" "$bin"
 # Compile for debugging
@@ -176,6 +178,11 @@ fi
 
 echo "Info: '$src' compiled!"
 clean_file "$obj" > /dev/null
+
+# Exit
+if [[ $f_compile -eq 1 ]]; then
+    exit 1
+fi
 
 # Binary file not found
 if [[ ! -e "$bin" ]]; then
