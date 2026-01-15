@@ -8619,7 +8619,7 @@ El modo usuario (userland) no puede hacer cosas como acceder directamente al dis
 
 Luego el valor de retorno se entrega en el registro `EAX`.
 
-#### Tabla básica de syscalls en x86 (`int $0x80`)
+#### Tabla básica de syscalls en x86 (`INT 0x80`)
 
 Los números de syscall están definidos en el archivo de cabecera del kernel:
 
@@ -8649,13 +8649,222 @@ Los argumentos siempre siguen la convención de registros:
 | `90`       | `mmap`   | Asigna memoria                      | (6 argumentos, requiere manipulación especial) |
 | `91`       | `munmap` | Libera memoria asignada con mmap    | `void *addr, size_t length`                    |
 
+## Instrucción `IRET/IRETL/IRETQ` (interrupt return)
+
+Retorna de una interrupción, excepción o trampa que fue atendida por el CPU. Es decir, cuando llega una interrupción, el CPU guarda el estado actual (registro de interrupción, flags, segmento de código, etc.) y salta a un manejador. Cuando el manejador termina, ejecuta `IRET` para restaurar ese estado y continuar la ejecución donde se interrumpió. 
+
+**Modo real (16-bit)**
+
+1. El CPU empuja a la pila en el siguiente orden:
+
+   - `IP` (instruction pointer).
+
+   - `CS` (code segment).
+
+   - `FLAGS` (registro de flags).
+
+2. El manejador de interrupción se ejecuta.
+
+3. Al ejecutar `IRET`, el CPU hace lo inverso:
+
+   - Saca (`POP`) `FLAGS`.
+   - Saca `CS`.
+   - Saca `IP`.
+
+   Luego continua la ejecución justo donde se interrumpió.
+
+**Modo protegido (32-bit)**
+
+Es similar, pero puede manejar cambios de privilegio:
+
+- Si la interrupción cambió el nivel de privilegio (por ejemplo, de usuario a kernel):
+  - Se guardan en la pila los registros `SS` (stack segment) y `ESP` (stack pointer) del nivel anterior también.
+- `IRET` restaurará:
+  - `ESP` y `SS` si hubo cambio de privilegio.
+  - Luego `EFLAGS`, `CS` e `EIP`.
+
+**Modo 64-bit (`IRETQ`)**
+
+Igual que en 32-bit, pero con registros de 64-bit: `RIP` y `RFLAGS`. Soporta interrupciones de diferentes `CPL` (privilegios). Si hay cambio de stack por privilegio (por ejemplo, de usuario a kernel), también restaura `RSP` y `SS` del nivel anterior.
+
+**Resúmen gráfico**
+
+```
+Antes de iret:
++-----------------+
+|   ...           |
+| FLAGS guardado  |
+| CS guardado     |
+| IP guardado     |
++-----------------+
+
+IRET ejecuta:
+POP IP / RIP
+POP CS
+POP FLAGS
+(restaura ESP/SS si cambio de privilegio)
+
+Después de iret:
++-----------------+
+| CPU continua en |
+| donde se interrumpió |
++-----------------+
+```
+
+`IRET`, `IRETL`, `IRETQ`
+
+| Instrucción | Tamaño / Modo                          | Qué hace                                                     |
+| ----------- | -------------------------------------- | ------------------------------------------------------------ |
+| `iret`      | Tamaño implícito según CPU (16/32-bit) | Retorna de interrupción usando IP/EIP y FLAGS. En modo real es 16-bit, en modo protegido es 32-bit. |
+| `iretl`     | 32-bit (long)                          | Forzadamente usa **EIP** y **EFLAGS** de 32-bit, incluso en modo protegido. Es útil cuando quieres ser explícito que manejas registros de 32-bit. |
+| `iretq`     | 64-bit (quad)                          | Usa **RIP** y **RFLAGS**, para modo 64-bit. También maneja cambio de stack si hay cambio de privilegio. |
 
 
-todo: abordar instrucción iret e int, están en el cap de interrupciones. Revisarlo y ver si se puede migrar a sintaxis intel.
+
+## IDT - Interrupt Descriptor Table (Tabla de descriptores de interrupción)
+
+Es una estructura de datos en memoria que el procesador usa para decidir qué hacer cuando ocurre una interrupción o excepción. Es como un mapa de rutas que le permite al CPU decidir que dirección de memoria ejecutar cuando llega una interrupción. Es decir, la IDT conecta vectores de interrupción con rutinas manejadoras (handlers).
+
+**Interrupciones y vectores**
+
+Cada interrupción tiene un número llamado vector de interrupción que va de 0 a 255 en x86 y cuenta con 256 entradas, una por cada vector.
+
+Cada entrada es un descriptor que contiene:
+
+- **Offset bajo / medio / alto:** Dirección de la rutina que maneja la interrupción
+
+- **Selector de segmento:** Generalmente apunta al segmento de código del kernel `CS`.
+
+- **Tipo y atributos:**
+  - Gate de interrupción (interrupt gate).
+
+    Deshabilita interrupciones mientras se ejecuta el handler.
+
+    Usado para interrupciones de hardware.
+
+  - Gate de trampa (trap gate).
+
+    No deshabilita interrupciones, útil para depuración y breakpoints.
+
+  - Gate de llamada (task gate).
+
+    Cambia automáticamente de tareas (menos usado hoy en día).
+
+- **DPL (Descriptor Privilege Level):** Nivel de privilegio que puede llamar a la interrupción (0 a 3).
+
+Una entrada ocupa 16 bytes y soporta direcciones de 64 bits.
+
+**Cómo se usa la IDT**
+
+1. El OS crea la IDT en memoria.
+2. Llena cada entrada con la dirección del handler correspondiente.
+3. Carga la IDT en el CPU usando la instrucción `LIDT` (Load IDT).
+4. Cuando ocurre una interrupción, el CPU:
+   - Busca el descriptor en la IDT según el vector.
+   - Cambia `CS` y `RIP` a los valores del descriptor.
+   - Opcionalmente cambia stack y niveles de privilegio.
+   - Ejecuta la rutina.
+
+**Diferencia con GDT y TSS**
+
+- **GDT (Global Descriptor Table):** Describe segmentos de memoria y privilegios.
+- **IDT:** Describe cómo manejar interrupciones/excepciones.
+- **TSS (Task State Segment):** Información de la tarea actual, usado especialmente para stacks de privilegio.
+
+**Ejemplo conceptual**
+
+Cuando presionas **Ctrl+C** en Linux, el teclado envía un IRQ. El CPU mira la IDT, encuentra la rutina de manejo de teclado, y ejecuta el código del kernel que procesa la tecla.
+
+**Flujo cuando ocurre una interrupción**
+
+1. La CPU valida:
+
+   - Verifica que el descriptor existe en la IDT.
+   - Verifica permisos (DPL vs CPL).
+   - Determina si debe cambiar de pila (IST o cambio de ring).
+
+2. Cambio de pila (si es necesario).
+
+   Si la interrupción pasa de ring 3 a ring 0 (usuario a kernel), la CPU:
+
+   - Usa el TSS (Task State Segment) para obtener la pila del kernel.
+   - Cambia automáticamente `RSP` a la pila segura.
+
+   Además, si la entrada de la IDT define un `IST`, se usa esa pila específica (muy común para page fault, NMI y double fault).
+
+3. Guardado del contexto.
+
+   La CPU empuja automáticamente en la pila: `RFLAGAS`, `CS`, `RIP`, y en ciertos casos también `Error Code`. En 64 bits no se guarda automáticamente `RAX`, `RBX`, etc/ Eso lo hace el handler si lo necesita.
+
+4. Salto al handler (manejador de interrupción).
+   - Se carga el nuevo `CS:RIP` desde la IDT.
+   - Cambia privilegio a ring 0 si corresponde.
+   - Desactiva interrupciones si es interrupt gate (IF=0; Interrupt Flag).
+   - Empieza a ejecutar el handler.
+
+5. Retorno con `IRETQ`.
+
+   Cuando el handler termina, `IRETQ` restaura automáticamente: `RIP`, `CS`, `RFLAGS`, `RSP` (si hubo cambio de ring), `SS` (si hubo cambio de ring).
+
+## APIC - Advanced Programable Interrupt Controller
+
+Controlador de interrupciones programable avanzado.
+
+Es un componente del hardware que gestiona las interrupciones de manera más avanzada que el PIC tradicional (programable interrupt controller, el clásico 8259A). En CPUs x86 antiguas, las interrupciones eran manejadas por el PIC 8259, que solo soportaba 15 interrupciones externas y tenía limitaciones cuando se quería usar microprocesamiento (SMP).
+
+Con el APIC, intel y amd introdujeron un controlador mas moderno que puede manejar más lineas de interrupción, interrupciones dirigidas a núcleos específicos en la CPU multiprocesador, interrupciones internas del sistema (timer, IPIs, etc).
+
+**Tipos de APIC**
+
+- **Local APIC (LAPIC)**
+
+  - Cada núcleo de CPU tiene uno. Se encarga de recibir y enviar interrupciones internas y externas.
+  - Tiene un timer interno, útil para temporizadores precisos en sistemas operativos.
+  - Se comunica mediante registros mapeados en memoria.
+
+- **I/O APIC**
+
+  - Se encarga de las interrupciones externas (por ejemplo, de dispositivos PCI).
+  - Puede redirigir interrupciones a núcleos específicos según la configuración.
+
+- **APIC en OS**
+
+  Cuando se programa a nivel de OS, el APIC se usa para:
+
+  - Configurar vectores de interrupción.
+  - Enviar IPIs (Inter-Processor Interrupts) entre núcleos.
+  - Configurar timers locales para temporizadores del sistema.
+  - Manejar interrupcioens de hardware en sistemas SMP.
+
+**Ejemplo de registros importantes (Local APIC):**
+
+| Registro    | Uso                                                          |
+| ----------- | ------------------------------------------------------------ |
+| `ID`        | Identifica el APIC local del núcleo                          |
+| `TPR`       | Task Priority Register (prioridad de interrupciones)         |
+| `EOI`       | End of Interrupt (señaliza al APIC que terminó la interrupción) |
+| `LVT Timer` | Configura el timer local                                     |
+| `ICR`       | Inter-Processor Communication (envía IPIs)                   |
+
+En ensamblador, normalmente no accedes al APIC con instrucciones normales, si no escribiendo y leyendo registros mapeados en memoria usando `MOV` hacia direcciones especiales.
+
+**Diferencias con el PIC clásico**
+
+| Característica               | PIC (8259)   | APIC                                    |
+| ---------------------------- | ------------ | --------------------------------------- |
+| Líneas de IRQ                | 15           | 224+                                    |
+| Multiprocesamiento           | No soportado | Soportado                               |
+| Vectores dirigidos a núcleos | No           | Sí                                      |
+| Interrupciones internas      | Limitadas    | Timer, IPIs, Performance counters, etc. |
+
+
 
 todo: abordar instrucciones in y out, luego volver al libro de estructuras de computadores a la pag 45
 
 todo: hacer algunos programas
+
+- un programa que responda a las teclas
+- otro que lea po teclado
 
 todo: ver instrucciones relacionadas a xchg (las del archivo fundamentos-intercambios.odt)
 
