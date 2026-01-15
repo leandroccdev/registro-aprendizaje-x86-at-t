@@ -1217,278 +1217,6 @@ No genera saltos en CPU, mas bien decide qué cóðigo se ensambla o no.
 | `.ident "text"`    | Cadena de identificación | `.ident "v1.0"`   |
 | `.end`             | Marca fin del archivo    | `.end`            |
 
-### Interrupciones
-
-Una interrupción se define como un mecanismo que detiene temporalmente la ejecución normal del procesador, ya sea para atender un evento urgente/importante y luego retormar la ejecución en donde se quedó previo a la interrupción. Cuando el CPU recibe una interrupción ejecuta una rutina especial llamada **manejador de interrupción** (interrupt handler).
-Las interrupciones son generadas por componentes del hardware (dispositivo, timer, teclado) o del software (llamadas al sistema, excepciones). Permiten al CPU reaccionar rápidamente a eventos externos sin necesidad de estar revisando constantemente (lo que se conoce como polling: consultar contínuamente el estado de un dispositivo o bandera en un bucle, hasta que cambia a un valor esperado). Un ejemplo de ésto es por ejemplo, cuando una tecla del teclado es presionada, una interrupción es generada, y al CPU se le indica que hay datos para leer.
-
-En ensamblador x86 de 32 bits, para hacer una llamada al sistema (syscall) se usa la instrucción:
-
-`int $0x80`
-
-Esto genera la interrupción de software número 128 (0x80). El kernel la atiende para realizar la función solicitada (leer archivo, escribir, salir, etc).
-
-#### Resumen visual del flujo
-
-1. Ejecución normal
-2. Ocurre una interrupción
-3. CPU guarda el contexto actual
-4. Ejecuta rutina de interrupción
-5. Restaura contexto
-6. Resume ejecución normal
-
-#### Interrupciones prefedinidas
-
-En x86 existen (entre muchas otras) las siguientes interrupciones predefinidas:
-
-- 0: Error de división por 0 (divide error)
-- 6: Instrucción no valida (invalid op code)
-- 13: Violación de protección (general protection)
-- 14: Acceso a página de memoria no valida (page fault)
-- 0x80: Usado en linux para hacer una llamada al sistema (software interrupt)
-
-Estas son reservadas y manejadas por el procesador o el sistema operativo.
-
-#### Interrupciones definidas por el usuario
-
-El programador tambien puede definir y manejar interrupciones personalizadas, tanto por hardware como por software.
-Para definir una se utiliza la instrucción `int n` con un número que **no esté reservado** por el sistema. Luego debe verificarse que ese número esté correctamente apuntado en la tabla `IDT` (interrupt descriptor table) hacia su propia rutina de manejo.
-
-```asm
-# AT&T e Intel
-int $0x21 # interrupción personalizada
-```
-
-Si se configuró correctamente la entrada `0x21` en la `IDT` con el manejador o gestor, el CPU realizará el salto allí.
-
-#### Interrupciones personalizadas por hardware
-
-En el modo protegido y en sistemas operativos modernos, la `IDT` no es modificable desde el espacio de usuario, solo el kernel tiene control total.
-
-#### Consideraciones
-
-Para crear una interrupción propia, se necesita cumplir algún punto de los siguientes:
-
-- Usar modo real (bootloader por ejemplo)
-- Tener acceso en modo kernel
-- Trabajar en un OS propio o código que se ejecuta en hardware directamente
-
-#### Intrucciones sti y cli en x86
-
-Controlan el flag de interrupciones en el registro de estado `EFLAGS`.
-
-`cli` desactiva las interrupciones externas de la CPU. Esto bloquea la atención a interrupciones de hardware.
-Se usa para evitar que durante una sección crítica de código una interrupción interrumpa el flujo, evitando condiciones de carrera o corrupción de datos.
-
-`sti` activa nuevamente las interrupciones, permitiendo que la CPU entienda las interrupciones externas.
-Tiene un retraso de una instrucción antes de que realmente se activen las interrupciones, esto significa que la siguiente instrucción que viene después de `sti`, se ejecutar antes que las interrupciones sean atendidas.
-
-**Importante**: solo afectan a las interrupciones externas, pero no a las excepciones internas. Además son instrucciones privilegiadas que solo son ejecutables en modo kernel (anillo 0).
-
-#### Gestor o manejador de interrupciones pesonalizadas
-
-En el siguiente ejemplo se escribirá la entrada 0x21 de la `IVT` (interrupt vector table) para que apunte a nuestro propio manejador. Luego desde el manejador se imprimirá una letra.
-
-**Importante:** El ejercicio usa el modo real.
-
-```asm
-# AT&T
-.code16 # Modo real 16 bits
-.globl _start
-
-.section .text
-
-_start:
-     cli # Desactiva interrupciones (clear interrupt flag)
-     xor %ax, %ax # XOR en registro ax para setearlo en 0
-     # se prefiere xor porque:
-     # - Es mas rápido que mov $0, %ax
-     # - Internamente xor es mas corto en muchas arquitecturas
-     # - Mas rápido en ciertas micro arquitecturas
-     # - No genera dependencias de datos (ayudando al paralelismo interno de la CPU)
-
-     mov $ax, %ds # Seteo del egmento de datos a0x0000
-
-     # Guarda el viejo handler de int 0x21 (buen hábito)
-     mov $0x21, %ah
-     int $0x21 # Llama al handler original (ahora no hace nada útil)
-
-     # Instalar el manejador propio (handler)
-     lea manejador, %bx # Dirección de nuestra rutina
-     # lea: load effective address
-     # no carga datos, mas bien calcula una direción efectiva y la guarda en un registro
-     # lea fuente, destino
-     # fuente es una expresión de direccionamiento, no se accede a memoria, por lo que se copia la dirección que se habría usado para acceder a memoria, mas no el contenido
-     mov $0x21, %al     # Interrupción0x21
-     shl $2, %ax        # AX = número de interrupción * 4
-     # shl: shift logical left
-     # Realiza un desplazamiento lógico a la izquierda
-     # Sintaxis: shl n registro
-     # El desplazamiento es realizado n veces dentro del registro
-     # shl $2, %ax: desplaza el registro ax dos bits a la izquierda
-     # shr $2, %ax: desplaza el registro ax dos bits a la derecha
-     # shr: shift logical right
-     mov $ax, %di       # DI: offset dentro de IVT (interrupt vector table)
-     # di: destination index
-     # di es parte de los registros para acceso a memoria con instrucciones como stos, movs, etc
-     # En modo real o al trabajadr con estructuras coo la IVT, %di se usa como offset dentro de un segmento (como ES:DI o DS:DI)
-
-     mov $0x0000, 2(%di) # Desplazamiento (offset) del manejador (handler)
-     sti                 # Reactiva interrupciones (set interrupt flag)
-
-     # Forzar una interrupcion 0x21 pra probar el manejador
-
-     jmp $ # bucle infinito
-     # jmp $: es un salto incondicional a la dirección actual
-     # es decir que se genera un bucle infinito en esa instrucción
-     # $ representa la dirección actual del instruction pointer (IP o EIP/RIP dependiendo de la arquitectura)
-
-# -----------------------
-# Manejador personalizado
-# -----------------------
-manejador:
-     pusha # Tambien conocida como pushad
-     # empuja todos los registros de propósito general de 16 bits al stack en un orden específico.
-     # pusha pertenece al conjunto x86 real y protegido, pero
-     # no esta disponible en x86-64 (modo 64 bits)
-
-     # los registros son guardados en la pila en el siguiente órden:
-     # AX, CX, DX, BX, original SP, BP, SI, DI
-     # el valor de SP se guarda tal y como estaba antes de pusha
-
-     # se usa generalmente para preservar el estado de los reistros antes de una rutina que pueda modificarlos
-
-     mov $0x0E, %ah # Función BIOS: teletipo
-     mov $'X', %al # Caracter a mostrar
-     int $0x10 # Mostrar 'X'
-
-     popa # pop all: restaura los siguientes registros desde la pila
-     # %di, %si, %bp, ignora %sp, %bx, %dx, %cx, %ax
-     # sp no es restaurado porque su modificación directa podría corromper el estado de la pila
-
-     iret # retorna de la interrupción
-     # iret permite retornar al punto de la ejecución anterior a la interrupción
-```
-
-#### ¿Qué es la IVT?
-
-LA interrupt vector table es una tabla en modo real de 256 entradas, que vive al inicio de la memoria RAM.
-
-**Características**:
-
-- Dirección: 0x0000:0000
-- Tamaño: 256 vectores x 4 bytes = 1024 bytes
-- Cada vector ocupa 4 byes: 2 bytes para el offset y 2 bytes para el segmento
-
-Por ejemplo, la interrupción de 0x13 (servicios de disco del BIOS) está en:
-
-```asm
-0x13 * 4 = 0x4C # offset dentro de la ITV
-```
-
-#### ¿Qué sucede cuando ocurre una interrupción?
-
-Cuando la interrupción ocurre (ya sea por hardware o software), el procesador guarda automáticamente en la pila:
-
-1. El valor del registro EFLAGS (o FLAGS en 16 bits)
-2. El puntero de instrucción (IP o EIP) del programa interrumpido
-3. El segmento de código (CS) asociado a esa dirección
-
-Y si la instrucción causa un cambio de privilegio (por ej: de usuario a kernel), tambien se guardan:
-
-4. El segmento de pila (SS)
-5. El puntero de pila (ESP o SP)
-
-La instrucción `iret` revierte dicho proceso:
-- Saca de la pila esos valores: `EIP`, `CS`, `EFLAGS` y opcionalmente `SS` y `ESP`
-- Los restaura volviendo al contexto original
-- Reanuda la ejecución justo después del punto donde ocurrió la interrupción
-
-En 32 bits se llama `iretl` y en 64 `iretq`, `iret` corresponde a 16 bits.
-
-#### ¿Por qué no se debe usar `pop` al finalizar un manejador?
-
-`pop` restaura la dirección de retorno desde la pila, pero **no restaura el context ocompleto como sí lo hace `ire`**.
-
-
-#### interrupción 0x80
-
-Ésta interrupción interrumple el flujo del programa, transfiere el control al kernel de linux y le pide que realiza una operación privilegiada como:
-- Salir del programa (exit)
-- Leer un archivo o stdin (read)
-- Escribir en stdout (write)
-- Abrir/Creaer archivos (open)
-
-**Sintaxis**
-
-```asm
-# AT&T
-movl $<número_syscall>, %eax    # número de la syscall
-movl $<arg1>, %ebx              # primer argumento
-movl $<arg2>, %ecx              # segundo argumento
-movl $<arg3>, %edx              # tercer argumento
-int $0x80                       # llamada al sistema
-```
-
-**Ejemplo: salir del programa**
-
-```asm
-# AT&T
-.section .text
-.globl _start
-
-_start:
-    movl $1, %eax    # syscall número 1: exit
-    movl $0, %ebx    # código de salida = 0
-    int $0x80        # interrupción al kernel
-```
-
-#### ¿Por qué una interrupción?
-
-El modo usuario (userland) no puede hacer cosas como acceder directamente al disco, terminar procesos, etc.. Solo el kernel, que corre en modo privilegiado (ring 0), puede hacerlo. Entonces se necesita una puerta de entrada controlada, y esa puerta es int $0x80.
-
-#### Tabla de registros (Linux x86 - 32 bits)
-
-`%eax`: Número de syscall
-`%ebx`: Primer argumento
-`%ecx`: Segundo argumento
-`%edx`: Tercer argumento
-`%esi`: Cuarto argumento
-`%edi`: Quinto argumento
-`%ebp`: Sexto argumento
-
-Luego el valor de retorno se entrega en el registro `%eax`
-
-#### Tabla básica de syscalls en x86 (int $0x80)
-
-Los números de syscall están definidos en el archivo de cabecera del kernel:
-
-`/usr/include/asm/unistd_32.h`
-
-O en versión web: https://filippo.io/linux-syscall-table/
-
-Los argumentos siempre siguen la convención de registros:
-
-`%eax` = número de syscall
-`%ebx`, `%ecx`, `%edx`, `%esi`, `%edi`, `%ebp` = argumentos 1 a 6
-
-| Nº syscall | Nombre   | Descripción                         | Argumentos principales                         |
-| ---------- | -------- | ----------------------------------- | ---------------------------------------------- |
-| `1`        | `exit`   | Finaliza el proceso                 | `int status`                                   |
-| `2`        | `fork`   | Crea un nuevo proceso (hijo)        | *(sin argumentos)*                             |
-| `3`        | `read`   | Lee de un descriptor de archivo     | `int fd, void *buf, size_t count`              |
-| `4`        | `write`  | Escribe en un descriptor de archivo | `int fd, const void *buf, size_t count`        |
-| `5`        | `open`   | Abre un archivo                     | `const char *filename, int flags, mode`        |
-| `6`        | `close`  | Cierra un descriptor de archivo     | `int fd`                                       |
-| `11`       | `execve` | Ejecuta un nuevo programa           | `char *filename, char *argv[], char *envp[]`   |
-| `12`       | `chdir`  | Cambia el directorio actual         | `const char *path`                             |
-| `20`       | `getpid` | Obtiene el PID del proceso          | *(sin argumentos)*                             |
-| `37`       | `kill`   | Envía una señal a un proceso        | `int pid, int sig`                             |
-| `45`       | `brk`    | Gestiona la memoria del heap        | `void *end_data_segment`                       |
-| `54`       | `ioctl`  | Control de dispositivos             | `int fd, int request, ...`                     |
-| `90`       | `mmap`   | Asigna memoria                      | (6 argumentos, requiere manipulación especial) |
-| `91`       | `munmap` | Libera memoria asignada con mmap    | `void *addr, size_t length`                    |
-
 
 ## Flags del CPU
 
@@ -8585,6 +8313,347 @@ printf() → libc → write() → syscall
 ```
 
 Como se ve, se tienen capas intermedias, en ASM se puede saltar a libc y hablar directo con el kernel.
+
+## Interrupciones
+
+Una interrupción se define como un mecanismo que detiene temporalmente la ejecución normal del procesador, ya sea para atender un evento urgente/importante y luego retormar la ejecución en donde se quedó previo a la interrupción. Cuando el CPU recibe una interrupción ejecuta una rutina especial llamada **manejador de interrupción** (interrupt handler).
+Las interrupciones son generadas por componentes del hardware (dispositivo, timer, teclado) o del software (llamadas al sistema, excepciones). Permiten al CPU reaccionar rápidamente a eventos externos sin necesidad de estar revisando constantemente (lo que se conoce como polling: consultar contínuamente el estado de un dispositivo o bandera en un bucle, hasta que cambia a un valor esperado). Un ejemplo de ésto es por ejemplo, cuando una tecla del teclado es presionada, una interrupción es generada, y al CPU se le indica que hay datos para leer.
+
+### Resumen visual del flujo
+
+1. Ejecución normal.
+2. Ocurre una interrupción (`INT/SYSCALL`).
+3. CPU guarda el contexto actual.
+4. Ejecuta rutina de interrupción.
+5. Restaura contexto con `IRET/IRETD/IRETQ`.
+6. Resume ejecución normal.
+
+### Interrupciones prefedinidas
+
+Estas son reservadas y manejadas por el procesador o el sistema operativo.
+
+#### Excepciones de la CPU (vectores 0 al 31)
+
+Existen igual en x86 y x86-64. Son generadas por el propio procesador.
+
+| Vector  | Nombre                        | Descripción breve            |
+| ------- | ----------------------------- | ---------------------------- |
+| 0x00    | Divide Error (#DE)            | División por 0               |
+| 0x01    | Debug (#DB)                   | Breakpoints de depuración    |
+| 0x02    | NMI                           | Interrupción no enmascarable |
+| 0x03    | Breakpoint (#BP)              | `INT3`                       |
+| 0x04    | Overflow (#OF)                | Instrucción `INTO`           |
+| 0x05    | BOUND Range Exceeded (#BR)    | Fuera de rango               |
+| 0x06    | Invalid Opcode (#UD)          | Instrucción inválida         |
+| 0x07    | Device Not Available (#NM)    | FPU no disponible            |
+| 0x08    | Double Fault (#DF)            | Falla doble                  |
+| 0x09    | Coprocessor Segment Overrun   | Obsoleto                     |
+| 0x0A    | Invalid TSS (#TS)             | TSS inválido                 |
+| 0x0B    | Segment Not Present (#NP)     | Segmento no presente         |
+| 0x0C    | Stack Fault (#SS)             | Error de stack               |
+| 0x0D    | General Protection (#GP)      | Protección general           |
+| 0x0E    | Page Fault (#PF)              | Fallo de página              |
+| 0x0F    | Reserved                      | —                            |
+| 0x10    | x87 FPU Error (#MF)           | Error FPU                    |
+| 0x11    | Alignment Check (#AC)         | Alineación incorrecta        |
+| 0x12    | Machine Check (#MC)           | Error de hardware            |
+| 0x13    | SIMD Floating-Point (#XM/#XF) | Error SSE                    |
+| 0x14    | Virtualization (#VE)          | Virtualización               |
+| 0x15    | Control Protection (#CP)      | CET / shadow stack           |
+| 0x16–1F | Reserved                      | No usados                    |
+
+#### Interrupciones de hardware (PIC/APIC)
+
+Después de las excepciones, el SO mapea dispositivos de hardware.
+
+##### Mapeo típico con PIC (modo legacy)
+
+| IRQ  | Vector | Dispositivo común |
+| ---- | ------ | ----------------- |
+| 0    | 0x20   | Timer             |
+| 1    | 0x21   | Teclado           |
+| 2    | 0x22   | Cascade           |
+| 3    | 0x23   | COM2              |
+| 4    | 0x24   | COM1              |
+| 5    | 0x25   | LPT2              |
+| 6    | 0x26   | Floppy            |
+| 7    | 0x27   | LPT1              |
+| 8    | 0x28   | RTC               |
+| 9    | 0x29   | ACPI              |
+| 10   | 0x2A   | Disponible        |
+| 11   | 0x2B   | Disponible        |
+| 12   | 0x2C   | Mouse             |
+| 13   | 0x2D   | FPU               |
+| 14   | 0x2E   | ATA Primario      |
+| 15   | 0x2F   | ATA Secundario    |
+
+**Nota:** En sistemas modernos (x86-64) se usa **APIC/x2APIC**, y el mapeo puede variar.
+
+#### Interrupciones de software / llamadas al sistema
+
+Aquí está la diferencia más importante entre x86 (32-bits) y x86-64 (64-bit).
+
+**x86 (32-bit)**
+
+| Vector     | Uso                                    |
+| ---------- | -------------------------------------- |
+| 0x80       | **Linux syscall clásico** (`int 0x80`) |
+| 0x2E       | Windows NT syscall (antiguo)           |
+| Cualquiera | Software interrupt: `int n`            |
+
+**Ejemplo (antiguo)**
+
+```asm
+# Intel x86
+mov eax, 1      ; sys_exit
+mov ebx, 0
+int 0x80
+```
+
+**x85-64 (64-bit)**
+
+`int 0x80` existe pero está obsoleto y es lento.
+
+| Mecanismo  | Uso                                     |
+| ---------- | --------------------------------------- |
+| `syscall`  | Llamadas al sistema (Linux, BSD, macOS) |
+| `sysenter` | Variante rápida (principalmente 32-bit) |
+| `int 0x80` | Solo por compatibilidad                 |
+
+**Ejemplo (moderno)**
+
+```asm
+# Intel
+mov rax, 60     ; sys_exit
+mov rdi, 0
+syscall
+```
+
+### Interrupciones definidas por el usuario
+
+El programador también puede definir y manejar interrupciones personalizadas, tanto por hardware como por software. Para definir una se utiliza la instrucción `int n` con un número que **no esté reservado** por el sistema. Luego debe verificarse que ese número esté correctamente apuntado en la tabla `IDT` (interrupt descriptor table) hacia su propia rutina de manejo.
+
+**Sintaxis:** `INT n` donde `n` es un número inmediato de 8 bits (0-255), que identifica qué interrupción se dispara.
+
+**Ejemplo**
+
+```asm
+# Intel
+int 0x21 # interrupción personalizada
+```
+
+Si se configuró correctamente la entrada `0x21` en la `IDT` con el manejador o gestor, el CPU realizará el salto allí.
+
+#### Interrupciones personalizadas por hardware
+
+En el modo protegido y en sistemas operativos modernos, la `IDT` no es modificable desde el espacio de usuario, solo el kernel tiene control total.
+
+#### Consideraciones
+
+Para crear una interrupción propia, se necesita cumplir algún punto de los siguientes:
+
+- Usar modo real (bootloader por ejemplo).
+- Tener acceso en modo kernel.
+- Trabajar en un OS propio o código que se ejecuta en hardware directamente.
+
+#### Intrucciones `STI` y `CLI` en x86
+
+Controlan el flag de interrupciones en el registro de estado `EFLAGS`.
+
+`CLI` desactiva las interrupciones externas de la CPU. Esto bloquea la atención a interrupciones de hardware.
+Se usa para evitar que durante una sección crítica de código una interrupción interrumpa el flujo, evitando condiciones de carrera o corrupción de datos.
+
+`STI` activa nuevamente las interrupciones, permitiendo que la CPU entienda las interrupciones externas.
+Tiene un retraso de una instrucción antes de que realmente se activen las interrupciones, esto significa que la siguiente instrucción que viene después de `STI`, se ejecutar antes que las interrupciones sean atendidas.
+
+**Importante**: solo afectan a las interrupciones externas, pero no a las excepciones internas. Además son instrucciones privilegiadas que solo son ejecutables en modo kernel (anillo 0).
+
+#### Gestor o manejador de interrupciones pesonalizadas
+
+En el siguiente ejemplo se escribirá la entrada 0x21 de la `IVT` (interrupt vector table) para que apunte a nuestro propio manejador. Luego desde el manejador se imprimirá una letra.
+
+**Importante:** El ejercicio usa el modo real.
+
+```asm
+# Intel
+.intel_syntax noprefix
+.code16
+.globl _start
+
+.section .text
+
+_start:
+    cli                     # Desactiva interrupciones
+
+    xor ax, ax
+    mov ds, ax              # DS = 0x0000  (IVT está en 0000:0000)
+
+    # -------------------------------
+    # Instalar manejador para int 21h
+    # -------------------------------
+
+    lea bx, manejador       # BX = offset de nuestro handler
+
+    mov al, 0x21            # Número de interrupción
+    xor ah, ah
+    shl ax, 2               # AX = 0x21 * 4 (cada entrada IVT ocupa 4 bytes)
+
+    mov di, ax              # DI = offset dentro de la IVT
+
+    # Escribir nuevo vector:
+    mov word ptr [di], bx   # Offset del handler
+    mov word ptr [di+2], cs # Segmento del handler
+
+    sti                     # Reactiva interrupciones
+
+    # -------------------------------
+    # Probar la interrupción
+    # -------------------------------
+    int 0x21                # Llamada a nuestro manejador
+
+    jmp $                   # Bucle infinito
+
+
+# -----------------------
+# Manejador personalizado
+# -----------------------
+manejador:
+    pusha                   # Guarda AX, CX, DX, BX, SP, BP, SI, DI
+
+    mov ah, 0x0E            # BIOS teletipo
+    mov al, 'X'             # Carácter a mostrar
+    int 0x10                # Imprime 'X' en pantalla
+
+    popa                    # Restaura registros
+    iret                    # Retorna de la interrupción
+
+```
+
+#### ¿Qué es la IVT?
+
+LA interrupt vector table es una tabla en modo real de 256 entradas, que vive al inicio de la memoria RAM.
+
+**Características**:
+
+- Dirección: 0x0000:0000
+- Tamaño: 256 vectores x 4 bytes = 1024 bytes
+- Cada vector ocupa 4 byes: 2 bytes para el offset y 2 bytes para el segmento
+
+Por ejemplo, la interrupción de 0x13 (servicios de disco del BIOS) está en:
+
+```asm
+0x13 * 4 = 0x4C # offset dentro de la ITV
+```
+
+#### ¿Qué sucede cuando ocurre una interrupción?
+
+Cuando la interrupción ocurre (ya sea por hardware o software), el procesador guarda automáticamente en la pila:
+
+1. El valor del registro EFLAGS (o FLAGS en 16 bits)
+2. El puntero de instrucción (IP o EIP) del programa interrumpido
+3. El segmento de código (CS) asociado a esa dirección
+
+Y si la instrucción causa un cambio de privilegio (por ej: de usuario a kernel), tambien se guardan:
+
+4. El segmento de pila (SS)
+5. El puntero de pila (ESP o SP)
+
+La instrucción `IRET` revierte dicho proceso:
+- Saca de la pila esos valores: `EIP`, `CS`, `EFLAGS` y opcionalmente `SS` y `ESP`
+- Los restaura volviendo al contexto original
+- Reanuda la ejecución justo después del punto donde ocurrió la interrupción
+
+En 32 bits se llama `IRETL` y en 64 `IRETQ`, `IRET` corresponde a 16 bits.
+
+#### ¿Por qué no se debe usar `POP` al finalizar un manejador?
+
+`POP` restaura la dirección de retorno desde la pila, pero no restaura el contexto completo como sí lo hace `IRET/IRETL/IRETQ`.
+
+
+#### interrupción `0x80`
+
+Ésta interrupción interrumpe el flujo del programa, transfiere el control al kernel de Linux y le pide que realize una operación privilegiada como:
+- Salir del programa (exit)
+- Leer un archivo o stdin (read)
+- Escribir en stdout (write)
+- Abrir/Creaer archivos (open)
+
+**Sintaxis**
+
+```asm
+# Intel
+mov eax, <numero_syscall>   # número de la syscall
+mov ebx, <arg1>             # primer argumento
+mov ecx, <arg2>             # segundo argumento
+mov edx, <arg3>             # tercer argumento
+int 0x80                    # llamada al sistema
+```
+
+**Ejemplo: salir del programa**
+
+```asm
+# AT&T
+.intel_syntax noprefix
+.section .text
+.globl _start
+
+_start:
+    mov eax, 1        # syscall número 1: exit
+    mov ebx, 0        # código de salida = 0
+    int 0x80          # interrupción al kernel
+```
+
+#### ¿Por qué una interrupción?
+
+El modo usuario (userland) no puede hacer cosas como acceder directamente al disco, terminar procesos, etc.. Solo el kernel, que corre en modo privilegiado (ring 0), puede hacerlo. Entonces se necesita una puerta de entrada controlada, y esa puerta es int $0x80.
+
+#### Tabla de registros (Linux x86 - 32 bits)
+
+`EAX`: Número de syscall
+`EBX`: Primer argumento
+`ECX`: Segundo argumento
+`EDX`: Tercer argumento
+`ESI`: Cuarto argumento
+`EDI`: Quinto argumento
+`EBP`: Sexto argumento
+
+Luego el valor de retorno se entrega en el registro `EAX`.
+
+#### Tabla básica de syscalls en x86 (`int $0x80`)
+
+Los números de syscall están definidos en el archivo de cabecera del kernel:
+
+`/usr/include/asm/unistd_32.h`
+
+O en versión web: https://filippo.io/linux-syscall-table/
+
+Los argumentos siempre siguen la convención de registros:
+
+`EAX` = número de syscall
+`EBX`, `ECX, `EDX`, `ESI`, `EDI`, `EDP` = argumentos 1 a 6
+
+| Nº syscall | Nombre   | Descripción                         | Argumentos principales                         |
+| ---------- | -------- | ----------------------------------- | ---------------------------------------------- |
+| `1`        | `exit`   | Finaliza el proceso                 | `int status`                                   |
+| `2`        | `fork`   | Crea un nuevo proceso (hijo)        | *(sin argumentos)*                             |
+| `3`        | `read`   | Lee de un descriptor de archivo     | `int fd, void *buf, size_t count`              |
+| `4`        | `write`  | Escribe en un descriptor de archivo | `int fd, const void *buf, size_t count`        |
+| `5`        | `open`   | Abre un archivo                     | `const char *filename, int flags, mode`        |
+| `6`        | `close`  | Cierra un descriptor de archivo     | `int fd`                                       |
+| `11`       | `execve` | Ejecuta un nuevo programa           | `char *filename, char *argv[], char *envp[]`   |
+| `12`       | `chdir`  | Cambia el directorio actual         | `const char *path`                             |
+| `20`       | `getpid` | Obtiene el PID del proceso          | *(sin argumentos)*                             |
+| `37`       | `kill`   | Envía una señal a un proceso        | `int pid, int sig`                             |
+| `45`       | `brk`    | Gestiona la memoria del heap        | `void *end_data_segment`                       |
+| `54`       | `ioctl`  | Control de dispositivos             | `int fd, int request, ...`                     |
+| `90`       | `mmap`   | Asigna memoria                      | (6 argumentos, requiere manipulación especial) |
+| `91`       | `munmap` | Libera memoria asignada con mmap    | `void *addr, size_t length`                    |
+
+
+
+todo: abordar instrucción iret e int, están en el cap de interrupciones. Revisarlo y ver si se puede migrar a sintaxis intel.
+
+todo: abordar instrucciones in y out, luego volver al libro de estructuras de computadores a la pag 45
 
 todo: hacer algunos programas
 
