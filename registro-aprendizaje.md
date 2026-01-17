@@ -1081,16 +1081,17 @@ A diferencia de lenguajes como C en donde el linker busca la función main, en e
 
 #### Secciones y organización del código
 
-| Directiva           | Función                        | Ejemplo                |
-| ------------------- | ------------------------------ | ---------------------- |
-| `.section name`     | Define o cambia de sección     | `.section .data`       |
-| `.text`             | Sección de código              | `.text`                |
-| `.data`             | Datos inicializados            | `.data`                |
-| `.bss`              | Datos no inicializados         | `.bss`                 |
-| `.rodata`           | Datos de solo lectura          | `.section .rodata`     |
-| `.previous`         | Vuelve a la sección anterior   | `.previous`            |
-| `.pushsection name` | Guarda sección actual y cambia | `.pushsection .rodata` |
-| `.popsection`       | Restaura sección anterior      | `.popsection`          |
+| Directiva           | Función                         | Tamaño   | Crecimiento        |
+| ------------------- | ------------------------------- | -------- | ------------------ |
+| `.section name`     | Define o cambia de sección      |          |                    |
+| `.text`             | Sección de código               | Fijo     |                    |
+| `.data`             | Datos inicializados             | Fijo     |                    |
+| `.bss`              | Datos no inicializados          | Fijo     |                    |
+| `.rodata`           | Datos de solo lectura           | Fijo     |                    |
+| `.previous`         | Vuelve a la sección anterior    |          |                    |
+| `.pushsection name` | Guarda sección actual y cambia  |          |                    |
+| `.popsection`       | Restaura sección anterior       |          |                    |
+| `.heap`             | Memoria dinámica de un programa | Variable | Crece hacia arriba |
 
 #### Definición de datos (variables y constantes)
 
@@ -8858,6 +8859,8 @@ En ensamblador, normalmente no accedes al APIC con instrucciones normales, si no
 | Interrupciones internas      | Limitadas    | Timer, IPIs, Performance counters, etc. |
 
 
+
+todo: abordar `sti` y `cli` 
 
 todo: abordar instrucciones in y out, luego volver al libro de estructuras de computadores a la pag 45
 
