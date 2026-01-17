@@ -1208,6 +1208,99 @@ No genera saltos en CPU, mas bien decide qué cóðigo se ensambla o no.
 | `.intel_syntax noprefix` | Sintaxis Intel         | `.intel_syntax noprefix` |
 | `.att_syntax`            | Vuelve a sintaxis AT&T | `.att_syntax`            |
 | `.arch arch`             | Fija arquitectura      | `.arch x86_64`           |
+| .cpu                     | Fija microarquitectura | .cpu core2               |
+
+#### Directiva `.cpu`
+
+Directiva GAS x86-64 que indica al ensamblador para qué microarquitectura (CPU) debe generar código. No ejecuta nada en tiempo de ejecución, solo afecta qué instrucciones instrucciones son permitidas y qué optimizaciones habilita el ensamblador.
+
+**Usos**
+
+1. Restringir instrucciones.
+   - Evita el uso de instrucciones que no existen en el CPU objetivo.
+   - Si se usa una instrucción no soportada, el ensamblador da error.
+2. Habilitar extensiones.
+   - Activa soporte para sets de instrucciones como: `SSE`, `SSE2`, `AVX`, `AVX2`, `AES`, `BMI`, etc.
+   - Útil si se quiere usar instrucciones modernas sin preocuparse por CPUs viejas.
+3. Compatibilidad binaria.
+   - Asegura que el binario funcione en un conjunto concreto de CPUs.
+
+**Ejemplo**
+
+```asm
+# Intel
+.cpu generic
+# Compatible con cualquier CPU x86-64
+.cpu core2
+# Permite instrucciones que existen desde Intel Core 2 (SSE3, SSS3, etc)
+.cpu haswell
+# Permite AVX2, BMI1, BMI2, FMA, etc
+
+.cpu core2
+vmodqu ymm0, ymm1 # Intenta usar AVX (no existe en Core2)
+# Error de ensamblado: instrucción no soportada para esa CPU
+```
+
+`.cpu` es el equivalente conceptual a:
+
+`gcc -march-haswell`
+
+Pero aplicado dentro del archivo `.s`, no desde la línea de comandos.
+
+**Listado de CPUs soportadas por `.cpu`**
+
+| `.cpu` GAS       | Fabricante | Extensiones principales habilitadas |
+| ---------------- | ---------- | ----------------------------------- |
+| `generic`        | Intel/AMD  | Solo x86-64 básico, SSE, SSE2       |
+| `pentium`        | Intel      | MMX, SSE                            |
+| `pentiumpro`     | Intel      | MMX, SSE, SSE2                      |
+| `pentium2`       | Intel      | MMX, SSE, SSE2                      |
+| `pentium3`       | Intel      | SSE3                                |
+| `pentium4`       | Intel      | SSE3, SSSE3                         |
+| `nocona`         | Intel      | SSE3, SSSE3                         |
+| `prescott`       | Intel      | SSE3, SSE4.1                        |
+| `core2`          | Intel      | SSE4.1, SSSE3                       |
+| `nehalem`        | Intel      | SSE4.2, POPCNT                      |
+| `westmere`       | Intel      | SSE4.2, POPCNT, AES                 |
+| `sandybridge`    | Intel      | AVX, SSE4.2, FMA3                   |
+| `ivybridge`      | Intel      | AVX, FMA3, SSE4.2                   |
+| `haswell`        | Intel      | AVX2, FMA3, BMI1, BMI2, AES         |
+| `broadwell`      | Intel      | AVX2, FMA3, BMI1, BMI2, AES         |
+| `skylake`        | Intel      | AVX2, FMA3, BMI1, BMI2, AVX512      |
+| `skylake-avx512` | Intel      | AVX512, AVX2, FMA3, BMI1/2          |
+| `cascadelake`    | Intel      | AVX512, AVX2, FMA3, BMI1/2          |
+| `icelake-client` | Intel      | AVX512, AVX2, FMA3, BMI1/2, SHA     |
+| `icelake-server` | Intel      | AVX512, AVX2, FMA3, BMI1/2, SHA     |
+| `tigerlake`      | Intel      | AVX512, AVX2, FMA3, BMI1/2          |
+| `rocketlake`     | Intel      | AVX512, AVX2, FMA3                  |
+| `znver1`         | AMD        | SSE4a, SSE4.2, FMA4, XOP            |
+| `znver2`         | AMD        | AVX2, BMI1/2, FMA3, AES             |
+| `znver3`         | AMD        | AVX2, BMI1/2, FMA3, AES, SHA        |
+| `bdver1`         | AMD        | SSE4a, XOP, FMA4                    |
+| `bdver2`         | AMD        | SSE4a, XOP, FMA4                    |
+| `bdver3`         | AMD        | AVX2, SSE4a, XOP, FMA4              |
+| `bdver4`         | AMD        | AVX2, SSE4a, FMA4, BMI1/2           |
+| `amdfam10`       | AMD        | SSE4a, 3DNow!, FMA4                 |
+| `barcelona`      | AMD        | SSE4a, 3DNow!, FMA4                 |
+
+**Notas**
+
+- Intel VS AMD
+
+  Intel usa nombres de microarquitectura (`haswell`, `skylake`, `icelake`, etc). AMD usa `znverX`, `bdverX`, `amdfam10`, etc.
+
+- `.cpu` no soporta:
+
+  - Código para GPU.
+  - No habilita instrucciones fuera de x86-64.
+
+- `.cpu` es solo para el ensamblador, para compilar con `GCC` se debe usar `-march=` o algún equivalente como `-march-haswell`.
+
+- Conocer el modelo de CPU:
+
+  ```bash
+  lscpu | grep "Model name"
+  ```
 
 #### Misceláneas útiles
 
