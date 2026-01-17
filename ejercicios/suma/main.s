@@ -1,6 +1,6 @@
 .intel_syntax noprefix
 .section .data
-    # Variables ed 16 bits
+    # Variables de 16 bits
     a: .short 10 # var a
     b: .short 5  # var b
     c: .short 0  # var c

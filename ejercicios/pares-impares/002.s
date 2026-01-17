@@ -9,7 +9,7 @@
     # largo de solo uno de ellos
     txt_len = . - txt_impar
     bout_len = txt_len * END_SEQUENCE
-        # Puntero al inicio de bout
+    # Puntero al inicio de bout
     bout_ptr: .quad bout
 
 .section .bss
