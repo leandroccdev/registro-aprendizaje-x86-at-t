@@ -1,0 +1,5 @@
+starti
+graph display (char[30])bout
+graph display (char[14])row
+graph display $rax
+graph display $rdx
