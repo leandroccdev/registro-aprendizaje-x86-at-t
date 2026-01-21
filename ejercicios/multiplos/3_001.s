@@ -1,9 +1,10 @@
 .intel_syntax noprefix
-.section .data
+.section .rodata
     # Constantes
     END_SEQUENCE = 40
-    N = 3 # divisor
+    N = 3
 
+.section .data
     # Variables
     # Fila con texto a imprimir alineada a 14 caracteres
     row: .ascii "  \n"
