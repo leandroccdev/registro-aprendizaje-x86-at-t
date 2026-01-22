@@ -1,4 +1,4 @@
-# ASM X86 - Registro de aprendizaje (con sintaxis AT&T e Intel)
+# ASM  x86-64 - Registro de aprendizaje (con GAS y sintaxis  Intel)
 
 **Nota**
 La presente es una guía que voy elaborando en el tiempo. Me baso en todos los recursos disponibles que tengo a mano (internet, IA, libros, vídeos, etc). Por lo que (y dado que no soy experto en el área), podría ser inexacta y tener conceptos errados.
