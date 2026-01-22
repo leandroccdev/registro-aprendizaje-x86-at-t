@@ -660,8 +660,9 @@ Un selector es un valor de 16 bits que indica índice y privilegio. Cuando se ca
 **¿Donde está la GDT?**
 La dirección y tamaño de la GDT están en un registro especial llamado `GDTR`. Dicho registro se carga con la instrucción `lgdt` (load gdt).
 
-**¿Por qué importa la GDT hoy?
+**¿Por qué importa la GDT hoy?**
 En sistemas modernos 32/64 bits con paging, la segmentación está muy simplificada, pero la GDT sigue existiendo para:
+
 - Definir segmentos planos (base 0, limite 4GB).
 - Definir segmentos especiales (`fs`, `gs`) usados para TLS o estructuras del kernel.
 - Mantener compatibilidad y seguridad.
