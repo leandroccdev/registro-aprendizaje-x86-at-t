@@ -73,7 +73,7 @@ _start:
         # --------------------------------------------------
 
         _s_continue:
-        # Repite mientras rax <= END_SEQUENCE
+        # Repite mientras r12 <= END_SEQUENCE
         inc r12
         cmp r12, END_SEQUENCE
         jbe _s_loop
