@@ -9023,6 +9023,119 @@ sti                  # Activa interrupciones externas
 
 todo: abordar instrucciones in y out, luego volver al libro de estructuras de computadores a la pag 45
 
+## Comunicación con puertos E/S (Input/Oputput) del hardware
+
+La comunicación normalmente es gestionada por el kernel, en modo real o en modo protegido por varias razones (seguridad, abstracción y estabilidad).
+
+**Modo real**: el CPU puede ejecutar `IN`/`OUT` directamente y acceder a toda la memoria y puertos. Esto era típico en DOS y BIOS.
+
+**Modo protegido / x86-64 moderno:** La CPU restringe el acceso a puertos E/S y a memoria privilegiada. Solo el kernel o drivers con privilegios pueden usar `IN`/`OUT`. Los programas de usuario deben pasar por llamadas al sistema (`SYSCALL`) para interactuar con el hardware.
+
+**Gestión del kernel**
+
+Cuando un programa necesita leer/escribir hardware se sucede lo siguiente:
+
+1. El programa hace una llamada al sistema, por ejemplo:
+  - En linux: `read()`, `write()`, `ioctl()`, o funciones específicas como `ioperm()/iopl()`. 
+  - En windows: llamadas a drivers o `CreateFile("\\.\COM1")` para puerto serial.
+2. El kernel verifica permisos.
+2. El kernel ejecuta las instrucciones `IN`/`OUT` en modo privilegiado y devuelve los datos al programa.
+
+### Puertos E/S de entrada y salida
+
+En x86 a parte de la memoria, los dispositivos periféricos (teclado, pantalla, puertos seriales, etc) se comunican con la CPU mediante puertos de E/S. Cada uno es un número único que sirve como dirección para leer o escribir datos hacia un dispositivo. Son independientes de la memoria RAM, y se los accede usando instrucciones especiales (`IN` y `OUT`), o a veces a través de memoria mapeada (MMIO).
+
+**Modo real**
+
+En modo real, es decir, en el modo inicial de arranque de x86, el bus de direcciones de puertos es de 16 bits, por lo que los puertos válidos van desde `0x0000` a `0xFFFF`. Esto significa que hay 65536 puertos posibles, y los datos que se pueden transferir generalmente son:
+
+- `INB/OUTB`: 1 byte (8 bits)
+- `INW/OUTW`: 2 bytes (16 bits)
+- `INL/OUTL`: 4 bytes (32 bits)
+
+Un ejemplo clásico es el puerto `0x60` (teclado) o el puerto `0x3F8` (puerto de serie COM1).
+
+**Nota:** En modo real no hay restricciones de dirección impuestas por el SO, solo por el hardware, si se escribe en un puerto inexistente, el resultado es indefinido (puede ser ignorado o causar un fallo de hardware).
+
+**Modo Protegido / modo de 64 bits**
+
+En el modo protegido o modo largo de 64 bits, la CPU mantiene el espacio de puertos de 16 bits, igual que en modo real. No aumenta el rango. Lo que significa que el límite sigue siendo de `0x0000` a `0xFFFF`.La principal diferencia es que en sistemas modernos con con SO, el acceso directo a puertos está restringido al anillo 0 (al kernel). Es decir que un programa en modo usuario no puede ejecutar `IN`/`OUT` directamente, teniendo que llamar al kernel o usar drivers. Finalmente los datos se transfieren de la misma manera que en modo real.
+
+### Instrucción `IN` - Leer desde un puerto
+
+Lee datos desde un puerto de E/S hacia un registro del procesador. No modifica los flags del CPU.
+
+**Sintaxis:**  `IN dest, port`
+
+- `dest` puede ser un registro de 8, 16 o 32 bits, es decir `AL/AX/EAX` específicamente y no otros. (No se puede usar `EBX` por ejemplo).
+- `port`: puede ser:
+  - Un valor inmediato de 8 bits (`0-255`), por ejemplo: `0x60` (teclado).
+  - El registro `DX` que permite un puerto de 16 bits.
+
+Históricamente se ha usado `DX` como registro para especificar el puerto, ya que `IN` fue diseñada para ser simple. Si el puerto cabe en 8 bits se puede especificar como inmediato (`0x60`). Si se necesitan más de 8 bits, `DX` sirve como registro de 16 bits que apunta al puerto. **No existen variantes de `IN` que acepten otros registros de 16 bits para almacenar el puerto.**
+
+**Ejemplo**
+
+```asm
+# Intel
+mov dx, 0x60 # Puerto del teclado
+in al, dx    # Lee la tecla presionada
+# En AL quedará el código de la tecla presionada
+```
+
+### Instrucción `OUT` - Escribir a un puerto 
+
+Escribe datos desde un registro del procesador hacia un puerto E/S. No modifica los flags del CPU.
+
+**Importante**
+
+Contrario a lo que se pueda pensar, no porque un puerto sea normalmente de lectura (como el teclado) significará que no se pueda escribir en ellos. Para el caso de los teclados, el hardware normalmente ignora los datos que el CPU escribe. En otros casos, escribir ciertos puertos puede enviar comandos al controlador (al integrado del hardware). Se tiene el caso en donde escribir en el puerto `0x60` también sirve para enviar ciertos comandos al controlador PS/2, como reiniciar el teclado, resetearlo o setear LEDs. 
+
+En resumen, leer desde un puerto, no significa que no se pueda escribir en el. Aunque algunos puertos están diseñados solo para lectura y datos escritos se ignoran.
+
+**Sintaxis:** `OUT port, src`
+
+Nuevamente `port` es `DX` (16 bits) o un valor inmediato de 8 bits (0-255). Y `src` un registro de 8,16 o 32 bits (`AL`, `AX` o `EAX` respectivamente y no otros).
+
+**Ejemplo**
+
+```asm
+# Intel
+# Escribe 1 byte a un puerto usando DX
+mov dx, 0x60 # Puerto del teclado
+mov al, 0x2  # Data a enviar (por ej LED de caps lock)
+out dx, al
+
+# Escribir 1 byte usando puerto inmediato
+mov al, 0xFF
+out 0x80, al # 0x80 es el puerto directo usando inmediatos
+
+# Escribir 2 bytes (AX) o 4 bytes (EAX)
+mov dx, 0x378 # Puerto paralelo
+mov ax, 0x1234
+out dx, ax
+```
+
+### Puertos comunes en x86
+
+La siguiente tabla ejemplifica puertos conocidos para hardware clásico de PC. En SOs modernos, el acecso directo con `IN`/`OUT` normalmente está bloqueado en modo usuario. Solo es accesible desde el kernel o drivers.
+
+Muchos dispositivos modernos usan `MMIO` (Memory-Mapped I/O) en lugar de puertos tradicionales.
+
+| Puerto (hex) | Tamaño    | Dispositivo / Función                         | Notas                                                        |
+| ------------ | --------- | --------------------------------------------- | ------------------------------------------------------------ |
+| 0x60         | 1 byte    | Teclado / control de LEDs                     | Leer tecla presionada (`in al, 0x60`) o encender LEDs (`out 0x60, al`) |
+| 0x64         | 1 byte    | Controlador de teclado (status / comandos)    | Usado junto con 0x60 para comandos especiales                |
+| 0x378        | 1–2 bytes | Puerto paralelo (LPT1)                        | Enviar datos a impresoras antiguas                           |
+| 0x3F8        | 1 byte    | Puerto serial COM1                            | Comunicación serie (RS-232)                                  |
+| 0x2F8        | 1 byte    | Puerto serial COM2                            | Comunicación serie                                           |
+| 0x70         | 1 byte    | CMOS / RTC index                              | Seleccionar registro del reloj / CMOS                        |
+| 0x71         | 1 byte    | CMOS / RTC data                               | Leer o escribir datos del reloj / CMOS                       |
+| 0x61         | 1 byte    | Controlador de altavoz / PIT                  | Beep speaker, timer control                                  |
+| 0x40–0x43    | 1–4 bytes | Timer 8254 / PIT                              | Contadores del timer del sistema                             |
+| 0x80         | 1 byte    | Puerto de diagnóstico POST                    | Usado por BIOS para debug                                    |
+| 0xF0–0xFF    | 1 byte    | Puertos de expansión / específicos de tarjeta | Variable según el hardware                                   |
+
 todo: hacer algunos programas
 
 - un programa que responda a las teclas
