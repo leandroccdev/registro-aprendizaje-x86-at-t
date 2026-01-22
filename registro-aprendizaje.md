@@ -8952,9 +8952,74 @@ En ensamblador, normalmente no accedes al APIC con instrucciones normales, si no
 | Vectores dirigidos a núcleos | No           | Sí                                      |
 | Interrupciones internas      | Limitadas    | Timer, IPIs, Performance counters, etc. |
 
+## Instrucción `CLI` (clear interrupt flag)
 
+Limpia el flag `IF` (Interrupt Flag) del CPU (EFLAGS/RFLAGS), es decir, lo escribe a cero. **Cuando `IF = 0` el CPU deja de responder a interrupciones externas (IRQ)**.
 
-todo: abordar `sti` y `cli` 
+**¿Qué instrucciones quedan deshabilitadas?**
+
+- Las interrupciones de hardware.
+- Las interrupciones de software (`INT n`) siguen funcionando.
+
+**Sintaxis**: `CLI`
+
+**Ejemplo**
+
+```asm
+# Intel
+cli                  # Deshabilita interrupciones externas
+mov eax, [crit_data] # Lee dato crítico
+add eax, 1
+mov [crit_data], eax # Escribe el dato crítico
+sti                  # Habilita interrupciones externas
+```
+
+**Nota:** Si no se ejecutara `CLI`, un timer o interrupción de hardware podría modificar `crit_data` a la vez, provocando errores.
+
+**Contexto de `CLI`**
+
+- Es una instrucción privilegiada en modo kernel (anillo 0).
+- Se suele usar para proteger secciones críticas donde se modifican datos que podrían ser tocados por un ISR (Interrupt Service Routine).
+
+**Relación con EFLAGS**: `IF` es el bit 9 del registro EFLAGS/RFLAGS.
+
+**Importante:**
+
+- `CLI` no bloquea interrupciones de software (`INT n`) ni excepciones internas del CPU (div/0, page fault, etc.).
+- Solo afecta interrupciones externas de hardware (IRQ) que van al PIC/APIC.
+- Siempre debe ir acompañada de `STI` después de la sección crítica, o el CPU no responderá a interrupciones de hardware nunca más.
+
+## Instrucción `STD` (set interrupt flag)
+
+Setea `IF = 1`, haciendo que el CPU vuelva a responder a interrupciones externas (IRQ). Es la contra parte de `CLI`. Si alguna interrupción estaba pendiente mientras `IF = 0`, el CPU la atenderá casi inmediatamente después de después de `STI`.
+
+**Sintaxis:** `STI`
+
+**Contexto de `STI`**
+
+Se usa siempre después de `CLI` o en código kernel cuando quieres proteger temporalmente datos críticos.
+
+**Ejemplo**
+
+```asm
+# Intel
+cli                  # Deshabilita interrupciones externas
+mov eax, [crit_data] # Modifica datos críticos
+add eax, 1
+mov [crit_data], eax
+sti                  # Activa interrupciones externas
+```
+
+**Nota:** Sin `STI`, el CPU ya no responderá a interrupciones externas, lo que puede bloquear timers, teclado, APIC, etc.
+
+**Importante:**
+
+- `STI` no provoca interrupción inmediata.
+
+  Si había interrupciones pendientes mientras `IF = 0`, se atenderán después de ejecutar al menos una instrucción tras `STI`.
+
+- Siempre usar en modo kernel (anillo 0).
+- La combinación `CLI`/`STI` es un patrón clásico de sección crítica en sistemas operativos.
 
 todo: abordar instrucciones in y out, luego volver al libro de estructuras de computadores a la pag 45
 
