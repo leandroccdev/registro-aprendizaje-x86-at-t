@@ -9136,7 +9136,495 @@ Muchos dispositivos modernos usan `MMIO` (Memory-Mapped I/O) en lugar de puertos
 | 0x80         | 1 byte    | Puerto de diagnóstico POST                    | Usado por BIOS para debug                                    |
 | 0xF0–0xFF    | 1 byte    | Puertos de expansión / específicos de tarjeta | Variable según el hardware                                   |
 
-todo: hacer algunos programas
+## Intercambio de datos
+
+### Instrucción `XCHG` (exchange) 
+
+Intercambia el contenido de dos operandos. Es un swap directo en una sola instrucción sin usar un registro temporal. No modifica los flags del CPU. Soporta registros de 8, 16, 32 y 64 bits, pero ambos registros deben ser del mismo tamaño.
+
+**Sintaxis:** `XCHG dest, src`
+
+**Ejemplo**
+
+```asm
+# Intel
+# Registro <-> Registro
+mov rax, 10
+mov rbx, 20
+xchg rax, rbx
+
+# Resultado (no usa registro temporal).
+# rax = 20
+# rbx = 10
+
+# Registro <-> Memoria
+xchg rax, [rpb-8]
+
+# Intercambia rax con el valor almacenado en [rbp-8]
+```
+
+**Lock implícito**
+
+Cuando uno de los operandos es memoria, xchg es automáticamente atómico, como si llevara un `lock` implícito.
+
+```asm
+# Intel
+lock xchg rax, [mem]
+```
+
+El CPU garantiza atomicidad incluso sin agregar el prefijo `LOCK`. Esto significa que la operación no puede ser interrumpida por otra CPU ni por otra instrucción que pueda leer/escribir esa memoria. En otras palabras: mientras `XCHG` con memoria se ejecuta, ningún otro core o thread puede ver un valor intermedio. Lo que garantiza que el intercambio ocurra inmediatamente.
+
+El prefijo `LOCK` se usa para hacer operaciones atómicas sobre memoria compartida: Ej:
+
+```asm
+# Intel
+lock inc dword [mem]
+```
+
+Bloquea la memoria a nivel de bus para asegurar que ningún otro procesador lea/escriba en ella mientras se hace el `INC`. En el caso de `XCHG` no hace falta usar el prefijo `LOCK` ya que la atomicidad es implícita.
+
+**¿Por qué bloquear el bus?**
+
+En arquitecturas multi-core, la memoria es compartida. Para que la operación sea atómica, el hardware se debe asegurar que ningún otro core realice operaciones de lectura/escritura en la dirección de memoria mientras se intercambia el valor. En procesadores antiguos o simples, esto se lograba "bloqueando el bus". En CPUs modernas, se hace mediante "snooping de cache coherente", pero la idea es la misma: no tener interferencias.
+
+**Usos comunes**
+
+- Que `XCHG` sea implícitamente atómico hace que sea una instrucción ideal para implementar:
+
+  - **Spinlocks:** loops que esperan hasta que puedan adquirir un lock.
+
+  - **Mutexes:** exclusión mutua en secciones críticas.
+
+  - **Contadores atómicos:** operaciones que deben actualizar memoria compartida sin interferencia.
+
+- Reversing y análisis de binarios:
+
+​	Si se está realizando reversing engineering y se ve un `XCHG` operando con memoria, se puede tener una pista 	fuerte de que existe concurrencia, entregando contexto importante sobre el bloque de código analizado.
+
+- Optimización de código:
+
+​	Usar `XCHG RAX, otro` puede ser mas corto y rápido que usar `MOV` doble en algunos casos.
+
+- Ofuscación:
+
+  Suelen verse secuencias que parecen ruido pero que en realidad reorganizan valores.
+
+  ```asm
+  # Intel
+  xchg rax, rbx
+  xchg rbx, rcx
+  xchg rax, rbx
+  ```
+
+**Forma especial de `XCHG` con `AX/RAX`**
+
+En x86 la instreucción `XCHG` tiene un encoding más corto cuando uno de los operandos es el registro acumulador (`AX` en 16-bits, `EAX` en 32 bits y `RAX` en 64-bits):
+
+```asm
+# Intel
+xch rax, rbx # Forma optimizada
+```
+
+La CPU tiene un `OPCODE` especial para esto. Se codifica en menos bytes que un `XCHG` entre otros registros cualquiera:
+
+| Operación       | Tamaño típico en bytes |
+| --------------- | ---------------------- |
+| `xchg rax, rbx` | 2 bytes                |
+| `xchg rbx, rcx` | 3 bytes                |
+
+Esto viene de la compatibilidad con la arquitectura original de Intel 8086/8088, donde `AX` era el registro principal para operaciones rápidas.
+
+**Truco histórico: `XCHG AX, AX` equivale a `NOP`**
+
+Cuando se intercambia `AX` con sigo el CPU reconoce el patrón y ejecuta un `NOP`. Esta es una manera de de insertar un `NOP` de 2 bytes en código ensamblador, muy útil para alineación o timing. 
+
+**¿Por qué los compiladores modernos evitan usar `XCHG`?**
+
+Como es sabido, los compiladores modernos prefieren `MOV`:
+
+```asm
+# Intel
+# Intercambia RBX <-> RCX
+mov rax, rbx # Guarda el valor de RBX en RAX (temp)
+mov rbx, rcx # Copia RCX en RBX
+mov rcx, rax # Restaura RBX desde RAX
+```
+
+Debido a que es más lento en algunas microarquitecturas y puede generar dependencias de pipeline menos óptimas.
+
+**`LOCK XCHG` en x86-64**
+
+`LOCK` es un prefijo que aplica en `XCHG` solo cuando uno de los operandos es memoria. Asegura que ningún otro núcleo/CPU pueda acceder a esa dirección mientras se ejecuta la instrucción.
+
+```asm
+# Intel
+lock xchg rax, [rbp-8]
+```
+
+El CPU garantiza una operación atómica que impide race conditions en multi threading. Es decir que otros núcleos quedan bloqueados momentáneamente si intentan acceder a la misma dirección.
+La diferencia con el uso implícito mencionado anteriormente, es que agregando el prefijo `LOCK` explícitamente, se garantiza la atomicidad para cualquier operación registro-memoria en sistemas SMP (multi-core).
+
+En términos de **performance** el prefijo `LOCK` es costoso, bloquea el bus y solo se usa cuando realmente se necesita sincronización entre cores.
+
+### ¿Qué es un Spinlock?
+
+Es un tipo de `mutex` (bloqueo) que asegura acceso exclusivo a un recurso compartido, pero con una característica clave: si un hilo (o CPU) encuentra el lock ocupado, no se duerme, si no que gira (spin) en un bucle hasta que quede libre. De ahí el nombre "spinlock" (bloqueo que itera hasta que quede libre).
+
+**¿Cómo funciona?**
+
+```asm
+# Intel
+spin:
+    mov rax, 1                # El hilo pone RAX a 1 (quiere usar el lock)
+    lock xchg rax, [lock_var] # Intento de tomar el lock
+    cmp rax, 0                # Si RAX = 0, se adquirió el lock
+    jne spin                  # De lo contrario, entra en spinlock y reintenta
+```
+
+**Características:**
+
+- **Atómico:** garantiza que solo un hilo puede adquirirlo a la vez.
+- **Bucle activo:** el hilo sigue "girando" mientras espera.
+- **Bajo overhead de sleep:** no hay cambio de contexto, es rápido si la espera es corta.
+- **Costoso en CPU:** consume ciclos mientras espera.
+
+**¿Cuando se usan?**
+
+- En kernel / drivers.
+- Para recursos de muy corta duración.
+- En sistemas multiprocesador donde bloquear y desbloquear es más caro que girar unos ciclos.
+
+**Importante:** No son buenos si el lock puede estar ocupado mucho tiempo porque desperdician CPU.
+
+### ¿Qué es un mutex?
+
+Un mutex (mutual exclusion) es un mecanismo de sincronización que asegura que un solo hilo pueda acceder a un recurso compartido a la vez.
+
+**Conceptualmente**
+
+- `lock()`:  Acceso exclusivo.
+- `unlock()`: Liberar el acceso.
+
+**Físicamente en memoria**
+
+Normalmente un mutex se representa como un entero en memoria, donde 0 significa desbloqueado y 1 bloqueado (aunque puede ser más complejo dependiendo del SO).
+
+**Instrucciones en x86-64**
+
+En x86-64 tiene instrucciones atómicas que permiten implementar mutexes sin que dos hilos se solapen. Las principales son:
+
+- `XCHG` (exchange)
+
+  `xchg eax, [mutex]`: Intercambia el valor de un registro con el valor en memoria de manera atómica.
+  Es usado para probar y establecer un mutex:
+
+  - Si el valor previo era 0, el mutex estaba libre, por lo tanto ahora se adquirió.
+  - Si era 1, ya estaba ocupado, se espera.
+
+- Prefijo `LOCK`
+
+  Dicho prefijo hace que instrucciones de memoria sean atómicas sobre múltiples núcleos.
+  `lock cmpxchg [mutex], eax`: Compara el valor en memoria con un registro, si coincide, lo reemplaza con otro valor.
+  Es muy útil para spinlocks (hilos que iteran en círculo esperando que el mutex se libere).
+
+- `TEST & SET` manual
+
+  Combina `MOV` y `XCHG` para implementar un spinlock, normalmente:
+
+  ```asm
+  # Intel
+  spinlock:
+  	mov eax, 1        # Setea en 1 el registro a bloquear 
+  	xchg eax, [mutex] # xchg intercambia con el mutex
+  	test eax, eax     # Si el mutex ya era 1, el registro ahora tiene 1, salta a spinlock
+  	jnz spinlock      # Si era 0, está bloqueado, se sigue adelante
+  ```
+
+**Tipos de mutex a nivel de CPU/SO**
+
+1. Spinlock (mutex activo)
+
+   El hilo se queda en un bucle hasta que el mutex se libere.
+
+   - Pro: rápido si el bloqueo es corto.
+   - Contra: Desperdicia CPU si el bloqueo dura mucho.
+
+2. Mutex del kernel (bloqueante)
+
+   Si el mutex está ocupado, el hilo se pone en estado de espera y cede a la CPU.
+
+   Implementación: Se intenta tomar el mutex con `LOCK CMPXCHG`, si falla el hilo hace una syscall para dormir hasta que el mutex se libere.
+
+**Secuencia típica de lock/unlock en x86-64**
+
+**Lock**
+
+1. Leer el mutex.
+2. Intentar atómicamente cambiar de 0 a 1.
+3. Si no se puede esperar (spin o dormir).
+
+**Unlock**
+
+1. Escribir 0 en el mutex.
+2. Opcionalmente hacer `mfence` o `sfence` si se necesita memory ordering.
+
+**Memory ordering**
+
+x86-64 garantiza **strong ordering** para instrucciones de carga/almacenamiento de memoria, pero a veces se usan `mfence` para segurar que todos los cambios a memoria sean visibles a otros núcleos antes de liberar el mutex.
+
+### Instrucción `CMPXCHG` (Compare and Exchange)
+
+Compara el valor de un registro (normalmente `RAX`) con un operando de memoria o registro. Si son iguales copia el valor de otro registro al operando destino. Si son distintos actualiza `RAX` con el valor actual del operando de destino. Modifica el flag ZF (Zero Flag) indicando si se realizó el intercambio entre `dest` y `src (ZF = 1)`, o si `RAX` tomó el valor de `dest` (`ZF = 0`).
+
+**Sintaxis:** `CMPXCHG dest, src`
+
+**Donde:**
+
+- **Destino:** es un registro o una dirección de memoria.
+- **Fuente:** Registro.
+- **Implícito:** `RAX` se usa para la comparación.
+
+**Nota**: `RAX` siempre contiene el valor esperado antes de la operación.
+
+**Después de la instrucción:**
+
+- Si la comparación falla: `RAX != dest`, `RAX` se actualiza con el valor real de `dest`.
+- Si la comparación tiene éxito, `dest` se sobrescribe con `src`. 
+
+**Registro implícito**
+
+| Tamaño  | Registro usado para comparar |
+| ------- | ---------------------------- |
+| 8 bits  | AL                           |
+| 16 bits | AX                           |
+| 32 bits | EAX                          |
+| 64 bits | RAX                          |
+
+**Ejemplo: (64 bits)**
+
+```asm
+# Intel
+mov rax, 5       # Valor esperado
+mov rbx, 10      # Nuevo valor
+cmpxchg rcx, rbx # Intenta intercambiar
+
+# Caso 1: RCX == RAX (5)
+# - RCX = RBX -> RCX = 10
+# Flags: ZF (Zero Flag) = 1, indica éxito
+
+# Caso 2: RCX != RAX (por ej, RCX = 7)
+# - RAX = RCX -> RAX = 7
+# RCX no cambia
+# Flags: ZF = 0, indica fallo
+```
+
+**Pseudocódigo del ejemplo**
+
+```C
+if (RAX == RCX) {
+    RCX = RBX;     // intercambio exitoso
+    ZF = 1;
+} else {
+    RAX = RCX;     // se copia el valor real
+    ZF = 0;
+}
+```
+
+
+
+**Ejemplo (32-bits)**
+
+```asm
+# Intel
+mov eax, 5        # Valor esperado
+mov ebx, 10       # Nuevo valor
+mov ecx, 5        # Valor a comparar
+cmpxchg ecx, ebx # Intenta intercambiar
+
+# Caso 1: EAX == ECX (5)
+# - ECX = EBX -> ECX = 10
+# Flags: ZF (Zero Flag) = 1, indica éxito
+
+# Caso 2: EAX != ECX (por ej, ECX = 7)
+# - EAX = ECX -> EAX = 7
+# ECX no cambia
+# Flags: ZF = 0, indica fallo
+```
+
+**Pseudocódigo del ejemplo**
+
+```C
+if (EAX == ECX)
+    ECX = EBX;      // intercambio exitoso
+    ZF = 1
+else
+    EAX = ECX;     // se copia el valor real
+    ZF = 0
+
+```
+
+**Ejemplo (16 bits)**
+
+```asm
+# Intel
+mov ax, 5        # valor esperado
+mov bx, 10       # nuevo valor
+cmpxchg cx, bx   # intenta intercambiar
+
+# Caso 1: AX == CX (5)
+# CX = BX → CX = 10
+# Flags: ZF (Zero Flag) = 1, indica éxito
+
+# Caso 2: AX != CX (por ej, CX = 7)
+# AX = CX → AX = 7
+# CX no cambia
+# Flags: ZF = 0, indica fallo
+```
+
+**Pseudocódigo del ejemplo**
+
+```C
+if (AX == CX) {
+    CX = BX;     // intercambio exitoso
+    ZF = 1;
+} else {
+    AX = CX;     // devuelve valor real
+    ZF = 0;
+}
+```
+
+**Ejemplo (8 bits)**
+
+```asm
+# Intel
+mov al, 5        # Valor esperado
+mov bl, 10       # Nuevo valor
+mov cl, 5        # Valor a comparar
+cmpxchg cl, bl   # Intenta intercambiar
+
+# Caso 1: AL == CL (5)
+# CL = BL → CL = 10
+# Flags: ZF (Zero Flag) = 1, indica éxito
+
+# Caso 2: AL != CL (por ej, CL = 7)
+# AL = CL → AL = 7
+# CL no cambia
+# Flags: ZF = 0, indica fallo
+```
+
+**Pseudocódigo del ejemplo**
+
+```C
+if (AL == CL) {
+    CL = BL;     // intercambio exitoso
+    ZF = 1;
+} else {
+    AL = CL;     // devuelve valor real
+    ZF = 0;
+}
+```
+
+**Uso con memoria y el prefijo `LOCK`**
+
+Cuando el destino es memoria, `CMPXCHG` implícitamente incluye la semántica `LOCK`, es decir, la operación es atómica a nivel de CPU en sistemas SMP:
+
+```asm 
+# Intel
+mov rax, 5
+mov rbx, 10
+cmpxchg [mem], rbx # Atómico
+```
+
+Esto evita que otro núcleo cambie `[mem]` mientras se realiza la comparación y/o intercambio.
+
+**Flags afectados**
+
+- `ZF (Zero Flag)`: indica si la comparación tuvo éxito.
+  - ZF = 1: Intercambio realizado.
+  - ZF = 0: Intercambio fallido, `RAX` actualizado.
+- Otros flags: no confiables; generalmente solo se usa ZF.
+
+### Variación `CMPXCHG8B`
+
+Introduce comparación de 64 bits en modo 32 bits.
+
+**Sintaxis:** `CMPXCHG8B [mem]`
+
+**Compara:** `EDX:EAX = [mem]`
+
+- Si coinciden: `[mem] = ECX:EBX` y `ZF = 1`.
+- Si no coinciden: `EDX:EAX = [mem]` y `ZF = 0`.
+
+**Ejemplo**
+
+```asm
+# Intel
+# [mem] = 0x00000002_00000001
+
+# Valor esperado (EDX:EAX)
+mov eax, 0x00000001       # Parte baja
+mov edx, 0x00000002       # Parte alta
+
+# Nuevo valor (ECX:EBX)
+mov ebx, 0x00000003       # Parte baja nueva
+mov ecx, 0x00000004       # Parte alta nueva
+
+lock cmpxchg8b [mem]
+
+jz success # ZF = 1
+jnz failed # ZF = 0
+
+success:
+	# Intercambio exitoso
+	nop
+failed:
+	# Intercambio fallido
+	# EDX:EAX ahora contiene el valor real de [mem]
+	nop
+```
+
+### Variación `CMPXCHG16B`
+
+Introduce operaciones atómicas de 128 bits. Se usa para estructuras lock-free grandes, punteros mas contadores (ABA problem mitigation), y la implementación de std:atomic<__int128>.
+
+**Sintaxis:** `CMPXCHG16B [mem]`
+
+**Compara:** `RDX:RAX = [mem]`
+
+- Si coinciden: `[mem] = RCX:RBX` y `ZF = 1`.
+- Si no coinciden: `RDX:RAX = [mem]` y `ZF = 0`.
+
+**Ejemplo**
+
+```asm
+# Intel
+# [mem] = 0xBBBBBBBBBBBBBBBB_AAAAAAAAAAAAAAAA
+# Valor esperado (RDX:RAX)
+    mov rax, 0xAAAAAAAAAAAAAAAA
+    mov rdx, 0xBBBBBBBBBBBBBBBB
+
+    # Nuevo valor (RCX:RBX)
+    mov rbx, 0xCCCCCCCCCCCCCCCC
+    mov rcx, 0xDDDDDDDDDDDDDDDD
+
+    lock cmpxchg16b [value]
+
+    jz success # ZF = 1
+    jnz failed # ZF = 0
+
+success:
+	# Intercambio exitoso
+    nop
+
+failed:
+    # Si falla:
+    # RDX:RAX ahora contiene el valor real en memoria
+    nop
+```
+
+
+
+ todo: hacer algunos programas
 
 - un programa que responda a las teclas
 - otro que lea po teclado
