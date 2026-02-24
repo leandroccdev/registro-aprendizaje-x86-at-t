@@ -7888,7 +7888,7 @@ bucle:
 
 ## Instrucción `STOS` (store string)
 
-Copia el contenido de un registro hacia memoria, en la dirección apuntada por `DI/EDI/RDI`, y luego avanza o retrocede el puntero automáticamente según lo indique `DF`. Es palabras simples: `STOS` guarda un valor en memoria y mueve el puntero de destino. No modifica los flags del CPU. Lee `DF`.
+Copia el contenido de un registro (registro de origen según el tamaño de la operación) hacia memoria, en la dirección apuntada por `DI/EDI/RDI`, y luego avanza o retrocede el puntero automáticamente según lo indique `DF`. Es palabras simples: `STOS` guarda un valor en memoria y mueve el puntero de destino. No modifica los flags del CPU. Lee `DF`.
 
 **Sintaxis:** `STOS[m]` donde `m` es un modificador:
 
@@ -9622,14 +9622,16 @@ failed:
     nop
 ```
 
+Todo: seguir con la lista del intercambio de datos y luego pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
 
+todo: ver instrucciones relacionadas a xchg (las del archivo fundamentos-intercambios.odt)
 
  todo: hacer algunos programas
 
 - un programa que responda a las teclas
 - otro que lea po teclado
 
-todo: ver instrucciones relacionadas a xchg (las del archivo fundamentos-intercambios.odt)
+
 
 todo: abordar el uso de fpu x87 (fdiv, fdivp, etc)
 
