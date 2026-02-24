@@ -6943,6 +6943,58 @@ funcion:
 
 `var1` y `var2` son los alias para las variables de stack. No ocupan memoria extra, pero hacen que el código sea mucho más legible.
 
+### Convención CDECL (C Declaration)
+
+Es una convención de llamada por defecto para C en sistemsa x86 (Windows, Linux).
+
+**Define lo siguiente:**
+
+- **Quien limpia la pila:** El que llama a la función (caller) es responsable de limpiar los argumentos de la pila.
+
+- **Paso de argumentos:** Los argumentos se pasan de derecha a izquierda.
+
+  **Ejemplo:** `fn(a, b, c)` →  `c` se entrega primero, `b` en segundo lugar y `a` en tercero.
+
+- **Retorno:** El valor de retorno se coloca en `EAX` (32 bits) o `RAX` (64 bits).
+- **Funciones variádicas:** Permite funciones con número variable de argumentos (como `printf`), porque el caller sabe cuántos argumentos pasó y puede limpiar la pila correctamente.
+
+**Ejemplo simplificado (x86)**
+
+```asm
+# Intel
+push 3 # Argumento C
+push 2 # Argumento B
+push 1 # Argumento A
+call fn # Llamado a la función
+add esp, 12 # Caller limpia la pila (3 argumetnos * 4 bytes)
+```
+
+### Convención STDCALL (Standard Call)
+
+`stdcall`es común en Windows API y DLLs.
+
+**Define lo siguiente:**
+
+- **Quien limpia la pila:** La función llamada (calle) limpia los argumentos de la pila al retornar.
+- **Paso de argumentos:** Se pasan de derecha a izquierda.
+- **Retorno:** El valor de retorno se coloca en `EAX` (32 bits).
+- **Limitación:** No se puede usar con funciones de número variable de argumentos. (La función no sabe cuántos argumentos recibió exactamente). Por lo tanto no admite funciones variádicas.
+
+**Ejemplo simplificado (x86)**
+
+```asm
+# Intel
+# fn(a, b, c)
+push 3  # C
+push 2  # B
+push 1  # A
+call fn # Llamado a la función
+# No se limpia la pila
+# Internamente la función llama a RETN 12 (limpia 12 bytes de argumentos en la pila)
+```
+
+
+
 ## Instrucción `CALL`
 
 Llama a una función (semánticamente hablando). Técnicamente realiza dos acciones atómicas:
