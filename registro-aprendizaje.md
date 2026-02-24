@@ -7085,6 +7085,37 @@ mi_funcion:
 
 `RET` asume que en la cima de la pila está la dirección de retorno. Si `RSP` no es restaurada, `RET` sacará basura y saltará a una dirección inválida ocasionando un crash en la ejecución.
 
+## Instrucción `RETN`
+
+Es equivalente a `RET`, pero recibe un parámetro que indica cuantos bytes de deben limpiar de la pila después del retorno.
+
+**Sintaxis:** `RETN N`
+
+`N` es un valor opcional.
+
+**¿Cómo funciona?**
+
+1. El procesador toma la dirección de retorno desde la cima de la pila (ESP/RSP).
+2. La carga en `EIP/RIP`, para continuar la ejecución de la función que llamó.
+3. Incrementa `ESP/RSP` para sacar esa dirección de retorno de la pila.
+4. Si tiene un parámetro `N`, también suma `N` a `ESP/RSP`, eliminando automáticamente los argumentos de la función de la pila.
+
+**Ejemplo**
+
+```
+Pila
+ESP+0 -> Dirección de retorno
+ESP+4 -> Argumento 1
+ESP+8 -> Argumento 2
+
+retn 0x8
+- Pop de la dirección de retorno
+- Salto a <dirección de retorno>
+- Suma 0x8 a ESP, eliminando argumento 1 y argumento 2
+
+El resultado es una pila limpia y la función retornada.
+```
+
 ## Instrucción `NOP` (no operation)
 
 Instrucción que no hace nada excepto consumir tiempo de ejecución y espacio en el programa. No modifica registros, memoria ni algún flag del CPU. Sí avanza el puntero de instrucciones (`RIP/EIP/IP`) para pasar a la instrucción siguiente.
