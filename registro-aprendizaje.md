@@ -520,6 +520,60 @@ mov eax, 5
 mov bl, ah
 ```
 
+#### Registros `SIL`, `DIL`, `BPL`, `SPL`
+
+Corresponden a registros de 8 bits agregados en el diseño original de x86-64 por AMD cuando introdujo la arquitectura conocida como AMD64, que luego adoptaría Intel conocida como Intel 64.
+
+| Nivel | 64-bit | 32-bit | 16-bit | 8-bit |
+| ----- | ------ | ------ | ------ | ----- |
+| RDI   | RDI    | EDI    | DI     | DIL   |
+| RSI   | RSI    | ESI    | SI     | SIL   |
+| RBP   | RBP    | EBP    | BP     | BPL   |
+| RSP   | RSP    | ESP    | SP     | SPL   |
+
+**Nota:** Cuando se usan dichos registros, el procesador requiere el uso del prefijo `REX`.
+
+Con la introducción de AMD64, los registros adoptaron la siguiente estructura:
+
+```
+64    32    16   8 (bits)
+RAX → EAX → AX → AL
+RBX → EBX → BX → BL
+RCX → ECX → CX → CL
+RDX → EDX → DX → DL
+RSI → ESI → SI → SIL
+RDI → EDI → DI → DIL
+RBP → EBP → BP → BPL
+RSP → ESP → SP → SPL
+R8  → R8D  → R8W  → R8B
+...
+R15 → R15D → R15W → R15B
+```
+
+**Consideraciones:**
+
+Escribir en `DIL` solo cambia los 8 bits bajos. En cambio escribir en `EDI` extiende los 32 bits superiores dejando la mitad alta en cero.
+
+**Ejemplo**
+
+```asm
+# Intel
+mov edi, 5
+# RDI = 0000000000000005
+```
+
+Porque escribir en un registro de 32 bits zero-extiende automáticamente a 4 bits en x86-64.
+
+**Usos**
+
+Los compiladores usan los registros bajos de 8 bits para: flags, comparaciones pequeñas, estados booleanos, chars, operaciones bit a bit, etc.
+Un ejemplo de inicialización de una variable booleana en false sería el siguiente:
+
+```C
+var = false;
+# xor dil,dil
+```
+
 #### Valores inmediatos
 
 Los valores inmediatos en sintaxis AT&T comienzan con $, en cambio, en la sintaxis Intel no tienen prefijo. Se insertan directamente en la instrucción como operandos fuente. Como no cambian se puede decir que son valores literales que se mantienen durante la ejecución.
