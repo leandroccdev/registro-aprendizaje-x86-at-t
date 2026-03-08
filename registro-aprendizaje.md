@@ -9759,6 +9759,120 @@ failed:
     nop
 ```
 
+### Instrucción `XADD` (Exchange and Add)
+
+Realiza dos operaciones en una sola.
+
+- Suma los operandos.
+- Intercambia el valor original del destino con el origen.
+
+Modifica las mismas flags que `ADD`: CF, OF, SF, ZF, AF y PF. Fue introducida en el 80486 específicamente para programación multiprocesador.
+
+**Sintaxis:** `XADD dest, src`
+
+**Equivalente**
+
+```
+tmp = dest
+dest = dest + src
+src = tmp
+
+tmp = dest
+dest += src
+src = tmp
+```
+
+- `dest`: recibe la suma.
+- `src`: recibe el valor antiguo que tenía `dst`.
+
+**Tamaños soportados**
+
+```
+xadd r/m8,  r8
+xadd r/m16, r16
+xadd r/m32, r32
+xadd r/m64, r64
+```
+
+**Ejemplo**
+
+```asm
+# Intel
+mov eax, 5
+mov ebx, 3
+xadd eax, ebx
+
+# Paso a paso
+# TMP = EAX = 5
+# EAX = EAX + EAX = 5 + 3 = 8
+# EBX = TMP = 5
+
+# Resultado
+# EAX = 8
+# EBX = 5
+```
+
+** Ejemplo con memoria**
+
+```asm
+# Intel
+mov [counter], 10
+mov eax, 2
+xadd [counter], eax
+
+# Paso a paso
+# TMP = [counter] = 10
+# [counter] = 10 + 2 = 12
+# EAX = 10
+
+# Resultado
+# EAX = 10
+```
+
+
+**Prefijo `LOCK`**
+
+**Sintaxis:** `LOCK XADD dest, src`
+
+`LOCK` hace que la operación de memoria de la instrucción sea atómica. El procesador garantiza que:
+
+- Lee el valor de memoria.
+- Ejecuta la operación.
+- Escribe el resultado.
+
+Como una **única operación indivisible**. Ningún otro core, CPU o thread puede observar el estado del intercambio.
+
+**Ejemplo**
+
+```asm
+# Intel
+# Con lock
+lock xadd [counter], eax
+
+# La CPU asegura:
+# - Thread A ejecuta completo
+# - Thread B espera
+
+# Resultado
+# counter = 12
+```
+
+**¿Cómo lo implementan CPUs modernas?**
+
+Las CPUs modernas ya no bloquean el bus como sus predecesoras lo hacían. Ahora usan el protocolo de coherencia de caché **MESI** con **cache line locking**:
+
+- La CPU obtiene exclusividad de la línea de caché.
+- La línea queda bloqueada para otros cores.
+- Ejecuta la operación.
+- Libera la línea.
+
+**Diferencia con `ADD`**
+
+| instrucción | resultado                 |
+| ----------- | ------------------------- |
+| `add a,b`   | `a = a + b`               |
+| `xadd a,b`  | `a = a + b`, `b = old(a)` |
+
 Todo: seguir con la lista del intercambio de datos y luego pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
 
 todo: ver instrucciones relacionadas a xchg (las del archivo fundamentos-intercambios.odt)
@@ -9771,5 +9885,18 @@ todo: ver instrucciones relacionadas a xchg (las del archivo fundamentos-interca
 
 
 todo: abordar el uso de fpu x87 (fdiv, fdivp, etc)
+
+todo: antes de abordar las extensiones, abordar una zona de consulta de caracteristicas al cpu con las siguientes instrucciones: CPUID, XGETBV, XSETBV, RDTSC, RDTSCP, RDMSR, WRMSR, RDRAND, RDSEED
+
+Explicación rápida de cada una:
+
+- **CPUID** → Obtiene información de capacidades de CPU (SSE, AVX, AVX2, etc.)
+- **XGETBV** → Lee el registro extendido XCR0 para verificar soporte de registros YMM/ZMM
+- **XSETBV** → Escribe en XCR0 (normalmente usado por el SO)
+- **RDTSC** → Lee el Time Stamp Counter
+- **RDTSCP** → Igual que RDTSC pero serializado, devuelve además el ID de procesador
+- **RDMSR / WRMSR** → Leer/escribir Model-Specific Registers
+- **IN / OUT** → Leer/escribir puertos de hardware (información indirecta sobre CPU)
+- **RDRAND / RDSEED** → Instrucciones de generación de números aleatorios del CPU
 
 **todo: abordar SSE / AVX**
