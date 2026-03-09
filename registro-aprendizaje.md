@@ -1635,7 +1635,7 @@ Solo es necesario en modo de 64 bits, cuando el valor inmediato no cabe en 32 bt
    Se usan en: algoritmos de hash, operaciones SIMD manuales y manipulación de bits.
 
 2. **Constantes criptográficas:** Muchos algoritmos usan constantes de 64 bits exactos.
-  Ejemplo estilo SHA-512 / SipHash:
+    Ejemplo estilo SHA-512 / SipHash:
 
   ```asm
   # Intel
@@ -10928,14 +10928,212 @@ cache_line = EA & ~(line_size - 1)
 
 Como ya se ha mencionado, en CPUs modernas la línea tiene un tamaño de 64 bytes.
 
-Todo: seguir con la lista del intercambio de datos y luego pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
+### Algoritmos lock-free
 
-todo: ver instrucciones relacionadas a xchg (las del archivo fundamentos-intercambios.odt)
+Los algoritmos *lock-free* son estructuras o algoritmos de concurrencia que permiten que múltiples hilos accedan y modifiquen datos compartidos sin usar locks tradicionales (mutex, spinlocks, etc). En vez de bloquear, usan operaciones atómicas del hardware.
+
+La idea central es que **ningún hilo puede bloquear** el progreso de los demás. Esto es muy importante en sistema de alto rendimiento como: kernels, runtimes y motores de bases de datos.
+
+**¿Qué problema resuelven?**
+
+Si se tiene un contador compartido: `counter++`, en ensamblador sería algo como:
+
+```asm
+# Intel
+mov rax, [counter]
+add rax, 1
+mov [counter], rax
+```
+
+Esto no es seguro con múltiples hilos, porque dos hilos podrían leer el mismo valor y sobreescrbirse.
+La solución clásica es:
+
+```
+mutex lock
+counter++
+mutex unlock
+```
+
+Pero el bloqueo presenta problemas:
+
+- Bloquea los hilos.
+- Genera cambios de contexto (*context switches*).
+- Puede producir *deadlocks*.
+- Baja escalabilidad en multicore.
+
+Los *lock-free* evitan esto usando instrucciones atómicas del CPU:
+
+- **Compare and swap:** `CMPXCHG`, `CMPXCHG8B`, `CMPXCHG16B`
+
+	  ```
+    if (*ptr == expected)
+        *ptr = new_value
+    ```
+  
+- **Fetch-and-add:** `LOCK XADD`, `LOCK ADD`
+
+  ```asm
+  lock xadd [counter], rax
+  ```
+
+	```
+	old = counter
+	counter += rax
+	return old
+	```
+
+- **Prefijo `LOCK`**
+
+  ```
+  lock add
+  lock inc
+  lock cmpxchg
+  ```
+
+  Garantiza: atomicidad, coherencia de cache y sincronización entre cores.
+
+**Ejemplo simple lock-free (contador)**
+
+```C
+atomic_fetch_add(&counter, 1);
+```
+
+```asm
+# Intel
+mov rax, 1
+lock xadd [counter], rax
+```
+
+No hay mutex. El hardware asegura que solo un core modifica la línea de cache a la vez.
+
+**Ejemplo clásico: stack lock-free**
+
+Un stack puede implementarse así: `top -> nodo`.
+
+Push:
+
+1. Leer top.
+2. nodo->next = top
+3. CAS(top, old_top, nodo) (Compare and Swap)
+
+**Pseudocódigo**
+
+```C
+do {
+    old_top = top;
+    node->next = old_top;
+} while (!CAS(&top, old_top, node));
+```
+
+En x86-64 se usaría `CMPXCHG`. Si otro hilo cambió `top`, el CAS falla y se reintenta.
+
+**Propiedades importantes**
+
+- **Lock-free:** Garantiza que algún hilo siempre progresa, pero no garantiza que todos progresen. Un hilo puede reintentar muchas veces.
+- **Wait-Free:** Cada hilo progresa en tiempo finito (difícil de implementar).
+- **Obstruction-free:** Progresa solo si no hay contención (mas débil).
+
+Funciona muy bien en x86 debido a que el modelo TSO (Total Store Order) reduce la necesidad de memory fences.
+
+#### ABA problem
+
+El *ABA problem* es uno de los problema más famosos de los algoritmos *lock-free*. Aparece cuando usamos *CAS* (compare and swap) como `CMPXCHG` en x86-64 para sincronizar datos compartidos.
+La idea básica es que un valor cambia A → B → A, y el CAS cree que no cambió, aunque en realidad sí ocurrió algo en medio. Lo que rompe la lógica de muchos algoritmos *lock-free*.
+
+Supóngase una pila lock-free: `top → A → B → C` y a dos threads que trabajan sobre ella.
+
+1. **Thread lee el top: Quiere hacer pop:**
+
+   ```  
+   old_top = A
+   next = B
+   ```
+
+   Estado: `top → A → B → C`
+
+2. **Thread 2 ejecuta operaciones:**
+
+   ```
+   pop()  → saca A
+   pop()  → saca B
+   push(A)
+   ```
+
+   Se observa lo siguiente:
+
+   ```
+   A → B → C
+   ↓
+   A → C
+   ```
+
+   Pero A volvió a ser el top.
+
+3. **Thread 1 vuelve a correr:** Thread 1 intenta: `CAS(TOP, A, B)` y ésto verifica `TOP == A → TRUE`. Entonces ejecuta `top = B` pero B ya en está en la pila. Ahora el estado queda: `top → B  (puntero inválido)` y la estructura queda corrupta. 
+
+**¿Por qué ocurre el problema?**
+
+CAS solo compara el valor actual: `A == A`, pero no detecta cambios intermedios (`A → B → A`). Para CAS eso parece `A → A`, aunque en realidad hubo operaciones. De esta manera se configura un problema de visibilidad por parte de los threads. El thread 1 ve: `A` mientras que el thread 2 hace: `A → B → A`. Luego el thread 1 sigue creyendo que nada cambió.
+
+El CAS compara el valor actual y el hardware no guarda historia. Por eso CAS por sí solo no detecta ABA.
+
+**Apariciones del ABA problem**
+
+Aparece mucho en:
+
+- stacks lock-free
+- queues lock-free
+- freelists
+- memory allocators
+- garbage collectors
+
+Especialmente cuando se reciclan nodos de memoria.
+
+**Solución clásica: tagged pointers**
+
+Se añade un contador de versión. E nvea de guardar solo `ptr` se guarda `(ptr, version)` y cada cambio incrementa el contador. Ejemplo:
+
+1. `(A, 1)`
+
+2. Thread 2:
+
+```
+pop → (B,2)
+pop → (C,3)
+push A → (A,4)
+```
+
+3. Thread 1 esperaba: `(A, 1)`, pero encuentras `(A, 4)` y CAS falla correctamente.
+
+En x86-64 se puede implementar usando dos registros de 128 bits:
+
+```
+pointer (64 bits)
+counter (64 bits)
+```
+
+Para luego comparar todo con: `cmpxchg16b`. Esto hace CAS atómico de 16 bytes. (Muy usado en lock-free modernos).
+
+**Otras soluciones**
+
+- **Hazard pointers**: Un thread declara "estoy usando este nodo". Entonces no se puede liberar o reutilizar.
+- **Epoch based reclamation**: Usado en: kernels, librerías lock-free y sistemas de bases de datos. Los nodos se liberan solo cuando ningún thread puede usarlos.
+- **RCU (Read-Copy-Update):** Muy usado en Linux. Los lectores no bloquean, y la memoria se libera solo cuando todos terminan.
+
+### Algoritmos wait-free
+
+
+
+
+
+Todo: pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
+
+todo: abordar SSE / AVX
 
  todo: hacer algunos programas
 
 - un programa que responda a las teclas
-- otro que lea po teclado
+- otro que lea por teclado
 
 
 
@@ -10954,4 +11152,4 @@ Explicación rápida de cada una:
 - **IN / OUT** → Leer/escribir puertos de hardware (información indirecta sobre CPU)
 - **RDRAND / RDSEED** → Instrucciones de generación de números aleatorios del CPU
 
-**todo: abordar SSE / AVX**
+****
