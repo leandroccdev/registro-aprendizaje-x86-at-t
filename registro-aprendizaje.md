@@ -1459,65 +1459,262 @@ _start:
 **Importante**
 Ten en cuenta que lahf funciona solo en modo real o modo protegido de 16/32 bits. En modo de 64 bits, está desactivada por defecto a menos que actives la compatibilidad explícitamente.
 
-## Instrucción `mvzbl` (AT&T)
+## Instrucción `MOV` (Move)
 
-> En sintaxis intel no existe esta instrucción. Un equivalente sería `mov destino, fuente`. 
+Copia el valor de un operando en otro operando. Estos pueden ser: registro, memoria o inmediato, es decir que puede copiar de:
 
-En x86 que significa **MOVe with Zero-extend Byte to Long**.
+- Registro a registro.
+- Memoria a registro.
+- Registro a memoria.
+- Inmediato a registro.
+- Inmediato a memoria.
 
-**¿Qué hace exactamente?**
-- Copia un byte (8 bits) de una fuente a un registro destino de 32 bits (un "long" en lenguaje x86), rellenando con ceros los bits más altos.
-- En otras palabras, extiende el byte sin signo a 32 bits.
+Pero **no puede** copiar de **memoria a memoria** debido a que la información debe pasar necesariamente por el CPU. En otras palabras, la información debe necesariamente ser solicitada al controlador de la memoria, atravesar el bus de datos, pasar por el CPU y tomar el recorrido inverso.
 
-**Sintaxis**
-`movzbl fuente, destino`
-- **fuente:** registro de 8 bits o una dirección de memoria que contiene 1 byte.
-- **destino:** registro de 32 bits (como %eax, %ebx, %ecx, etc.).
+No afecta los flags del CPU.
 
-**Ejemplo práctico**
+**Sintaxis:** `MOV dest, src`
+
+**Tamaños y sufijos**
+
+En x86-64 los registros y memoria pueden tener distintos tamaños:
+
+| Tamaño  | Registros comunes          | Sufijo (AT&T) |
+| ------- | -------------------------- | ------------- |
+| 8 bits  | `al`, `bl`, `cl`, `dl`     | `b`           |
+| 16 bits | `ax`, `bx`, `cx`, `dx`     | `w`           |
+| 32 bits | `eax`, `ebx`, `ecx`, `edx` | `l`           |
+| 64 bits | `rax`, `rbx`, `rcx`, `rdx` | `q`           |
+
+**Nota** La sintaxis Intel (preferida en el presente documento) no usa sufijo, se infiere del registro.
+En cambio la sintaxis AT&T usada por GNU GAS, usa sufijos e invierte el orden de los operandos (src, dest).
+
+**Ejemplos**
+
 ```asm
-# AT&T
-movb $0xFF, %al  # AL = 0xFF (11111111 en binario, que es 255 decimal)
-movzbl %al, %ebx # EBX = 0x000000FF, el byte 0xFF se extiende a 32 bits con ceros a la izquierda
+# Intel
+# Mover inmediato a registro
+mov rax, 0x12345678abcdef00
+
+# Mover registro a registro
+mov rbx, rax
+
+# Mover memoria a registro
+mov rax, [rbx]
+
+# Mover registro a memoria
+mov [rbx], rax
+
+# Mover un byte
+mov al, [rbx]
+mov [rbx], al
 ```
-**El resultado:**
-- `%al` tiene 8 bits: 11111111 (255 decimal)
-- `%ebx` tras `movzbl` será 000000FF (255 decimal), NO FFFFFFFF (que sería con signo)
 
-**¿Cuál es la diferencia con movsbl?**
-`movzbl` extiende con ceros (para valores sin signo).
-`movsbl` extiende con signo (preserva el bit más alto, útil para números negativos en complemento a dos).
+**Peculiaridades de x86-64**
 
-## Instrucción `movsbl` (AT&T)
+- **Cero extendido automático:**
 
-> En sintaxis Intel no existe esta instrucción. Un equivalente sería: `mov ecx, byte ptr [eax]`.
+  Si mueves un registro de 32 bits a otro, el resto superior del registro de 64 bits se limpia a cero.
 
-Significa **Move with Sign-extend Byte to Long**
-Copia un byte (8 bits) a un registro de 32 bits, pero a diferencia de `movzbl`, **extiende el signo** (bit más significativo del byte) para rellenar los bits más altos del destino.
+  ```asm
+  # Intel
+  mov eax, 5 ; rax = 0x0000000000000005
+  ```
 
-**¿Qué significa extender el signo?**
+- **No se puede mover directamente entre memoria y memoria**:
 
-Cuando el byte original representa un número con signo en complemento a dos:
-- Si el byte es positivo (bit más alto 0), rellena con ceros a la izquierda (igual que movzbl).
-- Si el byte es negativo (bit más alto 1), rellena con unos a la izquierda para mantener el valor negativo al expandir a 32 bits.
+  Se debe usar un registro intermedio:
 
-**Sintaxis**
-`movsbl fuente, destino`
-- `fuente` registro o dirección de 8 bits.
-- `destino` registro de 32 bits.
+  ```asm
+  # Intel
+  mov rcx, [rbx]
+  mov [rax], rcx
+  ```
+
+- **`MOVABS` para inmediatos de 64 bits**:
+
+	Solo en 64 bits y cuando el inmediato no cabe en 32 bits.
+	```asm
+	movabs rax, 0x1234567890ABCDEF
+	```
+
+**Restricciones importantes**
+
+1. **Tamaño de inmediato vs tamaño de memoria:**
+
+   - Debe coincidir o ser compatible.
+   - No puedes poner un valor de 64 bits en un byte sin truncarlo.
+
+2. **No todos los ensambladores permiten cualquier combinación de inmediato y memoria:**
+
+   Por ejemplo, algunas sintxis AT&T GAS requieren el sufijo y el tamaño explícito.
+
+   ```asm
+   # AT&T
+   # Mover un valor de 32 bits a memoria
+   movl $1234, (%rbx)
+   
+   # Mover un valor de 8 bits a memoria
+   movb $0xAB, (%rcx)
+   ```
+
+**El uso de `PTR` (especificador de tamaño)**
+
+Como en Intel el mnemónico es simplemente `MOV`, el ensamblador a veces no sabe cuántos bytes se quieren mover cuando hay memoria involucrada. Para esto se usa la palabra clave `PTR` precedida por el tamaño del dato.
+
+| **Tamaño** | **Especificador** | **Ejemplo**                    |
+| ---------- | ----------------- | ------------------------------ |
+| 8 bits     | `BYTE PTR`        | `mov BYTE PTR [variable], 10`  |
+| 16 bits    | `WORD PTR`        | `mov WORD PTR [variable], 500` |
+| 32 bits    | `DWORD PTR`       | `mov DWORD PTR [eax], 1000`    |
+| 64 bits    | `QWORD PTR`       | `mov QWORD PTR [rax], rbx`     |
+
+**Direccionamiento de memoria en x86-64**
+
+En 64 bits, el direccionamiento cambia ligeramente para ser más eficiente.
+
+- **Acceso directo vs. indirecto:**
+
+  ```asm
+  # Intel
+  mov eax, DWORD PTR variable    # Carga la DIRECCIÓN de 'variable' en EAX
+  mov ebx, DWORD PTR [variable]  # Carga el VALOR almacenado en 'variable' en EBX
+  ```
+
+- **Direccionamiento relativo a RIP (RIP-relative):**
+
+  La mayoría de los accesos a datos son relativos al puntero de instrucción actual para facilitar el código independiente de la posición (PIC).
+
+  ```asm
+  # Intel
+  # Acceso relativo automático calculado por el ensamblador
+  mov eax, DWORD PTR [rel mi_dato] 
+  # O explícitamente
+  mov eax, DWORD PTR [rip + mi_dato]
+  ```
+
+## Instrucción `MOVABS` (Move Absolute)
+
+Mueve un valor absoluto a un registro de 64 bits. Esto no se puede realizar con `MOV` porque la versión estándar solo permite inmediatos de 32 bits, y en 64 bits se extenderían a cero automáticamente. `MOVABS` soluciona este inconveniente permitiendo que el valor de 64 bits no e corte ni se extienda.
+
+Se puede usar cualquier valor entre `0x0` y `0xFFFFFFFFFFFFFFFF`.
+
+**Sintaxis:** `MOVABS dest, src`. Donde `dest` es un registro de 64 bits (`RAX`, `RBX`, `RCX`, etc).
+
+**Importante:** Mientras `MOV` tiene una longitud de 5 bytes, `MOVABS` al tener un inmediato de 64 bits (8 bytes), tiene una longitud de 10 bytes.
 
 **Ejemplo**
-```asm
-# AT&T
-movb $0xFF, %al  # AL = 0xFF (11111111 en binario, que es -1 en signed byte)
-movsbl %al, %ebx # EBX = 0xFFFFFFFF (extendido con signo, es -1 en 32 bits)
-```
-- El byte 0xFF representa -1 (en complemento a dos).
-- Al hacer `movsbl`, el valor se extiende a 32 bits preservando el signo, por eso ebx termina con 0xFFFFFFFF (que es -1 en 32 bits).
 
-**Uso típico**
-- Se usa cuando quieres trabajar con valores signed (con signo), por ejemplo, cargar un byte a entero de 32 bits para hacer operaciones con signo.
-- Muy común en procesamiento de caracteres, flags, o datos donde el signo importa.
+```asm
+# Intel
+movabs rax, 0x123456789ABCDEF0
+```
+
+**¿Cuando usarlo?**
+
+Solo es necesario en modo de 64 bits, cuando el valor inmediato no cabe en 32 bts. Por ejemplo: direcciones absolutas de memoria en programas de 64 bits, punteros a funciones, constantes de 64 bits, máscaras de bits grandes, constantes criptográficas, inicialización de punteros a funciones, construcción de punteros absolutos, inicializar estructuras con patrones, shell code / exploit dev, construcción rapida de strings, etc.
+
+**Ejemplos**
+
+1. **Máscaras de bits grandes:** Muy común en *bit-twiddling*, *hasting* o criptografía.
+
+   ```asm
+   # Intel
+   movabs rax, 0x5555555555555555
+   and rbx, rax
+   ```
+
+   Máscaras típicas:
+
+   ```
+   0xAAAAAAAAAAAAAAAA
+   0x5555555555555555
+   0xFFFFFFFF00000000
+   ```
+
+   Se usan en: algoritmos de hash, operaciones SIMD manuales y manipulación de bits.
+
+2. **Constantes criptográficas:** Muchos algoritmos usan constantes de 64 bits exactos.
+  Ejemplo estilo SHA-512 / SipHash:
+
+  ```asm
+  # Intel
+  movabs rax, 0x6a09e667f3bcc908
+  add rdx, rax
+  ```
+
+  Estas constantes no caben en 32 bits, así que el ensamblador/compilador usa `MOVABS`.
+
+3. **Inicialización de punteros a funciones:** Cuando el compilador necesita poner una dirección literal.
+
+   ```asm
+   # Intel
+   movabs rax, 0x00007ffff7dd18e0
+   call rax
+   ```
+
+   Puede pasar en: trampolines, hooking, loaders, JITs, etc.
+
+4. **Construcción de punteros absolutos:** Por ejemplo en código de bajo nivel o kernel:
+
+   ```asm
+   # Intel
+   movabs rax, 0xffff888012345000
+   mov [rbx], rax
+   ```
+
+   Direcciones kernel virtual suelen requerir 64 bits completos.
+
+5. **Inicializar estructuras con patrones:** Ejemplo: Llenar memoria con un patrón específico.
+
+   ```asm 
+   # Intel
+   movabs rax, 0xDEADBEEFCAFEBABE
+   mov [rdi], rax
+   ```
+
+   Es muy usado en: debugging, sentinel values, canaries, etc.
+
+6. **Shellcode / exploit dev:** Para cargar direcciones o valores completos.
+
+   ```asm
+   # Intel
+   movabs rax, 0x68732f6e69622f
+   push rax
+   ```
+
+   Esto pone en la pila `/bin/sh`. Muy típico en shellcode.
+
+7. **Construcción rapida de strings:** Otro ejemplo clásico:
+
+   ```asm
+   # Intel
+   movabs rax, 0x6f6c6c6548
+   push rax
+   ```
+
+   Pone `"Hello"` en la pila.
+
+8. **JIT compilers:** Motores como: V8, LuaJIT, JVM generan código así:
+
+   ```asm
+   # Intel
+   movabs rax, 0x123456789ABCDEF0
+   jmp rax
+   ```
+
+   Para saltos a direcciones generadas dinamicamente.
+
+**Detalle curioso**
+
+En muchos casos no se verá `MOVABS` en el código fuente escrito a mano. El programador escribe:
+
+```asm
+# Intel
+mov rax, 0x123456789ABCDEF0
+```
+
+Y GAS decide automáticamente usar `MOVABS` porque el inmediato es de 64 bits.
 
 ## Instrucción `LEA` (load effective address)
 
@@ -10715,7 +10912,21 @@ sfence
 
 Al igual que `CLFLUSH`, `CLWB` opera sobre una línea de caché completa de normalmente 64 bytes. Y Aunque la instrucción reciba una dirección cualquiera dentro de la línea, la operación contempla la línea completa.
 
+**Cálculo interno de ladirección base de la línea de caché**
 
+Internamente la CPU calcula la effective address:
+
+```
+EA = base + index*scale + displacement
+```
+
+Luego redondea a la línea de caché:
+
+```
+cache_line = EA & ~(line_size - 1)
+```
+
+Como ya se ha mencionado, en CPUs modernas la línea tiene un tamaño de 64 bytes.
 
 Todo: seguir con la lista del intercambio de datos y luego pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
 
