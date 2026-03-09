@@ -9873,6 +9873,850 @@ Las CPUs modernas ya no bloquean el bus como sus predecesoras lo hacían. Ahora 
 | `add a,b`   | `a = a + b`               |
 | `xadd a,b`  | `a = a + b`, `b = old(a)` |
 
+### Prefijo `LOCK` en instrucciones
+
+**Instrucción `ADD`**
+
+Normalmente `ADD` internamente realiza tres pasos: lee, suma y escribe. Sin `LOCK`, otro core podríá modificar esa memoria entre la lectura y la escritura generando una condición de carrera (race condition).
+
+Con el prefijo `LOCK`, el CPU garantiza que toda la operación ocurre de manera atómica cuando se involucra memoria. Es decir que `[mem] = [mem] + eax` se ejecuta como una sola operación indivisible respecto a otros cores, CPUs o threads.  
+
+**Otras instrucciones que soportan el prefijo `LOCK`**
+
+De la misma manera que funciona en `ADD`, lo hace con pequeñas diferencias en las siguientes instrucciones, aunque fundamentalmente el principio es el mismo: garantizar operaciones atómicas en acceso a memoria concurrente. 
+
+- `inc`
+- `dec`
+- `and`
+- `or`
+- `xor`
+- `cmpxchg`
+
+**El coste de `LOCK`**
+
+El prefijo es caro comparado con instrucciones normales porque invalida cachés de otros cores, fuerza la coherencia y puede generar stalls. Debido a esto, solo es usado cuando es necesario en programación concurrente.
+
+### Barreras de memoria
+
+Son instrucciones que restringen o controlan la reordenación de operaciones de memoria que puede hacer el procesador o el compilador.
+
+El objetivo principal es garantizar el orden de visibilidad de lecturas y escrituras entre múltiples hilos o CPUs, punto clave para programación concurrente.
+
+**El problema**
+
+Los procesadores modernos no ejecutan las instrucciones exactamente en el orden del código, pueden ejecutar instrucciones fuera de orden (OoO u Out-of-order execution), realizar ejecuciones especulativas, usar *store buffers* o tener retrasos por coherencia de caché (cache coherency delays).
+
+**Out-of-order-execution**
+
+Es una técnica de alto rendimiento en microprocesadores modernos que optimiza la eficiencia al ejecutar instrucciones basándose en la disponibilidad de datos, pero no en el orden original del programa. Evitando que la CPU se quede inactiva esperando datos, lo que reduce drásticamente los cuellos de botella.
+
+La técnica nace en la década de 1960 para maximizar el rendimiento de los procesadores, siendo la CDC 6600 en 1964, la primera máquina en utilizarla para resolver conflictos de dependencias. Luego se popularizó con el algoritmo de Tomasulo de IBM en 1966 y se consolidó en los años 80s.
+
+**Ejecución especulativa**
+
+Es una técnica de optimización de rendimiento en procesadores modernos, en donde la CPU anticipa instrucciones futuras y las ejecuta antes de saber si son realmente necesarias. Si la predicción es correcta, se ahorra mas tiempo, de lo contrario, se revierten los cambios. Dicha tecnología fue el origen de vulnerabilidades de seguridad como Meltdown y Spectre.
+
+**Store buffers**
+
+Es una estructura de almacenamiento temporal y rápida dentro del CPU. Se utiliza para almacenar datos de escritura antes de que se escriban definitivamente en la caché o en memoria principal.  Permite al procesador continuar ejecutando instrucciones sin esperar a que finalice la lenta operación de escritura en memoria, mejorando significativamente el rendimiento.
+
+**Cache Coherency Delays**
+
+En español *retrasos por coherencia de caché*, son penalizaciones de rendimiento en sistemas multiprocesador causadas por la necesidad de sincronizar los datos copiados en las distintas memorias caché locales. Ocurren cuando un núcleo actualiza un dato compartido y obliga a los demás a invalidar o actualizar sus propias copias, consumiendo tiempo y ciclos de CPU.
+
+**De vuelta al problema**
+
+Con estas definiciones el lector ya puede evidenciar el problema principal que da origen a las barreras de memoria. Ciertamente en programación mono thread no supone un riesgo. El problema se presenta en multithreading.
+
+**¿Qué hace una barrera de memoria?**
+
+Obliga a que ciertas operaciones se completen antes de continuar.
+
+**Tipos**
+
+Existen tres principales tipos de barreras, ninguna de ellas modifica los flags del CPU:
+
+- **MFENCE (Memory Fence total)**: Bloquea loads y stores. Nada cruza la barrera. es usada en algoritmos lock-free y en sincronización entre cores.
+
+```
+load/store antes
+MFENCE
+load/store después
+```
+
+- **LFENCE (Load Fence)**: Ordena lecturas garantizando que el segundo load no se ejecute antes del primero. Se ha usado históricamente para sincronizar lecturas y en mitigaciones de Spectre.
+
+```
+load <- Primer load
+LFENCE
+load <- Segundo load
+```
+
+- **SFENCE (Store Fence)**: Ordena escrituras garantizando que el primer store se haga visible antes del segundo. Se usa mucho en non-temporal stores y streaming stores.
+
+```
+store <- Primer store
+SFENCE
+store <- Segundo store
+```
+
+**Costo**
+
+Las barreras son caras en términos computacionales porque fuerzan limpiezas sobre los store buffers, sincronización entre cores y bloqueos parciales del pipeline. Debido a esto los compiladores y kernels intentan minimizar su uso.
+
+**¿Por qué existen las barreras?**
+
+La necesidad de ganar rendimiento computacional ha impulsado a los fabricantes a aplicar técnicas agresivas como OoO (out-of-order execution). Las lecturas (loads) pueden adelantarse a otras operaciones, las escritura (stores) pueden quedarse en el store buffer y/o diferentes cores pueden ver los cambios en un orden distinto al que el programador pensó inicialmente.
+
+**Ejemplo**
+
+```asm
+# Intel
+mov [x], 1 # Carga 1 en memoria
+mov rax, [y] # Lee memoria y la almacena en RAX
+```
+
+En el ejemplo anterior, el CPU podría ejecutar primero la lectura de `y` para luego escribir `x` aunque el código indique lo contrario. Esto rompe muchos de los algoritmos de concurrencia. Las barreras fuerzan el orden original a costa de rendimiento.
+
+**Uso moderno importante**
+
+Después del descubrimiento de Spectre, LFENCE se usó para bloquear la ejecución de instrucciones especulativas.
+
+**Ejemplo**
+
+```asm
+# Intel
+cmp rax, size
+ja out
+
+lfence
+mov rbx, [array + rax]
+```
+
+`LFENCE` evita que el CPU especule el acceso fuera del límite. Muchos compiladores lo usan como barrera anti especulación (speculation barrier).
+
+#### Modelo de memoria TSO
+
+Total Store Order o TSO es el modelo de memroia de las CPUs x86 de Intel. Define cómo se pueden reordenar las lecturas y escrituras de memoria entre distintos hilos o núcleos. En otras palabras, describe qué resultados son legalmente observables cuando varios hilos acceden a memoria compartida. Es fundamental en programación concurrente.
+
+**Idea básica**
+
+El modelo permite cierta reordenación, pero mucho menos agresiva que en ARM o POWER.
+
+Tiene una regla clave: Las escrituras pueden retrasarse respecto a lecturas posteriores. Es decir que la CPU puede ejecutar un load antes de un store, cuando originalmente estaba previsto al revés.
+
+```
+# Orden Original
+store A
+load B
+
+# CPU ejecuta internamente retrasando las escrituras respecto a lecturas
+load B
+store A
+```
+
+**La causa del Store Buffer**
+
+Cada núcleo tiene un store buffer. Cuando se ejecuta `mov [x], 1` la CPU realiza lo siguiente:
+
+1. Escribe en el store buffer.
+2. Continúa la ejecución de instrucciones.
+3. Más tarde el buffer se vacía a la caché.
+
+Mientras tanto el propio núcleo ve el valor nuevo y otros núcleos pueden seguir viendo el viejo. Esto permite mayor rendimiento pero causa discrepancias entre las caches de cada núcleo.
+
+**¿Qué ordenes se mantienen en TSO?**
+
+| Operaciones   | Reordenamiento permitido |
+| ------------- | ------------------------ |
+| Load → Load   | ❌ no                     |
+| Load → Store  | ❌ no                     |
+| Store → Store | ❌ no                     |
+| Store → Load  | ✔ sí                     |
+
+Por lo tanto la única regla permitida de OoO es la reordenación de las escrituras respecto a las lecturas.
+
+**Ejemplo**
+
+```
+# Thread 1
+x = 1
+r1 = y
+
+# Thread 2
+y = 1
+r2 = x
+
+# Inicialmente
+y = 0
+y = 0
+
+# En TSO puede ocurrer aunque parezca imposible a primera vista:
+r1 = 0
+r2 = 0
+
+# Porque 'store x' queda en store buffer y 'load y' lee 0
+```
+
+Para evitar el reordenamiento permitido por TSO, se usaría una barrera de memoria como `MFENCE`:
+
+```
+x = 1
+mfence
+r1 = y
+```
+
+De manera que `MFENCE` obligara a que el store buffer se vaciara antes de continuar.
+
+#### **El prefijo `LOCK` también actúa como barrera**
+
+Las instrucciones que usan el prefijo `LOCK` actúan como una barrera de memoria completa (`MFENCE`), garantizando operaciones atómicas. Debido a esto muchos algoritmos lock-free no usan `MFENCE` explícito.
+
+**Ejemplo**
+
+```asm
+# Intel
+# Spin lock
+spin:
+	mov eax, 1
+	lock xchg eax, [lock]
+	
+	test eax, eax
+	jnz spin
+```
+
+`LOCK XCHG` actúa como barrera de memoria garantizando la atomicidad de la operación.
+
+**Ejemplo clásico (message passing)**
+
+```asm
+# Intel
+# Thread 1
+mov [data], 123
+mfence
+mov [flag], 1
+
+# Thread 2
+wait:
+	mov eax, [flag]
+	tet eax, eax
+	jz wait
+
+mfence
+mov eax, [data]
+```
+
+`MFENCE` asegura que si `flag=1` entonces `data` ya fue escrita.
+
+**`MFENCE` suele ser mas costosa que `LFENCE` o `SFENCE`**
+
+`MFENCE` drena el store buffer, espera el load queue y sincroniza el pipeline. En CPUs modernas puede costar entre 30 a 100 ciclos. Es por esto que el código de alto rendimiento intenta usar `LOCK`, `SFENSE` o `LFENCE` en lo posible.
+
+#### ¿Qué significa vaciar el store bufer?
+
+En x86-64, vaciar el *store buffer* significa forzar que todas las escrituras pendientes del CPU que tiene en su buffer, se escriban realmente en la jerarquía de caché (L1/L2/L3) y se vuelvan visibles para otros cores.
+
+### `MOV` atómico alineado
+
+En x86-64 existe una propiedad muy útil del hardware: ciertos `MOV` a memoria son atómicos si están alineados. Esto forma parte de las garantías del modelo TSO (Total Store Order) que usan los procesadores Intel y AMD.
+
+**¿Qué significa que na operación sea atómica?**
+
+En las operaciones atómicas ningún otro núcleo puede observar un valor intermedio, es decir que si `MOV [counter], eax` es atómico, otro thread verá el valor antiguo o el valor nuevo, pero nunca un valor parcialmente escrito.
+
+**¿Cuando `MOV` es atómico en x86-64?**
+
+Depende del tamaño y la alineación. Si la dirección está alineada al tamaño del dato, el acceso es atómico.
+
+| Tamaño  | Alineación requerida | Atómico |
+| ------- | -------------------- | ------- |
+| 1 byte  | cualquiera           | ✔       |
+| 2 bytes | alineado a 2         | ✔       |
+| 4 bytes | alineado a 4         | ✔       |
+| 8 bytes | alineado a 8         | ✔       |
+
+**Ejemplo**
+
+```asm
+# Intel
+# Ejemplo atómico en x86-64
+mov rax, [x]
+mov [x], rax
+
+# Equivalente en C
+# x uint64_t x; // Alineado a 8 normalmente
+```
+
+**¿Qué sucede si no está alineado?**
+
+**Ejemplo**
+
+```C
+struct {
+    char a;
+    uint64_t x;
+}
+```
+
+Si `x` queda desalineado, el CPU puede necesitar 2 acceso a memoria, y entonces otro core podría ver `parte vieja + parte nueva` rompiendo la atomicidad.
+
+**¿Por qué ocurre?**
+
+El problema aparece si el acceso cruza dos *cache lines*  o cruza *dos páginas*. El CPU debe hacer dos transacciones de memoria, por eso el manual de Intel dice:
+
+*Aligned naturally sized memory operations are atomic.*
+
+**Importancia en concurrencia**
+
+Gracias a esto puedes hacer cosas como:
+
+```C
+volatile uint64_t flag;
+```
+
+Y leerlo en otro hilo sin el prefijo `LOCK`.
+
+El hardware garantiza una lectura consistente, pero no garantiza orden de memoria, solo atomicidad. Para el orden sigues necesitando `LOCK`, `MFENCE`, `atomic` (C11).
+
+**Ejemplo: Implementación simple de flag entre threads**
+
+```C
+uint64_t ready = 0;
+
+# Thread 1
+ready = 1;
+
+# Thread 2
+while (!ready);
+```
+
+El `MOV` de 8 bytes será atómico, pero puede haber problemas de reordenamiento (no de atomicidad).
+
+**Tamaños mas grandes**
+
+Para datos de 16 bytes se usa `CMPXCHG16B`, y para datos mayores a 16 bytes se usa el prefijo `LOCK` si la instrucción lo permite, un mutex, spinlock, lock-free, etc.
+
+### Instrucciones de control de sincronización y coherencia
+
+#### Instrucción `PAUSE`
+
+Es una optimización para spinlocks (loops de espera activa del tipo spin-wait).
+
+**El spinlock típico**
+
+```asm
+# Intel
+spin:
+	mov eax, [lock]
+	test eax, eax
+	jne spin
+```
+
+El código anterior genera dos problemas en CPUs modernas:
+
+- Consume mucha energía.
+- Penaliza el pipeline y SMT (HyperThreading).
+
+Para solucionar el problema, Intel introdujo la instrucción `PAUSE`.
+
+**Ejemplo con optimización**
+
+```asm 
+# Intel
+spin:
+	mov eax, [lock]
+	test eax, eax
+	jne wait
+	ret
+
+wait:
+	pause
+	jmp spin
+```
+
+**¿Qué hace realmente?**
+
+`PAUSE` introduce un pequeño delay evitando penalizaciones del pipeline, y mejorando la convivencia entre threads SMT, lo que reduce el consumo energético. Internamente es parecido a un hint al CPU.
+
+Antes de SSE2 era equivalente a: `REP NOP`
+
+#### Instrucciones `MONITOR`/ `MWAIT`
+
+Permiten que el CPU espere a que una dirección de memoria cambie sin hacer polling constante (revisión rápida y repetida de una condición en un bucle hasta que algo cambia). 
+
+Se usa mucho en: kernels, hypervisores y runtimes de threading.
+
+`MONITOR` le dice al CPU que vigile tal dirección de memoria. Conceptualmente se ve así:
+
+```asm
+# Intel
+mov rax, addr
+monitor
+```
+
+Esto configura el hardware para observar dicha la dirección`addr`. Luego se ejecuta `MWAIT` y el CPU entra en un estado de bajo consumo despertándose cuando la dirección de memoria cambia.
+
+**Ejemplo**
+
+```asm
+# Intel
+monitor addr
+mwait
+
+# Thread B
+mov [addr], 1
+```
+
+Cuando B escribe, el CPU despierta a A.
+
+**Comparación respecto a un spinlock clásico**
+
+| Método        | CPU        |
+| ------------- | ---------- |
+| spin          | 100% uso   |
+| monitor/mwait | CPU duerme |
+
+**Deshabilitadas en userland**
+
+Por razones de seguridad su uso está restringido principalmente a: kernels, hypervisores, firmware, etc, debido a que muchos sistemas operativos lo mantienen deshabilitado en userland.
+
+Estas instrucciones no están pensadas para userland, en SOs modernos el CPU genera #UD (Invalid Opcode), en Linux el proceso recibe `SIGILL`. Esto sucede porque el kernel controla su uso.
+
+
+
+**Problemas**
+
+- `MWAIT` pone el core en un estado de espera eficiente hasta que se escribe en una dirección monitorizada. El scheduler del OS no sabe que el thread está esperando, el core puede bloquearse y el sistema podría no replanificar correctamente otros threads.
+
+  Debido a esto, el kernel prefiere mecanismos como: futex, condvars, epoll y/o park/unpark.
+
+- `MONITOR/MWAIT` interactúa directamente con: caché, coherencia de memoria, eventos de escritura. Esto puede facilitar ataques *side channels* de caché y observación de actividad de memoria.
+- La virtualización puede romper estos mecanismos. En máquinas virtuales como QEMU, VMware o KVM estas instrucciones suelen ser interpretadas, generar *traps* o simplemente no funcionar.
+- `MONITOR/MWAIT` depende de la CPU específica, la configuración del kernel y flags CPUID. Muchos CPUs modernos incluso prefieren `UNWAIT` y/o `TPAUSE`, las que sí están pensadas para userland.
+
+#### Instrucción `CLFLUSH`
+
+Permite invalidar una línea de caché.
+
+**Sintaxis:** `CLFLUSH [addr]`
+
+Cuando la invalidación ocurre, el CPU escribe datos a RAM si están modificados e invalida dicha línea en todas las cachés.
+
+**Ejemplo**
+
+```asm
+# Intel
+clflush [mem]
+```
+
+Opera sobre la línea de caché completa (normalmente 64 bytes), no solo el byte apuntado.
+
+**¿Qué es una línea de caché?**
+
+Una línea de caché es un bloque fijo de memoria de N bytes que la CPU mueve entre RAM y caché. En CPUs modernas (Intel y AMD), cada línea tiene 64 bytes.
+
+La caché no almacena bytes individuales, sino bloques de 64 bytes alineados. Por ejemplo:
+
+```
+DirecciónDirección  Contenido
+0x1000              A
+0x1001              B
+...
+0x103F              Z
+0x1040              ...
+```
+
+La línea de cache sería:
+
+```
+0x1000 ───────────────── 0x103F
+        64 bytes
+```
+
+Si se accede a `mov al, [0x1917]`, la CPU cargará todo el bloque en caché.
+
+Si en cambio se llama a `clflush [0x1017]`, el CPU calcula la línea `0x1000 - 0x103F` y expulsa esos 64 bytes completos de todas las cachés, no solo el byte `0x1017`.
+
+**Fórmula para calcular líneas de caché**
+
+```
+line_start = address & ~63
+# 64 bytes = 2^6
+
+# Ejemplo
+# 0x1017 & ~0x3F = 0x1000
+```
+
+**Ejemplo práctico**
+
+```asm
+# Intel
+clflush [rdi]
+clflush [rdi + 1]
+clflush [rdi + 50]
+```
+
+Si `RDI = 0x1000`, la ejecución de las tres instrucciones hacen lo mismo, porque están en la misma línea `0x1000 - 0x103F`. 
+
+**Tamaños**
+
+Los tamaños dependen mas de la microarquitectura del CPU que de la ISA, pero en la práctica hay valores comunes. No obstante, en Intel desde hace más de 20 años el estándar para una línea de caché son 64 bytes. En cambio, en ARM como son arquitecturas licenciadas, cada fabricante decide.
+
+| Arquitectura                 | Tamaño típico línea de caché | Notas                                   |
+| ---------------------------- | ---------------------------- | --------------------------------------- |
+| x86 (32-bit)                 | 64 bytes                     | Desde Pentium 4 y CPUs modernas         |
+| x86-64                       | 64 bytes                     | Intel y AMD actuales                    |
+| ARM32                        | 32 o 64 bytes                | ARMv6 suele 32B, ARMv7 normalmente 64B  |
+| ARM64 (AArch64)              | 64 bytes                     | Estándar en casi todos los SoC modernos |
+| MIPS32                       | 32 o 64 bytes                | Muchos routers antiguos usan 32B        |
+| MIPS64                       | 64 bytes                     | Implementaciones modernas               |
+| Apple M-series (M1/M2/M3/M4) | 128 bytes                    | L1D usa 128B                            |
+
+**Cómo conocer el tamaño real en un CPU**
+
+Para x86-64.
+
+```C
+#include <stdio.h>
+#include <unistd.h>
+
+int main() {
+    printf("%ld\n", sysconf(_SC_LEVEL1_DCACHE_LINESIZE));
+}
+```
+
+En Linux:
+
+```bash
+cat /sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size
+```
+
+**Ejemplo base completo**
+
+```asm
+# Intel
+.intel_syntax noprefix
+.section .data
+value: .quad 123
+
+.section .text
+.global _start
+
+_start:
+    mov rax, [value] # Cargar valor
+    clflush [value]  # Expulsar la línea de caché
+    mov rax, [value] # Ahora probablemente se recarga desde RAM
+```
+
+Fuerza que el próximo acceso a `value` vuelva a traer la línea desde memoria.
+
+**Ejemplo: limpiar un buffer completo**
+
+```asm
+# Intel
+.intel_syntax noprefix
+
+# rdi = buffer
+# rsi = tamaño
+
+flush_loop:
+
+    clflush [rdi]
+
+    add rdi, 64    # siguiente línea de caché
+    sub rsi, 64
+
+    jg flush_loop
+```
+
+**Ejemplo: Flush + medición de tiempo**
+
+```asm
+# Intel
+.intel_syntax noprefix
+
+clflush [rdi]
+
+rdtsc
+mov rax, [rdi]
+rdtsc
+```
+
+Se usa para medir *cache hit* vs *cache miss*.
+
+**Ejemplo: Persistencia con sfence**
+
+```asm
+# Intel
+.intel_syntax noprefix
+
+mov [data], rax
+clflush [data]
+sfence
+```
+
+**Ejemplo: Flush a varias líneas de caché**
+
+```asm
+# Intel
+.intel_syntax noprefix
+
+clflush [rdi]
+clflush [rdi + 64]
+clflush [rdi + 128]
+```
+
+Cada una limpia una línea distinta.
+
+**Usos**
+
+- Coherencia manual
+- Persistencia de memoria
+- Side-channel attacks (Flush+Reload)
+
+#### Variante `CLFLUSHOPT`
+
+Debido a que `CLFLUSH` es serializante y lento, Intel creó `CLFLUSHOPT`. La que permite una ejecución fuera de orden, es mas rápida y requiere `SFENCE` para orden final. A diferencia de su predecesora, esta permite emitir muchos flush seguidos sin esperar a que cada uno termine. Por eso se usa para limpiar buffers grandes. 
+
+**Sintaxis:** `CLFLUSHOPT [addr]`
+
+**Ejemplo**
+
+```asm
+# Intel
+.intel_syntax noprefix
+.intel_syntax noprefix
+.section .data
+value:
+    .quad 123
+
+.section .text
+.global _start
+
+_start:
+    mov rax, QWORD PTR [value]
+    clflushopt BYTE PTR [value]
+    sfence
+# SFENCE asegura que todos los flush hayan terminado
+```
+
+**Nota:** `CLFLUSHOPT` ignora el tamaño al funcionar sobre la línea de caché completa, pero GAS exige uno.
+
+**Puede romper la persistencia**
+
+`CLFLUSHOPT` no está ordenado respecto a otras escrituras, por eso Intel exige:
+
+```
+store data
+clflushopt
+sfence
+```
+
+Sin `SFENCE`el flush podría ocurrir antes del store rompiendo la persistencia.
+
+**Ejemplo: Flush de un buffer**
+
+```asm
+# Intel
+# rdi = buffer
+# rcx = tamaño
+.intel_syntax noprefix
+flush_loop:
+    clflushopt BYTE PTR [rdi]
+
+    add rdi, 64
+    sub rcx, 64
+    ja flush_loop
+
+    sfence
+```
+
+Cada iteración limpia una línea de cache de 64 bytes.
+
+**Ejemplo: Flush de varias lineas en paralelo**
+
+```asm
+# Intel
+.intel_syntax noprefix
+
+clflushopt BYTE PTR [rdi]
+clflushopt BYTE PTR [rdi+64]
+clflushopt BYTE PTR [rdi+128]
+clflushopt BYTE PTR [rdi+192]
+
+sfence
+```
+
+El CPU puede ejecutar varios flush en paralelo.
+
+**Ejemplo: Flush de buffer de 4KB**
+
+```asm
+# Intel
+# Entrada: rdi = puntero a página
+.intel_syntax noprefix
+.global flush_page
+
+flush_page:
+    mov rcx, 64        # 4096 / 64 líneas
+
+.loop:
+
+    clflushopt BYTE PTR [rdi]
+
+    add rdi, 64
+    dec rcx
+    jne .loop
+
+    sfence
+    ret
+```
+
+**Ejemplo: uso de intrinsics en C**
+
+```C
+// Compilar con -mclflushopt
+#include <immintrin.h>
+
+void flush_buffer(void *buf, size_t size) {
+    char *p = buf;
+
+    for(size_t i = 0; i < size; i += 64)
+        _mm_clflushopt(p + i);
+
+    _mm_sfence();
+}
+```
+
+**Ejemplo: Variante desenrollada de alta performance**
+
+```asm
+# I.intel_syntax noprefix
+
+clflushopt BYTE PTR [rdi]
+clflushopt BYTE PTR [rdi+64]
+clflushopt BYTE PTR [rdi+128]
+clflushopt BYTE PTR [rdi+192]
+clflushopt BYTE PTR [rdi+256]
+clflushopt BYTE PTR [rdi+320]
+clflushopt BYTE PTR [rdi+384]
+clflushopt BYTE PTR [rdi+448]
+
+sfencentel
+```
+
+Reduce el branching.
+
+**¿Cuán rapido es `CLFLUSHOPT`?**
+
+Aunque depende del CPU, sus ciclos típicos son:
+
+| Instrucción | Latencia aproximada |
+| ----------- | ------------------- |
+| CLFLUSH     | 150-300 ciclos      |
+| CLFLUSHOPT  | ~60-120 ciclos      |
+| CLWB        | ~40-100 ciclos      |
+
+`CLFLUSHOPT` es asíncrono, la instrucción solo inicia el flush pero el costo real se paga cuando se llama a `SFENCE` y se espera a que terminen todos.
+
+Latencia real en CPUs modernas:
+
+| operación           | ciclos        |
+| ------------------- | ------------- |
+| emitir CLFLUSHOPT   | ~1 ciclo      |
+| latencia real flush | 60-120 ciclos |
+| sfence              | 20-40 ciclos  |
+
+**Nota:** Aunque se pueden emitir muchos flush seguidos, todos quedan en cola del hardware.
+
+#### Instrucción `CLWB` (Cache Line Write Back)
+
+Aparece en CPUs modernas Intel y AMD. Está relacionada con persistencia y coherencia de caché, especialmente cuando se trabaja con memoria persistente (NVDIMM / PMEM).
+
+**¿Qué es NVDIMM (Non-Volatile DIMM)?**
+
+NVDIMM significa Non-Volatile Dual Inline Memory Module.
+
+Es un módulo de memoria que se instala en el mismo slot que la RAM, pero que no pierde datos al apagar el equipo. Combina dos características: DRAM (rápida) y Flash/NAND/Almacenamiento persistente.
+Cuando el sistema pierde energía la DRAM se copia automáticamente al almacenamiento persistente. Y cuando el sistema vuelve a arrancar, los datos se restauran.
+
+Los módulos comerciales usan normalmente DIMM de servidor, estan diseñados casi exclusivamente para el mercado empresarial de servidores. Normalmente necesitan una línea de energía extra, y un módulo de backup power (supercap o batería). Además el IMC del CPU debe soportar NVDIMM (Intel XEON, algunos EPYC, algunos Atom Server, etc).
+
+**¿Qué es PMEM (Persistent Memory)?**
+
+Es una categoría de memoria que es: no volátil, direccionable por CPU, accesible como memoria. No es exactamente un módulo concreto, es el concepto tecnológico. El ejemplo mas famoso fue el *Intel Optane Persistent Memory* basado en 3D XPoint.
+
+Puede usarse en dos modos: memory mode (RAM gigante) y app direct mode (memoria persistente direccionable).
+
+**De vuelta a `CLWB`**
+
+`CLWB` es muy usada con `PMEM` porque escribe a memoria persistente y mantiene la línea en caché. Y éste se usa principalmente en servidores de alto rendimiento como:
+
+- Bases de datos
+- Sistemas financieros
+- Sistemas de trading
+- Analytics
+
+Empresas como Oracle y SAP han usado PMEM para acelerar bases de datos en memoria.
+
+**¿Qué hace `CLWB`?**
+
+Escribe una línea de caché modificada a memoria sin invalidarla de la caché. Una de las razones de por qué Intel añadió `CLWB` fue la tecnología *Intel Optane*, la que tuvo muy buen soporte en Linux. Sin ella no se podía garantiza la persistencia correcta en memoria no volátil. Apareció con *Intel skylake server* y *Cascade Lake* cuando apareció *Optane persistent memory*.
+
+**Ventaja sobre `CLFLUSH``**
+
+La gran ventaja de usar ``CLWB` es que no se pierde la línea de caché, tal y como pasa con `CLFLUSH`.
+
+**Sintaxis:** `CLWB addr`
+
+**Ejemplo**
+
+```asm
+# Intel
+clwb [rax]       # Usando el registro RAX
+clwb [rdi]       # Usando otro registro
+clwb [rcx+32]    # Con direccionamiento
+clwb [rdi+rsi*8] # Con index y scale
+clwb [buffer]    # Buffer
+```
+
+**Ejemplo completo**
+
+```asm
+# Intel
+.intel_syntax noprefix
+
+mov rdi, buffer
+mov qword ptr [rdi], 123
+
+clwb [rdi]
+sfence
+```
+
+**Ejemplo con persistencia**
+
+`CLWB` normalmente se usa con una barrera de memoria porque es asíncrona, y `SFENCE` se asegura que el writeback (escritura asíncrona o diferida) se complete.
+
+```
+store
+clwb
+sfence
+```
+
+```asm
+# Intel
+mov rax, buffer
+mov [rax], rbx
+clwb [rax]
+sfence
+```
+
+**Tamaño**
+
+Al igual que `CLFLUSH`, `CLWB` opera sobre una línea de caché completa de normalmente 64 bytes. Y Aunque la instrucción reciba una dirección cualquiera dentro de la línea, la operación contempla la línea completa.
+
+
+
 Todo: seguir con la lista del intercambio de datos y luego pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
 
 todo: ver instrucciones relacionadas a xchg (las del archivo fundamentos-intercambios.odt)
