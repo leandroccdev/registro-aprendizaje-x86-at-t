@@ -11323,11 +11323,846 @@ LR / SC
 
 Por lo tanto, todas las arquitecturas mencionadas permiten construir estructuras *lock-free* y *wait-free*.
 
+## Consultar características al CPU
+
+Esta sección abarca instrucciones que permiten al software preguntarle directamente al procesador qué características soporta.
+
+### Instrucción `CPUID`
+
+Permite al programa consultar información del procesador, como por ej: fabricante del CPU, modelo, familia, tamaño de caché, soporte para extensiones (SSE, AVX, etc), número de núcleos, etc. Es como el índice de una API.
+
+`CPUID` usa registros, antes de ejecutarla se debe poner un código de consulta en el registro `EAX`, y después de la ejecución el CPU devuelve los resultados en los registros `EAX`, `EBX`, `ECX` y `EDX`. Es una instrucción no privilegiada por lo que funciona en user mode.
+
+**Sintaxis:** `CPUID`
+
+**Ejemplo**
+
+```asm
+# Intel
+mov eax, 0
+cpuid
+
+# Resultado
+# EBX, EDX, ECX: string del fabricante
+# GenuineIntel
+# AuthenticAMD
+```
+
+En este contexto se habla de **leaf** que referencia a una categoría o función de consulta del CPU. Cada *leaf* es un código de consulta que le indica al CPU qué tipo de información se quiere obtener.
+
+**Idea conceptual:** `CPUID(leaf) → información enregistros`
+
+Es decir que *leaf* se carga en el registro `EAX` y el CPU devuelve datos en los registros  `EAX`, `EBX`, `ECX` y `EDX`.
+
+**¿De donde sale "leaf"?**
+
+La palabra viene de la idea de un árbol de consultas:
+
+```
+CPUID
+ ├── leaf 0  → vendor
+ ├── leaf 1  → features
+ ├── leaf 2  → cache
+ ├── leaf 7  → extended features
+ └── leaf 8000000x → extended info
+```
+
+Donde cada leaf es una rama final del árbol de información.
+
+**No existe un número fijo de leaves**
+
+No hay un número fijo universal de leaves dado que cada generación de CPUs puede agregar más. Pero si existe una forma estándar de preguntarle al procesador cuántos soporta.
+
+```asm
+# Intel
+mov eax, 0 # Primero se consulta el leaf 0
+cpuid
+# Resultado
+# EAX: máximo leaf estándar soportado
+# Ejemplo: 0x16
+# Existen 22 leaves: 0x0 → 0x16
+
+# Consulta de leaves extendidos
+mov eax, 0x80000000
+cpuid
+# Resultado
+# EAX: máximo leaf extendido
+# Ejemplo
+# EAX: 0x8000001F
+```
+
+**Rangos de leaves**
+
+Los rangos extendidos suelen ser definidos por fabricantes como AMD o Intel y normalmente se agrupan así:
+
+| Rango                     | Tipo                     |
+| ------------------------- | ------------------------ |
+| `0x00000000 – 0x0000001F` | Leaves estándar          |
+| `0x20000000 – ...`        | Hypervisor               |
+| `0x40000000 – ...`        | Vendor de virtualización |
+| `0x80000000 – 0x8000001F` | Leaves extendidos        |
+
+**En CPUs modernos típicamente hay:**
+
+Un CPU moderno puede tener entre 40 a 60 leaves diferentes.
+
+| Tipo                 | Cantidad aproximada |
+| -------------------- | ------------------- |
+| Leaves estándar      | ~20–30              |
+| Leaves extendidos    | ~20                 |
+| Leaves de hypervisor | ~10                 |
+
+**Leaves importantes**
+
+| Leaf   | Uso                                  |
+| ------ | ------------------------------------ |
+| `0x0`  | Vendor + máximo leaf                 |
+| `0x1`  | Features principales (SSE, AVX)      |
+| `0x4`  | Información detallada de caché       |
+| `0x7`  | Features modernas (AVX2, SHA, BMI)   |
+| `0xB`  | Topología de CPU (núcleos / threads) |
+| `0xD`  | XSAVE features                       |
+| `0x15` | TSC / reloj                          |
+| `0x16` | Frecuencia del CPU                   |
+
+**Extendidos**
+
+| Leaf           | Uso                   |
+| -------------- | --------------------- |
+| `0x80000001`   | Features extendidas   |
+| `0x80000002–4` | Nombre del CPU        |
+| `0x80000008`   | Tamaño de direcciones |
+
+#### **Leaf 1: Tabla de características del CPU**
+
+```asm
+# Intel
+mov eax, 1
+cpuid
+```
+
+**Registro `EDX`(características clásicas)**
+
+| Bit  | Feature  | Significado                        |
+| ---- | -------- | ---------------------------------- |
+| 0    | FPU      | Unidad de punto flotante integrada |
+| 3    | PSE      | Páginas grandes de 4 MB            |
+| 4    | TSC      | Time Stamp Counter                 |
+| 5    | MSR      | Model Specific Registers           |
+| 6    | PAE      | Physical Address Extension         |
+| 8    | CMPXCHG8 | Instrucción CMPXCHG8B              |
+| 9    | APIC     | Local APIC                         |
+| 11   | SEP      | SYSENTER/SYSEXIT                   |
+| 13   | PGE      | Global Pages                       |
+| 15   | CMOV     | Conditional Move                   |
+| 19   | CLFLUSH  | Cache line flush                   |
+| 23   | MMX      | Soporte MMX                        |
+| 24   | FXSR     | FXSAVE / FXRSTOR                   |
+| 25   | SSE      | Streaming SIMD Extensions          |
+| 26   | SSE2     | SSE2                               |
+| 28   | HTT      | HyperThreading                     |
+
+**Registro `ECX` (características modernas)**
+
+| Bit  | Feature    | Significado                |
+| ---- | ---------- | -------------------------- |
+| 0    | SSE3       | SSE3                       |
+| 1    | PCLMULQDQ  | Carryless multiply         |
+| 3    | MONITOR    | MONITOR/MWAIT              |
+| 5    | VMX        | Virtualización Intel VT-x  |
+| 9    | SSSE3      | Supplemental SSE3          |
+| 12   | FMA        | Fused Multiply Add         |
+| 13   | CMPXCHG16B | Operación 128-bit atomics  |
+| 19   | SSE4.1     | SSE4.1                     |
+| 20   | SSE4.2     | SSE4.2                     |
+| 21   | x2APIC     | Advanced APIC              |
+| 22   | MOVBE      | Move with byte swap        |
+| 23   | POPCNT     | Conteo de bits             |
+| 25   | AES        | AES-NI                     |
+| 26   | XSAVE      | XSAVE/XRSTOR               |
+| 27   | OSXSAVE    | OS soporta XSAVE           |
+| 28   | AVX        | Advanced Vector Extensions |
+| 29   | F16C       | Conversión float16         |
+| 30   | RDRAND     | Random number instruction  |
+
+#### **Leaf 2: Códigos de descriptores de caché y TLB **
+
+Este leaf es especial, no usa bits como los otros leaves, en cambio devuelve bytes que son códigos de descriptores de caché y TLB (Translation Lookaside Buffer).
+
+```asm
+# Intel
+mov eax, 2
+cpuid
+```
+
+Luego de ejecutar la consulta, los registros `EAX`, `EBX`, `ECX`, `EDX` contienen 4 bytes cada uno, y cada byte es un descriptor que describe: cache L1/L2/L3, TLB y prefetchers.
+
+**Leaf 2 puede requerir múltiples llamadas**
+
+El primer byte de `EAX` indica cuántas veces hay que ejecutar `CPUID`. Por ej: si `EAX = 0x02xxxxxx` significa que hay que llamar a `CPUID` dos veces.
+
+**Algunos bytes pueden ser inválidos**
+
+Si el bit 31 de un registro está en 1, ese registro no contiene descriptores validos.
+
+**Leaf 2 está obsoleto**
+
+En CPUs modernos se usa leaf 4 para información detallada de caché porque entrega datos estructurados. En cambio, binarios antiguos de la era de los Pentium y Core2, usan el leaf 2 para detectar caches.
+
+**Descriptores comunes (leaf 2)**
+
+| Byte | Significado                                              |
+| ---- | -------------------------------------------------------- |
+| 0x01 | Instruction TLB: 4KB pages, 4-way, 32 entries            |
+| 0x02 | Instruction TLB: 4MB pages, fully associative, 2 entries |
+| 0x03 | Data TLB: 4KB pages, 4-way, 64 entries                   |
+| 0x04 | Data TLB: 4MB pages, 4-way, 8 entries                    |
+| 0x06 | L1 instruction cache: 8KB, 4-way, 32B line               |
+| 0x08 | L1 instruction cache: 16KB, 4-way, 32B line              |
+| 0x09 | L1 instruction cache: 32KB, 4-way, 64B line              |
+| 0x0A | L1 data cache: 8KB, 2-way, 32B line                      |
+| 0x0C | L1 data cache: 16KB, 4-way, 32B line                     |
+| 0x0D | L1 data cache: 16KB, 4-way, 64B line                     |
+| 0x21 | L2 cache: 256KB, 8-way, 64B line                         |
+| 0x22 | L3 cache: 512KB, 4-way, 64B line                         |
+| 0x23 | L3 cache: 1MB, 8-way, 64B line                           |
+| 0x25 | L3 cache: 2MB, 8-way, 64B line                           |
+| 0x29 | L3 cache: 4MB, 8-way, 64B line                           |
+| 0x2C | L1 data cache: 32KB, 8-way, 64B line                     |
+| 0x30 | L1 instruction cache: 32KB, 8-way, 64B line              |
+| 0x39 | L2 cache: 128KB, 4-way                                   |
+| 0x3C | L2 cache: 256KB, 4-way                                   |
+| 0x41 | L2 cache: 128KB, 4-way, 32B line                         |
+| 0x42 | L2 cache: 256KB, 4-way, 32B line                         |
+| 0x43 | L2 cache: 512KB, 4-way, 32B line                         |
+| 0x44 | L2 cache: 1MB, 4-way                                     |
+| 0x45 | L2 cache: 2MB, 4-way                                     |
+| 0x46 | L3 cache: 4MB, 4-way                                     |
+| 0x47 | L3 cache: 8MB, 8-way                                     |
+| 0x49 | L3 cache: 4MB, 16-way                                    |
+| 0x4E | L2 cache: 6MB, 24-way                                    |
+| 0x60 | L1 data cache: 16KB, 8-way                               |
+| 0x66 | L1 data cache: 8KB, 4-way                                |
+| 0x67 | L1 data cache: 16KB, 4-way                               |
+| 0x68 | L1 data cache: 32KB, 4-way                               |
+| 0x70 | Trace cache: 12K µops                                    |
+| 0x71 | Trace cache: 16K µops                                    |
+| 0x72 | Trace cache: 32K µops                                    |
+| 0x78 | L2 cache: 1MB, 4-way                                     |
+| 0x79 | L2 cache: 128KB, 8-way                                   |
+| 0x7A | L2 cache: 256KB, 8-way                                   |
+| 0x7B | L2 cache: 512KB, 8-way                                   |
+| 0x7C | L2 cache: 1MB, 8-way                                     |
+| 0x7D | L2 cache: 2MB, 8-way                                     |
+| 0x82 | L2 cache: 256KB, 8-way                                   |
+| 0x83 | L2 cache: 512KB, 8-way                                   |
+| 0x84 | L2 cache: 1MB, 8-way                                     |
+| 0x85 | L2 cache: 2MB, 8-way                                     |
+| 0x86 | L2 cache: 512KB, 4-way                                   |
+| 0x87 | L2 cache: 1MB, 8-way                                     |
+
+#### **Leaf 3: Processor Serial Number**
+
+Está dedicado al **Processor Serial Number (PSN)**.
+
+```asm 
+# Intel
+mov eax, 3
+cpuid
+```
+
+**Salida**
+
+| Registro | Contenido             |
+| -------- | --------------------- |
+| EAX      | reservado             |
+| EBX      | reservado             |
+| ECX      | bits bajos del serial |
+| EDX      | bits altos del serial |
+
+En CPUs que lo soportan, `EDX:ECX` contiene 64 bits del número de serie del procesador.
+
+El serial completo tiene 96 bits:
+
+```
+[31..0]   -> parte alta = CPU signature (leaf 1, EAX)
+[63..32]  -> EDX (leaf 3)
+[95..64]  -> ECX (leaf 3)
+```
+
+Conceptualmente seria:
+
+```
+serial = concat(
+    CPUID(1).EAX,
+    CPUID(3).EDX,
+    CPUID(3).ECX
+)
+```
+
+**Nota:** Era la forma original en Pentium III.
+
+**Problema histórico**
+
+El **PSN** generó un escándalo de privacidad entre los años 1999 y 2000 porque permitía identificar un CPU único remotamente. Sitios webs podían rastrear usuarios incluso sin cookies. Luego Intel lo deshabilitó en CPUs posteriores, debido a esto el feature bit PSN siempre aparece apagado y AMD nunca lo implementó.
+
+En CPUs modernas si se ejecuta la consulta a leaf 3, normalmente se obtienen los registros `EAX`, `EBX`, `ECX` y `EDX` en cero porque dicho leaf ya no existe.
+
+Además antes se debería verificar el flag del bit 18, si dicho bit es cero, entonces leaf 3 no tiene significado.
+
+```
+CPUID(1).EDX bit 18 = PSN
+```
+
+#### **Leaf 4: Deterministic Cache Parameters Leaf**
+
+Es uno de los más importantes porque permite enumerar las cachés del procesador de forma estructurada. Intel lo llama **Deterministic Cache Parameters Leaf**.
+A diferencia del leaf 2 (que usa descriptores viejos), el leaf 4 describe exactamente cada caché.
+
+```asm
+# Intel
+mov eax, 4
+mov eac, ? # El índice de caché (0, 1, 2, 3, ...)
+cpuid
+```
+
+`ECX` funciona como selector para recorrer todas las cachés. Conceptualmente se puede ejemplificar de la siguiente manera:
+
+```
+for(i=0; ; i++){
+    eax=4
+    ecx=i
+    cpuid
+    if((EAX & 0x1F) == 0) break
+}
+```
+
+Cuando `EAX[4:0] = 0`, significa que no hay mas cachés.
+
+**Registro `EAX`**
+
+| Bits  | Significado                            |
+| ----- | -------------------------------------- |
+| 4–0   | tipo de caché                          |
+| 7–5   | nivel de caché                         |
+| 8     | caché self initializing                |
+| 9     | fully associative                      |
+| 25–14 | número de hilos que comparten la caché |
+| 31–26 | número de cores que comparten          |
+
+**Tipos de caché**
+
+| valor | significado       |
+| ----- | ----------------- |
+| 0     | no más cachés     |
+| 1     | data cache        |
+| 2     | instruction cache |
+| 3     | unified cache     |
+
+**Registro `EBX`**
+
+Describe la geometría de la caché.
+
+| Bits  | Significado           |
+| ----- | --------------------- |
+| 11–0  | coherency line size   |
+| 21–12 | physical partitions   |
+| 31–22 | ways of associativity |
+
+**Registro `ECX`**
+
+| Bits | Significado    |
+| ---- | -------------- |
+| 31–0 | número de sets |
+
+**Registro `EDX`**
+
+| Bit  | Significado           |
+| ---- | --------------------- |
+| 0    | write-back invalidate |
+| 1    | cache inclusive       |
+| 2    | complex indexing      |
+
+**Fórmula para calcular el tamaño de la caché**
+
+El tamaño total se calcula así:
+
+```
+cache_size =
+(ways + 1) *
+(partitions + 1) *
+(line_size + 1) *
+(sets + 1)
+```
+
+Donde:
+
+- **ways** = EBX[31:22]
+
+- **partitions** = EBX[21:12]
+
+- **line_size** = EBX[11:0]
+
+- **sets** = ECX
+
+**Ejemplo**
+
+```
+ways = 7
+partitions = 0
+line_size = 63
+sets = 511
+
+cache_size =
+(7+1)*(0+1)*(63+1)*(511+1)
+= 8 * 1 * 64 * 512
+= 262144 bytes
+= 256 KB
+```
+
+**En CPUs modernas**
+
+| índice | tipo        | nivel | tamaño     |
+| ------ | ----------- | ----- | ---------- |
+| ECX=0  | data        | L1    | 32 KB      |
+| ECX=1  | instruction | L1    | 32 KB      |
+| ECX=2  | unified     | L2    | 256–512 KB |
+| ECX=3  | unified     | L3    | varios MB  |
+
+**Usos interesantes**
+
+Muchos detectores de sandbox / vm usan el leaf 4 porque las VMs suelen tener topologías de caché irreales, tamaños inconsistentes y falta de niveles. Se usa mucho en malware para detectar si la muestra está siendo ejecutada en virtualización. De esta manera, los autores de malware intentan proteger su trabajo.
+
+#### **Leaf 5: soporte del procesador para `MONITOR/MWAIT`**
+
+Describe el soporte del procesador para **Monitor / MWAIT**.
+
+```asm
+# Intel
+mov eax, 5
+cpuid
+```
+
+**Salida**
+
+| Registro | Significado                          |
+| -------- | ------------------------------------ |
+| EAX      | tamaño mínimo del rango monitorizado |
+| EBX      | tamaño máximo del rango monitorizado |
+| ECX      | features de MONITOR/MWAIT            |
+| EDX      | sub-estados MWAIT soportados         |
+
+**Registro `EAX`**
+
+`bits 15..0 = tamaño mínimo del rango monitorizado (bytes)`
+
+Indica la granularidad mínima que puede vigilar la instrucción `MONITOR`. Ej: `EAX = 64`, significa que el hardware monitoriza líneas de 64 bytes (una cache line).
+
+**Registro `EBX`**
+
+`bits 15..0 = tamaño máximo del rango monitorizado`
+
+Define el máximo rango que `MONITOR` puede vigilar.
+
+**Registro `ECX` - Flags**
+
+| Bit   | Significado                          |
+| ----- | ------------------------------------ |
+| 0     | MONITOR/MWAIT soporta extensiones    |
+| 1     | interrupciones pueden salir de MWAIT |
+| resto | reservado                            |
+
+Esto indica capacidades adicionales del mecanismo.
+
+**Registro `EDX` - subestados `MWAIT`**
+
+Describe sub-C-states que soporta `MWAIT`. Los bits están organizados así:
+
+```
+bits 3..0   -> subestados C0
+bits 7..4   -> subestados C1
+bits 11..8  -> subestados C2
+bits 15..12 -> subestados C3
+bits 19..16 -> subestados C4
+```
+
+Cada campo indica cuántos subestados existen. Esto está relacionado con la gestión de energía del CPU.
+
+**Dato interesante**
+
+Como muchos hypervisores deshabilitan `MONITOR/WAIT` debido a lo complicado que resulta emularlos, y porque puede afectar al scheduling del host, `CPUID(5)` a veces revela si se está en una VM o en hardware real.
+
+#### **Leaf 6: Características de gestión de enegía y control térmico del procesador.**
+
+Se usa para consultar catacterísticas de gestión de energía y control térmico del procesador. Intel lo llama normalmente **Thermal and Power Management**.
+
+```asm
+# Intel
+mov eax, 6
+cpuid
+```
+
+Los registros devueltos contienen flags de capacidades relacionadas con energía, temperatura y turbo.
+
+**Registro `ECX` - Características térmicas principales**
+
+| Bit  | Significado                                     |
+| ---- | ----------------------------------------------- |
+| 0    | **Digital Temperature Sensor (DTS)** presente   |
+| 1    | **Intel Turbo Boost Technology** disponible     |
+| 2    | **ARAT** (APIC-Timer Always Running)            |
+| 4    | **PLN** – Power Limit Notification              |
+| 5    | **ECMD** – Extended Clock Modulation Duty       |
+| 6    | **PTM** – Package Thermal Management            |
+| 7    | **HWP** – Hardware P-states                     |
+| 8    | **HWP Notification**                            |
+| 9    | **HWP Activity Window**                         |
+| 10   | **HWP Energy Performance Preference**           |
+| 11   | **HWP Package Level Request**                   |
+| 13   | **HDC** – Hardware Duty Cycling                 |
+| 14   | **Turbo Boost Max Technology 3.0**              |
+| 15   | **HWP Capabilities**                            |
+| 16   | **HWP PECI override**                           |
+| 17   | **Flexible HWP**                                |
+| 18   | **Fast access mode for HWP request MSRs**       |
+| 19   | **Ignoring idle logical processor HWP request** |
+
+**Registro `EBX` - Número de interruptores térmicos**
+
+| Bits | Significado                                                  |
+| ---- | ------------------------------------------------------------ |
+| 3:0  | Número de **interrupt thresholds** del sensor térmico digital |
+
+Indica cuántos niveles de temperatura pueden generar interrupciones.
+
+**Registro `ECX` - Catacterísticas adicionales**
+
+| Bit  | Significado                        |
+| ---- | ---------------------------------- |
+| 0    | **Hardware Coordination Feedback** |
+| 3    | **Energy Bias Preference**         |
+
+**Registro `EDX`**
+
+Generalmente reservado dependiendo de la generación del CPU.
+
+**Ejemplo**
+
+```C
+#include <stdio.h>
+#include <cpuid.h>
+
+int main() {
+    unsigned int eax, ebx, ecx, edx;
+
+    __cpuid(6, eax, ebx, ecx, edx);
+
+    printf("EAX: %08x\n", eax);
+    printf("EBX: %08x\n", ebx);
+    printf("ECX: %08x\n", ecx);
+    printf("EDX: %08x\n", edx);
+}
+```
+
+Si por ejemplo: `EAX = 0x00000003`, significa que:
+
+- bit 0 = DTS (digital thermal sensor)
+- bit 1 = Turbo Boost disponible
+
+Este leaf es usado principalmente por sistemas operativos, hypervisores y software de diagnóstico.
+
+**Tambien sirve para detactar virtualización**
+
+Debido a que muchas VMs no implementan sensores térmicos y tampoco exponen Turbo Boost, algunos flags aparecen en CPUs reales pero no en VMs. Por lo que una heurística típica es:
+
+```
+leaf 0 -> vendor
+leaf 1 -> hypervisor bit
+leaf 5 -> MONITOR/MWAIT
+leaf 6 -> thermal features
+```
+
+Y si algo no cuadra, probablemente la muestra se está ejecutando en una VM.
+
+#### **Leaf 7: Extensiones modernas**
+
+Es uno de los mas importantes en CPUs modernas, porque expone características extendidas del procesador que no cabían en el leaf 1 original. Se le llama normalmente: **Structured Extended Feature Flags Enumeration**. Además tiene sub-leaves (niveles internos). 
+
+En leaft 7 es donde aparecen todas las extensiones modernas (SIMD moderno, Criptografía, Seguridad, Performance).
+
+Muchas características nuevas se consultan con:
+
+```asm
+# Intel
+mov eax, 7
+# ECX selecciona el subleaf
+mov ecx, 0 # Sub-leaf 0
+cpuid
+```
+
+**Subleaf 0**
+
+**Registro `EAX`**
+
+Indica el número máximo de sub-leaves soportados. Ejemplo: `EAX = 1`, significa que existen dos sub-leaves (cero y uno).
+
+Los bits importantes salen en el registro `EBX`.
+
+**Registro `EBX` - Características modernas (muy importantes)**
+
+| Bit  | Feature                             |
+| ---- | ----------------------------------- |
+| 0    | **FSGSBASE**                        |
+| 1    | **IA32_TSC_ADJUST MSR**             |
+| 2    | **SGX** (Software Guard Extensions) |
+| 3    | **BMI1**                            |
+| 4    | **HLE**                             |
+| 5    | **AVX2**                            |
+| 7    | **SMEP**                            |
+| 8    | **BMI2**                            |
+| 9    | **ERMS**                            |
+| 10   | **INVPCID**                         |
+| 11   | **RTM**                             |
+| 12   | **PQM**                             |
+| 14   | **MPX**                             |
+| 15   | **PQE**                             |
+| 16   | **AVX512F**                         |
+| 17   | **AVX512DQ**                        |
+| 18   | **RDSEED**                          |
+| 19   | **ADX**                             |
+| 20   | **SMAP**                            |
+| 21   | **AVX512_IFMA**                     |
+| 23   | **CLFLUSHOPT**                      |
+| 24   | **CLWB**                            |
+| 25   | **Intel PT**                        |
+| 26   | **AVX512PF**                        |
+| 27   | **AVX512ER**                        |
+| 28   | **AVX512CD**                        |
+| 29   | **SHA**                             |
+| 30   | **AVX512BW**                        |
+| 31   | **AVX512VL**                        |
+
+**Registro `ECX` - más características**
+
+| Bit  | Feature                   |
+| ---- | ------------------------- |
+| 0    | **PREFETCHWT1**           |
+| 1    | **AVX512_VBMI**           |
+| 2    | **UMIP**                  |
+| 3    | **PKU**                   |
+| 4    | **OSPKE**                 |
+| 5    | **WAITPKG**               |
+| 6    | **AVX512_VBMI2**          |
+| 8    | **GFNI**                  |
+| 9    | **VAES**                  |
+| 10   | **VPCLMULQDQ**            |
+| 11   | **AVX512_VNNI**           |
+| 12   | **AVX512_BITALG**         |
+| 14   | **AVX512_VPOPCNTDQ**      |
+| 16   | **LA57** (5-level paging) |
+| 22   | **RDPID**                 |
+| 25   | **CLDEMOTE**              |
+| 27   | **MOVDIRI**               |
+| 28   | **MOVDIR64B**             |
+| 29   | **ENQCMD**                |
+| 30   | **SGX_LC**                |
+| 31   | **PKS**                   |
+
+**Registro `EDX` - más extensiones**
+
+| Bit  | Feature                 |
+| ---- | ----------------------- |
+| 2    | **AVX512_4VNNIW**       |
+| 3    | **AVX512_4FMAPS**       |
+| 4    | **FSRM**                |
+| 8    | **AVX512_VP2INTERSECT** |
+| 10   | **MD_CLEAR**            |
+| 14   | **SERIALIZE**           |
+| 16   | **TSXLDTRK**            |
+| 18   | **PCONFIG**             |
+| 22   | **AMX_BF16**            |
+| 24   | **AMX_TILE**            |
+| 25   | **AMX_INT8**            |
+
+**Subleaf 1**
+
+Se usa mas para características modernas.
+
+**Ejemplo:**
+
+| Registro | Contenido    |
+| -------- | ------------ |
+| EAX      | AVX-VNNI     |
+| EBX      | AVX512_BF16  |
+| ECX      | más features |
+| EDX      | reservado    |
+
+**Dato interesante**
+
+Las VMs muchas veces no exponen AVX512, ocultan SGX, SMEP/SMAP y/o simplifican características. Por eso muchos chequeos anti VM usan leaf 7.
+
+#### **Leaf 8: No existe**
+
+No existe en Intel dentro del espacio normal de CPUID. Dicho espacio está dividido en rangos:
+
+| Rango                     | Uso                                  |
+| ------------------------- | ------------------------------------ |
+| `0x00000000 – 0x0000000?` | hojas estándar Intel                 |
+| `0x40000000 – 0x400000FF` | hypervisors                          |
+| `0x80000000 – 0x800000FF` | hojas extendidas (AMD originalmente) |
+
+Cuando se hace:
+
+```asm
+# Intel
+mov eax, 8
+cpuid
+```
+
+Normalmente ocurrirá una de dos cosas:
+
+- Si el CPU solo soporta hasta el leaf 7, entonces devuelve la misma información que el leaf máximo soportado.
+
+  Primero se debe preguntar:
+
+  ```asm
+  # Intel
+  mov eax, 0
+  cpuid
+  ```
+
+  Y mirar `EAX`. Por ej: si `EAX = 7`, significa que el leaf máximo es el 7.
+
+- En algunas generaciones nuevas puede existir leaf 8, pero no está documentado públicamente como un leaf estándar clásico. 
+
+#### **Leaf 0xB: Topología del procesador**
+
+Permite descubrir la topología real del proceasdor, es decir: cuántos thread SMT, cores y lógical processors. Intel lo llama **Extended Topology Enumeration**. Reemplaza mecanismos antiguos como leaf 1 + APIC ID parsing.
+
+Este leaf también usa sub-leaves.
+
+```asm
+# Intel
+mov eax, 0xB
+mov ecx, ? # En ECX va el subleaf a consultar
+cpuid
+```
+
+`ECX` selecciona el nive lde topología. Se pude iterar:
+
+```
+subleaf 0
+subleaf 1
+subleaf 2
+...
+hasta que EBX = 0
+```
+
+**Registros devueltos**
+
+**Registro `EAX`**
+
+Número de bits que se deben desplazar para obtener el siguiente nivel de topología.
+
+**Registro `EBX`**
+
+Número de logical processors en este nivel. Ej: `EBX = 2`, significa dos threads SMT por core.
+
+**Registro `ECX`**
+
+Se divide en dos partes:
+
+- **Bits 0 al 7 (level number):** Indican qué subleaf se está consultando.
+
+  | valor | significado   |
+  | ----- | ------------- |
+  | 0     | primer nivel  |
+  | 1     | segundo nivel |
+  | 2     | tercer nivel  |
+  | ...   | etc           |
+
+  Debe coincidir con el valor puesto en `ECX` antes de ejecutar `CPUID`.
+
+  ```asm
+  # Intel
+  mov eax, 0xB
+  mov ecx, 1
+  cpuid
+  ```
+
+  Entonces normalmente se vera: `ECX bits 7:0 = 0` 
+
+- **Bits 8 al 15 (level type):**: Indica qué tipo de topología describe este subleaf.
+
+  | valor | significado    |
+  | ----- | -------------- |
+  | 0     | nivel inválido |
+  | 1     | **SMT level**  |
+  | 2     | **Core level** |
+
+  **Interpretación práctica**
+
+  **Nivel SMT**
+
+  `level type = 1` significa que ese subleaf describe threads SMT por core. Ejemplo:
+
+  ```
+  EBX = 2
+  2 threads por core
+  ```
+
+  **Nivel Core**
+
+  `level type = 2` significa que ese subleaf describe logical processors en el package. Ejemplo:
+
+  ```
+  EBX = 8
+  8 logical processors totales
+  ```
+
+**Visualización de las partes de `EDX`**
+
+El resultado se puede entender así:
+
+```
+ECX = [tipo de nivel][numero de nivel]
+        15..8           7..0
+```
+
+**Dato interesante**
+
+Muchos chequeos de VM realizan lo siguiente porque algunos hypervisores implementan mal esta topología:
+
+```
+CPUID(0xB,0)
+si type != 1 → VM sospechosa
+```
+
+#### **Leaf 0xD - Estado extendido del procesador**
+
+Describe el estado extendido del procesador que puede guardarse o restaurarse con las instrucciones `XSAVE/XRSTOR`.
+
+Es crucial para AVX, AVX-512 y otros estados SIMD, porque los registros ya no caben en el antiguo mecanismo `FXSAVE`. Intel lo llama **Processor Extended State Enumeration**.
+
+**¿Por qué existe `XSAVE`?**
+
+Originalmente los sistemas operativos guardaban el estado del CPU con `FSAVE` para FPU, y con `FXSAVE` para SSE. Pero cuando aparecieron registros grandes como: `YMM` (AVX) y `ZMM` (AVX512), el estado del CPU se volvió mucho más grande. Entonces Intel creó `XSAVE` y `XRSTOR`.
+Este leaf permite saber qué estados existen, cuánto espacio necesitan y cómo guardarlos.
+
+**Consulta**
+
+```asm
+# Intel
+mov eax, 0xD
+mov ecx, ? # Subleaf a consultar
+cpuid
+```
+
+Tiene muchos sub-leaves.
 
 
 
-
-
+Revisar leaf restantes: RDT monitoring, extended leaves
 
 Todo: pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
 
@@ -11342,11 +12177,10 @@ todo: abordar SSE / AVX
 
 todo: abordar el uso de fpu x87 (fdiv, fdivp, etc)
 
-todo: antes de abordar las extensiones, abordar una zona de consulta de caracteristicas al cpu con las siguientes instrucciones: CPUID, XGETBV, XSETBV, RDTSC, RDTSCP, RDMSR, WRMSR, RDRAND, RDSEED
+todo: antes de abordar las extensiones, abordar una zona de consulta de caracteristicas al cpu con las siguientes instrucciones:  XGETBV, XSETBV, RDTSC, RDTSCP, RDMSR, WRMSR, RDRAND, RDSEED
 
 Explicación rápida de cada una:
 
-- **CPUID** → Obtiene información de capacidades de CPU (SSE, AVX, AVX2, etc.)
 - **XGETBV** → Lee el registro extendido XCR0 para verificar soporte de registros YMM/ZMM
 - **XSETBV** → Escribe en XCR0 (normalmente usado por el SO)
 - **RDTSC** → Lee el Time Stamp Counter
