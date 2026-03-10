@@ -11122,6 +11122,209 @@ Para luego comparar todo con: `cmpxchg16b`. Esto hace CAS atómico de 16 bytes. 
 
 ### Algoritmos wait-free
 
+Un algoritmo **wait-free** garantiza que cada hilo termina su operación en un número finito de pasos, sin depender del progreso de otros hilos. Es la propiedad de progreso más fuerte en concurrencia.
+
+ **Comparación con otros métodos**
+
+| Tipo             | Garantía                            |
+| ---------------- | ----------------------------------- |
+| Blocking (mutex) | Un hilo puede bloquear a los demás. |
+| Lock-free        | Al menos un hilo progresa.          |
+| Wait-free        | Todos los hilos progresan.          |
+
+En un algoritmo *lock-based*, un hilo toma el mutex y el resto depende de el.
+
+```
+T1 lock
+T2 espera
+T3 espera
+T4 espera
+```
+
+En uno *lock-free*, los hilos compiten con CAS. Siempre alguien progresa, pero un un hilo puede fallar indefinidamente.
+
+```
+T1 intenta CAS -> falla
+T2 intenta CAS -> éxito
+T3 intenta CAS -> falla
+```
+
+En uno *wait-free* el algoritmo garantiza que todos los hilos terminen sin importar la competencia.
+
+```
+T1 termina en ≤ N pasos
+T2 termina en ≤ N pasos
+T3 termina en ≤ N pasos
+```
+
+**¿Cuando un algoritmo es wait-free?**
+
+Formalmente un algoritmo es *wait-free* si:
+
+```
+∀ (Para todo) hilo t:
+    operación(t) se completa en pasos acotados.
+```
+
+No importa cuantos hilos existan, si otros están pausados, si son lentos o si fallan. La propiedad debe cumplirse para cada hilo individualmente. 
+**`operación(t)`** representa la operación que el hilo `t` está intentando ejecutar, por ej: `enqueue()` en una cola, `push()` en un stack, `insert()` en una lista, `read()` en un registro compartido.
+La parte mas importante es que, la operación debe terminar en un número finito y predecible de pasos. Es decir que existe un límite máximo de pasos que la operación puede tomar.
+
+**¿Qué implica esto en concurrencia?**
+
+Un algoritmo *wait-free* garantiza que ningún hilo:
+
+- Puede bloquear a otro.
+- Puede hacer que otro espere indefinidamente.
+
+ **¿Por qué es dificil?**
+
+Porque los algoritmos *lock-free* normalmente dependen de reintentos CAS:
+
+```C
+do {
+    old = load(ptr);
+    new = f(old);
+} while (!CAS(ptr, old, new));
+```
+
+Si hay mucha contención CAS falla y el hilo puede no terminar nunca. Eso no cumple con el requisito de *wait-free*.
+
+**Estrategias de implementación**
+
+1. **Helping:** Un hilo puede terminar el trabajo de otro hilo.
+
+   ```
+   Thread A empieza operación
+   Thread B ve que A no terminó
+   Thread B ayuda a terminarla
+   ```
+
+   De ésta manera todos los hilos progresan. Es muy común en colas y pilas *wait-free*.
+
+2. **Universal constructions:** Método general para transformar algoritmos secuenciales en *wait-free*. Se basa en:
+
+   ```
+   log de operaciones
+   + helping
+   ```
+
+   Donde cada hilo:
+
+   - Publica su operación.
+   - Ejecuta operaciones pendientes.
+   - Aplica su operación.
+
+3. **Per-thread structures:** Cada hilo tiene su propia zona.
+
+   ```
+   counter[thread_id]
+   // Para incrementar
+   counter[id]++
+   // Para leer
+   sum(counter[])
+   ```
+
+**Ejemplo de un wait-free counter**
+
+Un contador compartido tradicional *lock-free* sería:
+
+```C
+atomic_fetch_add(&counter, 1)
+```
+
+En cambio, uno *wait-free* tiene su celda:
+
+```C
+int counter[MAX_THREADS];
+// Incrementar O(1)
+counter[id]++;
+// Leer O(n hilos)
+sum = 0;
+for i in threads:
+    sum += counter[i]
+// Siempre termina
+```
+
+**Problemas de wait-free**
+
+Los algoritmos *wait-free* suelen ser más complejos, más lentos y con más consumo de memoria. Por eso en sistema reales se usan más los algoritmos *lock-free* (Redis, Linux Kernel, Java concurrent structures).
+
+**Ejemplos famosos**
+
+- Herlihy wait-free queue
+- Kogan-Petrank queue
+- LCRQ (casi *wait-free*)
+
+### Jerarquía de Herlihy (Maurice Herlihy hierarchy)
+
+Es un concepto teórico muy importante en concurrencia y algoritmos *wait-free*. Sirve para clasificar primitivas de sincronización según qué tan poderosas son para coordinar múltiples hilos.
+
+El concepto apareció en el paper clásico: [Wait-Fee synchronization](https://cs.brown.edu/~mph/Herlihy91/p124-herlihy.pdf)
+
+La idea es que cada primitiva de sincronización tiene un número llamado **Consensus number**, que indica cuantos hilos pueden llegar a un acuerdo (consensus) usando dicha primitiva en un algoritmo *wait-free*.
+
+**El problema de consensus**
+
+Supóngase que n hilos quieren decidir un único valor. Cada uno propone lo siguiente:
+
+```
+T1 propone: A
+T2 propone: B
+T3 propone: C
+```
+
+Todos deben terminar con el mismo resultado:
+
+```
+T1 -> B
+T2 -> B
+T3 -> B
+```
+
+Según las propiedades del "consenso" todos deben devolver el mismo valor (consenso), el valor elegido debe haber sido propuesto por algún hilo (validez) y todos deben terminar en pasos finitos (terminación *wait-free*).
+El número máximo de hilos que pueden resolver **consensus wait-free** usando solo esa primitiva supone su *consensus number*.
+
+**La jerarquía**
+
+| Primitiva              | Consensus number |
+| ---------------------- | ---------------- |
+| read/write registers   | 1                |
+| test-and-set           | 2                |
+| swap                   | 2                |
+| fetch-and-add          | 2                |
+| queue / stack          | 2                |
+| compare-and-swap (CAS) | ∞                |
+
+Por eso los registros simples no sirven para sincronización. En cambio *test-and-set* permite un consenso para dos hilos, pero con tres ya no funciona en *wait-free*. *Fetch-and-add* comparte el mismo número consensus y, aunque paresca más poderoso, no puede resolver consensus para tres hilos (supuso una sorpresa teórica importante).
+CAS (compare-and-swap) en cambio, puede construir un algoritmo *wait-free* para cualquier número de hilos, por eso es la primitiva universal, y explica por qué casi todos los CPUs modernos lo implementan.
+
+Esto demuestra que no todas las primitivas de sincronización son equivalentes.
+
+x86 tiene:
+
+```
+CMPXCHG
+CMPXCHG8B
+CMPXCHG16B
+```
+
+ARM tiene:
+
+```
+LDXR / STXR
+```
+
+RISC-V tiene:
+
+```
+LR / SC
+```
+
+Por lo tanto, todas las arquitecturas mencionadas permiten construir estructuras *lock-free* y *wait-free*.
+
+
+
 
 
 
