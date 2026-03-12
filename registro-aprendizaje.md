@@ -12137,9 +12137,401 @@ cpuid
 
 Tiene muchos sub-leaves.
 
+**Subleaf 0: Información general**
 
+```asm
+# Intel
+mov eax, 0xD
+mov ecx, 0   # Consulta subleaf 0
+cpuid
+```
 
-Revisar leaf restantes: RDT monitoring, extended leaves
+**Resultado**
+
+| Registro | Significado                                 |
+| -------- | ------------------------------------------- |
+| EAX      | bits de estados soportados en **XCR0**      |
+| EBX      | tamaño total del área XSAVE                 |
+| ECX      | tamaño si solo se habilitan estados básicos |
+| EDX      | bits altos de estados soportados            |
+
+**Registro `EAX`**
+
+Cada bit representa un tipo de estado extendido.
+
+| Bit  | Estado           |
+| ---- | ---------------- |
+| 0    | x87 FPU          |
+| 1    | SSE              |
+| 2    | AVX (YMM)        |
+| 3    | MPX BNDREGS      |
+| 4    | MPX BNDCSR       |
+| 5    | AVX512 opmask    |
+| 6    | AVX512 ZMM hi256 |
+| 7    | AVX512 ZMM16-31  |
+| 8    | PT state         |
+| 9    | PKRU             |
+| 10   | CET_U            |
+| 11   | CET_S            |
+| 12   | HDC              |
+| 13   | UINTR            |
+| 14   | LBR              |
+| 15   | HWP              |
+
+**Ejemplo**
+
+`EAX 0x7` significa: x87, SSE, AVX.
+
+**Registro `EBX`: Tamaño del `XSAVE` area**
+
+Indica cuántos bytes necesita el buffer para guardar el estado.
+
+**Ejemplo**: `EBX = 832` significa que `XSAVE` necesita 832 bytes.
+
+**Subleaf 1: Características de `XSAVE`**
+
+```asm
+# Intel
+mov eax, 0xD
+mov ecx, 1   # Consulta el leaf 1
+```
+
+**Resultado**
+
+| Registro | Significado           |
+| -------- | --------------------- |
+| EAX      | features de XSAVE     |
+| EBX      | tamaño del área XSAVE |
+| ECX      | features adicionales  |
+| EDX      | reservado             |
+
+**Registro `EAX`**
+
+| Bit  | Feature        |
+| ---- | -------------- |
+| 0    | XSAVEOPT       |
+| 1    | XSAVEC         |
+| 2    | XGETBV con ECX |
+| 3    | XSAVES/XRSTORS |
+
+**Subleaf 2 y siguientes: Estados individuales**
+
+Es opcional. Aparece si el CPU soporta `XSAVEOPT`, `XSAVEC`, `XSAVES/XRSTORS`. Describe características adicionales y tamaños.
+Cada subleaf adicional describe un estado extendido en concreto, por ej:
+
+| Subleaf | Estado que describe                           |
+| ------- | --------------------------------------------- |
+| 2       | AVX YMM upper 128/256 bits                    |
+| 3       | AVX512 opmask registers                       |
+| 4       | AVX512 ZMM registers (hi256)                  |
+| 5       | AVX512 ZMM16-31                               |
+| ...     | otros estados (MPX, PT, PKRU, CET, HDC, etc.) |
+
+Y como no todos los subleaves están presentes en todos los CPUs, dependerá de qué extensiones soporte la CPU actual.
+
+```asm
+# Intel
+mov eax, 0xD
+mov ecx, 2    # Consulta el subleaf 2
+cpuid
+```
+
+Describe el **AVX YMM state** y devuelve:
+
+| Registro | Significado          |
+| -------- | -------------------- |
+| EAX      | tamaño del estado    |
+| EBX      | offset en XSAVE area |
+
+**Ejemplo:** `CPUID(0XD, 2)`, resultado: `EAX = 256`, `EBX = 576`. Significa que el estado AVX tiene un tamaño de 256 bytes, y que el offset en `XSAVE` area tiene un tamaño de 576 bytes dentro del `XSAVE` buffer.
+
+**¿Cómo se ve el `XSAVE` area?**
+
+```
++----------------------+
+| legacy x87           |
++----------------------+
+| SSE state            |
++----------------------+
+| AVX YMM upper        |
++----------------------+
+| AVX512 state         |
++----------------------+
+| otros estados        |
++----------------------+
+```
+
+**Nota:** Este leaf es usado por los SOs para saber cuánto espacio reservar para contexto CPU en cambios de tareas.
+
+**¿Cómo saber cuántos subleaves hay?**
+
+Se empieza con `ECX = 0` y se ejecuta `CPUID` iterando `ECX`. Cuando `EBX = 0`, significa que ese subleaf no existe y se detiene la iteración. Es similar al leaf `0xB` (topología) o a los leaves extendidos.
+
+**Ejemplo**
+
+```C
+unsigned int eax, ebx, ecx, edx;
+for (int i = 0; ; i++) {
+    __cpuid_count(0xD, i, eax, ebx, ecx, edx);
+    if (ebx == 0) break;  // sin más subleaves
+    printf("subleaf %d: EBX=%u bytes XSAVE\n", i, ebx);
+}
+```
+
+Devuelve exactamente cuántos subleaves existen y su tamaño.
+
+#### **Leaf 0xF y 0x10: RDT (Resource Director Technology) **
+
+Intel introdujo RDT para monitorizar cómose usa la caché de último nivel (LLC) y le memory bandwidth por cada core o thread. Y para limitar el uso de recursos (QoS). Es útil en servidores, hypervisores y contenedores.
+Se compone de dos grupos de leaves:
+
+- Leaf `0xF` - Monitoring
+- Leaf `ox10` - Allocation
+
+##### **Leaf 0xF: Monitoring**
+
+El **leaf `0xF`** de `CPUID` se usa para **Time Stamp Counter (TSC) / deterministic cache monitoring / Resource Director Technology (RDT) – Memory Bandwidth Allocation y Cache Allocation** en CPUs Intel modernas.
+Cada leaf de CPUID puede tener **subleaves**, que se indexan vía el registro `ECX`.
+
+No tiene un número fijo de subleaves, para obtener todos los subleaves válidos, típicamente se hace un bucle incrementando `ECX` desde 0 hasta que `EAX` devuelva 0.
+
+**Subleaf 0: Información general sobre RDT y soporte de recursos**
+
+Indica qué tipos de monitoreo soporta la CPU.
+
+```asm
+# Intel
+mov eax, 0xF
+mov ecx, 0   # Consulta el subleaf 0
+cpuid
+```
+
+**Resultado**
+
+| Registro | Significado                                           |
+| -------- | ----------------------------------------------------- |
+| EAX      | bits de **Resource Monitoring ID (RMID)** disponibles |
+| EBX      | **tipo de recurso monitorizado 0**                    |
+| ECX      | **tipo de recurso monitorizado 1**                    |
+| EDX      | reservado                                             |
+
+**Subleaf 1: Información sobre contadores específicos por recurso**
+
+Indica cuántos bits se usan para RMID y permite calcular el número máximo de IDs de monitor que puede manejar la CPU.
+Algunos CPUs modernos pueden exponer la caché L2.
+
+```asm
+# Intel
+mov eax, 0xF
+mov ecx, 1   # Consulta el subleaf 1
+cpuid
+```
+
+**Resultado**
+
+| Registro | Significado                              |
+| -------- | ---------------------------------------- |
+| EAX      | Capacidad de la medición                 |
+| EBX      | Tipo de recurso                          |
+| ECX      | Tamaño de la máscara de bit de monitoreo |
+| EDX      | Máscara de IDs (en bits)                 |
+
+**Registro `EAX`: Máximo valor de la contabilidad**
+
+- **Bits 0 al 15:** Máximo número de bytes o unidades mínimas que se pueden monitorizar.
+- **Bits 16 al 31:** Reservado, típicamente 0.
+
+**Registro `EBX`: Tipo de recurso**
+
+Valores típicos según Intel SMD:
+
+| Valor | Recurso                    |
+| ----- | -------------------------- |
+| 0     | L3 Cache                   |
+| 1     | L2 Cache                   |
+| 2     | L1 Cache                   |
+| 3     | Memoria (Memory Bandwidth) |
+| 4     | Memoria Total              |
+
+Indica para qué recurso aplica el subleaf 1. En muchos CPUs modernos `EBX = 0` (L3).
+
+**Registro `ECX`: Número de contadores físicos**
+
+Es la cantidad de contadores de eventos que el hardware puede usar para este recurso. Por ej: si `ECX = 4`, significa que hay cuatro contadores de monitoreo disponibles para este tipo de recurso.
+
+**Registro `EDX`: Máscara de ID de CPU/core**
+
+Cada bit indica un evento de medición activo por core. Por ej: si `EDX = 0x0000000F`, significa cuatro cores disponibles para monitoreo de este recurso. (Siguiente el ejemplo del registro `ECX`).
+
+**Ejemplo**
+
+Si `CPUID` devuelve lo siguiente:
+
+```
+EAX = 0x000003FF  ; máximo de bytes de monitoreo = 1023
+EBX = 0x00000000  ; recurso = L3 Cache
+ECX = 0x00000004  ; 4 contadores disponibles
+EDX = 0x0000000F  ; cores 0-3 soportan monitoreo
+```
+
+Significa que se pueden monitorear hasta 1023 bytes de uso de caché L3. Que hay cuatro contadores de hardware disponibles, y que los primero cuatro cores soportan esta función.
+
+##### **Leaf 0x10: Allocation**
+
+Sirve para limitar el uso de recursos, no solo para medirlo. Permite consultar la capacidad máxima de la caché que se puede asignar a un core o thread, mediante CLOS (Class of Service).
+
+**Subleaf 0: Información general de recursos RDT asignables**
+
+```asm
+# Intel
+mov eac, 0x10
+mov ecx, 0    # Consulta subleaf 0
+cpuid
+```
+
+**Resultado**
+
+| Registro | Significado                    |
+| -------- | ------------------------------ |
+| EAX      | CLOS min/max disponibles       |
+| EBX      | máscara de cache               |
+| ECX      | control de asignación por core |
+| EDX      | reservado                      |
+
+**Registro `EAX`: Número máximo de clases de capacidad (CLOS)**
+
+- **Bits 0-15:** número máximo de CLOS que se pueden asignar a este recurso.
+- **Bits 16-31:** reservado.
+
+**Registro `EBX`: Ancho de máscara de bits de control**
+
+Indica cuántos bits de capacidad hay para asignar.
+
+**Registro `ECX`: MBM support (Memory Bandwith Allocation)**
+
+- **Bit 0:** MBA supported (1 = sí)
+
+- **Bit 1:** MBA linear throttle supported
+
+**Registro `EDX`**
+
+Reservado.
+
+**Subleaf 1 o superior: Información de cada recurso asignable (L3, L2, memoria)**
+
+```asm
+# Intel
+mov eac, 0x10
+mov ecx, 0    # Consulta subleaf 1
+cpuid
+```
+
+Cada subleaf representa un recurso asignable:
+
+- **EAX – máximo de bytes o bits asignables** Por ej: el número de bits de máscara para L3 o memoria.
+- **EBX - tipo de recurso** 0: Caché L3; 1: Caché L2; 2: Memoria (MBM).
+- **ECX - unidades de control** Cantidad de controladores disponibles para este recurso.
+- **EDX - Reservado**
+
+**Ejemplo**
+
+Supóngase que `CPUID` devuelve el subleaf 1 (L3 Cache):
+
+```
+EAX = 0x0000003F  ; 6 bits de máscara → 64 ways
+EBX = 0x00000000  ; recurso = L3 Cache
+ECX = 0x00000004  ; 4 controladores de CLOS
+EDX = 0x00000000  ; reservado
+```
+
+Indica que se puede asignar hasta 64 "ways" de L3 a diferentes clases de capacidad. Que hay 4 CLOS (Clas of Service) que pueedn configurarse para este recurso, y que el tipo de recurso es cache L3.
+
+**¿Que son los "ways" en caché?**
+
+En cachés de CPU, el término *way* priviene de la arquitectura *set-associative cache*.
+Una caché se organiza en *sets* y *ways*. Cada *set* contiene un número de *ways*, que son básicamente slots o compartimientos donde un bloque de memoria puede ser almacenado.
+
+**Ejemplo**
+
+Supóngase que se tiene una caché L3 de 8MB con 16-way y 2048 sets. Los sets corresponden a 2048 ubicaciones de índice, y cada set puede almacenar 16 bloques de memoria.
+
+Entonces para un loque de memoria dado, el hardware puede colocar dicho bloque en cualquiera de los 16 ways dentro del set correspondiente.
+
+**Visiblemente:**
+
+``` 
+Set 0: [way0][way1][way2]...[way15]
+Set 1: [way0][way1][way2]...[way15]
+...
+Cada “way” = una ranura para un bloque de memoria dentro de cada set.
+```
+
+**Nota:** Cuando se dice `EAX = 0x3F` (6 bits de máscara), significa que la caché tiene hasta 64 ways (2^6 = 64) que se pueden asignar o controlar con CAT (Cache Allocation Technology). Por ej. se podría limitar un proceso a solo usar 4 ways, así el resto se reserva para otros procesos. 
+
+#### **Leaves extendidos**
+
+Los leaves estándar del 0x0 al 0xD (normalmente) dan información básica del procesador: marca, modelo, familia, características como SSE, AVX, etc. Los leaves extendidos son un rango de leaves con números más grandes (>= 0x80000000) que AMD y algunos Intel usan para dar información adicional que no entra en los leaves estándar. Por ejemplo:
+
+- Características extendidas de la CPU.
+- Información sobre el tamaño de caché adicional.
+- Soporte para instrucciones especiales de AMD (como 3DNow!, etc).
+
+Por convención para obtener los leaves extendidos, primero se llama a `CPUID` con `EAX = 0x80000000`. Esto devuelve el máximo valor de leaves extendidos disponibles.
+
+**Algunos leaves extendidos mas importantes**
+
+En AMD:
+
+| Leaf                               | Qué devuelve                                                 |
+| ---------------------------------- | ------------------------------------------------------------ |
+| 0x80000000                         | Máximo extended leaf soportado                               |
+| 0x80000001                         | Funciones de CPU extendidas, características como NX bit, 64-bit, etc. |
+| 0x80000002, 0x80000003, 0x80000004 | Nombre del procesador (partes de 16 bytes cada uno, concatenadas) |
+| 0x80000005                         | Tamaños de caché L1 y TLB de instrucciones/datos             |
+| 0x80000006                         | Tamaño de caché L2 y L3 (si aplica), line size, associativity |
+| 0x80000007                         | Funciones de energía (EIST, etc.)                            |
+| 0x80000008                         | Número de cores, tamaño de dirección física/virtual, etc.    |
+
+**Nota:** Intel tambien tiene sus extended leaves, pero los valores y significado cambian según la CPU.
+
+En Intel moderno (Core i3/i5/i7/i9 recientes).
+
+| Leaf (EAX)                               | Descripción                             | Registros clave    | Notas / Bits importantes                                     |
+| ---------------------------------------- | --------------------------------------- | ------------------ | ------------------------------------------------------------ |
+| **0x80000000**                           | Máximo extended leaf soportado          | EAX                | Devuelve el valor máximo de leaf extendido disponible        |
+| **0x80000001**                           | Características extendidas de CPU       | EDX, ECX           | EDX: NX bit (bit 20), Long Mode / 64-bit (bit 29), LAHF/SAHF (bit 0) ECX: LZCNT, PREFETCHW |
+| **0x80000002 / 0x80000003 / 0x80000004** | Nombre de procesador                    | EAX, EBX, ECX, EDX | Cada leaf da 16 bytes de texto ASCII; concatenarlos para el nombre completo |
+| **0x80000006**                           | Información de caché                    | ECX, EDX           | ECX: tamaño de L2, asociatividad, line size EDX: tamaño de L3 (si aplica) |
+| **0x80000007**                           | Características de energía              | EDX                | EIST support (bit 8), C-state info                           |
+| **0x80000008**                           | Información de cores y direccionamiento | EAX, EBX, ECX      | EAX[7:0]: número de cores físicos EAX[15:8]: número de cores lógicos ECX/EDX: tamaño de direccionamiento físico y virtual |
+
+**Ejemplo**
+
+```C
+#include <stdio.h>
+#include <cpuid.h>
+
+int main() {
+    unsigned int eax, ebx, ecx, edx;
+    // Primer paso: ver cuál es el máximo extended leaf
+    __get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
+    printf("Max extended leaf: 0x%X\n", eax);
+
+    // Por ejemplo, leer características extendidas
+    if (eax >= 0x80000001) {
+        __get_cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
+        printf("NX bit support: %s\n", (edx & (1 << 20)) ? "Yes" : "No");
+    }
+
+    return 0;
+}
+```
+
+**Observaciones**
+
+- **Subleaves:** Algunos leaves extendidos también tienen subleaves (como 0x8000001D para información de caché en AMD). Siempre se debe revisar la documentación del fabricante.
+- **Compatibilidad:** No todos los leaves extendidos existen en todos los CPUs. Por eso primero siempre se le pregunta a `0x80000000`.
+- **Diferencias Intel/AMD:** Intel tiene algunos leaves extendidos que solo sirven para funciones internas como VMX/EPT, mientras que AMD usa otros para información de cores y cachés más detallada.
 
 Todo: antes de pausar dedicar un capitulo al endianess y la instrucción BSWAP
 
