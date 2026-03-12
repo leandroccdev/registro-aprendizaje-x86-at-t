@@ -12533,6 +12533,101 @@ int main() {
 - **Compatibilidad:** No todos los leaves extendidos existen en todos los CPUs. Por eso primero siempre se le pregunta a `0x80000000`.
 - **Diferencias Intel/AMD:** Intel tiene algunos leaves extendidos que solo sirven para funciones internas como VMX/EPT, mientras que AMD usa otros para información de cores y cachés más detallada.
 
+## Endianess
+
+El endianess describe el orden en que los bytes se almacenan en memoria para representar valores multibyte (como `int`, `long`, `float` por ej.). Hay dos tipos principales:
+
+| Tipo              | Orden en memoria (para 0x12345678) | Nota                                                         |
+| ----------------- | ---------------------------------- | ------------------------------------------------------------ |
+| **Big-endian**    | `12 34 56 78`                      | El byte más significativo (MSB) va primero                   |
+| **Little-endian** | `78 56 34 12`                      | El byte menos significativo (LSB) va primero, típico en x86/x86-64 |
+
+En x86 y x86-64 casi todo es little-endian, mientras que algunas arquitecturas como PowerPC o ARM puedn usar big-endian o ser bi-endian.
+
+------
+
+**Arquitecturas bi-endian**
+
+Una arquitectura bi-endian (o dual-endian) es aquella que puede operar en modo big-endian o little-endian, dependiendo de la configuración del procesador o del sistema operativo. Esto significa que puede interpretar y almacenar los bytes de las palabras de memoria en ambos órdenes.
+
+**Características clave**
+
+- **Flexibilidad:** Permite que un mismo hardware trabaje con diferentes estándares de software o redes que usan distinto orden de bytes.
+
+- **Configuración:** Algunos procesadores permiten cambiar el endianess mediante un bit de control en un registro de configuración.
+
+  Ejemplo: ARMv7 y ARMv8 pueden funcionar en modo little-endian o big-endian, aunque el primer modo es el más común en la práctica.
+
+- **Compatibilidad:** Facilita la compatibilidad de software heredado o sistemas embebidos que necesitan interoperar con diferentes dispositivos.
+
+**Ejemplos de CPUS bi-endian**
+
+- ARM (32/64bits)
+- PowerPC
+- MIPS
+- SPARC
+
+------
+
+### Instrucción `BSWAP` (Byte Swap)
+
+Invierte el orden de bytes de un registro de 32 o 64 bits. No existe para 8 o 16 bits, solo funciona en x86-64. Para 16 bits hay que usar máscaras y rotaciones manuales. No modifica ningún flag del CPU.
+Se usa mucho para cambiar el endianess de datos cuando se leen de un archivo o de la red (big-endian a little-endian o viceversa). O para preparar datos antes de operaciones de criptografía o hashing donde el orden de bytes importa.
+
+| Registro | Tamaño | Ejemplo antes        | Después de BSWAP     |
+| -------- | ------ | -------------------- | -------------------- |
+| `eax`    | 32-bit | `0x12345678`         | `0x78563412`         |
+| `rax`    | 64-bit | `0x0123456789ABCDEF` | `0xEFCDAB8967452301` |
+
+**Sintaxis:** `BSWAP reg`
+
+**Ejemplo**
+
+```asm
+# Intel
+bswap eax # Invierte los bytes de EAX
+bswap rax # Invierte los bytes de RAX
+```
+
+**Equivalente en 16 bits**
+
+```asm
+# Intel
+mov ax, 0x1234 # AX = 0x1234
+rol ax, 8      # Rota los 16 bits 8 posiciones hacia la izquierda
+# Ahora AX = 3412
+```
+
+También se pueden lograr usando máscaras en los registros altos/bajos.
+
+```asm
+# Intel
+mov al, 0x34
+mov ah, 0x12
+# AX = 0x3412
+```
+
+**Ejemplo en C con ASM**
+
+```C
+#include <stdio.h>
+#include <stdint.h>
+
+int main() {
+    uint32_t x = 0x12345678;
+    uint32_t y;
+
+    asm("bswap %0" : "=r"(y) : "0"(x));  // x -> y con bytes invertidos
+
+    printf("Antes: 0x%x, Después: 0x%x\n", x, y);
+    return 0;
+}
+```
+
+**Salida:** `Antes: 0x12345678, Después: 0x78563412`
+
+Todo: retomar las instrucciones de extensión de el final
+
 Todo: antes de pausar dedicar un capitulo al endianess y la instrucción BSWAP
 
 Todo: pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
