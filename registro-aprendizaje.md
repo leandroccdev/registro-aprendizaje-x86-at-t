@@ -1885,14 +1885,9 @@ Aquí `eax` pasa de 1100 a 1000 porque solo el bit que está en ambas posiciones
 Dado que las instrucciones tienen una fuente y un destino es inválido lo siguiente:
 
 ```asm
+# Intel
 # 1100: 12
 # 1000: 8
-
-# AT&T
-andl $0b1100, $0b1000
-andl 1100, 1000 
-
-# Intel
 and 12, 8
 and dword ptr [1000], dword ptr [1100]
 ```
@@ -1920,16 +1915,11 @@ Operación lógica bit a bit que se usa para enmascarar bits, limpiar valores y 
 **Ejemplo**
 
 ```asm
-# AT&T
-# Supongamos que queremos hacer AND entre dos registros
-movl $0xF0F0F0F0, %eax   # Carga el valor 0xF0F0F0F0 en eax
-movl $0x0FF00FF0, %ebx   # Carga el valor 0x0FF00FF0 en ebx
-andl %ebx, %eax          # Realiza AND bit a bit entre eax y ebx, resultado queda en eax
-
 # Intel
-mov eax, 0xF0F0F0F0
-mov eabx, 0x0FF00FF0
-and eax, ebx
+# Supongamos que queremos hacer AND entre dos registros
+mov eax, 0xF0F0F0F0  # Carga el valor 0xF0F0F0F0 en eax
+mov eabx, 0x0FF00FF0 # Carga el valor 0x0FF00FF0 en ebx
+and eax, ebx         # Realiza AND bit a bit entre eax y ebx, resultado queda en eax
 ```
 **Explicación**
 - `andl %ebx, %eax` significa: `eax = eax & ebx` (bit a bit)
@@ -1987,28 +1977,23 @@ Siempre se limpia (OF = 0) después de un `and`. (Puesto que `and` no genera ove
 
 Operación lógica bit a bit que se usa principalmente para activar bits, combinar flags y forzar estados sin perder los bits ya activos.
 
-**Sintaxis:** `or destino, fuente`
+**Sintaxis:** `or dest, src`
 
 **Ejemplo**
 
 ```asm
-# AT&T
-movl $0x0F0F0F0F, %eax   # Carga el valor 0x0F0F0F0F en eax
-movl $0x00FF00FF, %ebx   # Carga el valor 0x00FF00FF en ebx
-orl %ebx, %eax           # Realiza OR bit a bit entre eax y ebx, resultado queda en eax
-
 # Intel
-mov eax, 0x0F0F0F0F
-mov ebx, 0x0F0F0F0F
-or eax, ebx
+mov eax, 0x0F0F0F0F # Carga el valor 0x0F0F0F0F en eax
+mov ebx, 0x0F0F0F0F # Carga el valor 0x00FF00FF en ebx
+or eax, ebx         # Realiza OR bit a bit entre eax y ebx, resultado queda en eax
 ```
 Esto hace que en `%eax` queden los bits que estaban en `%eax` o en `%ebx` (operación OR bit a bit) (`eax = eax | ebx`).
 
 **Valores en binario (32 bits)**
 | Registro | Valor Hexadecimal | Valor binario (32 bits)             |
 | -------- | ----------------- | ----------------------------------- |
-| `%eax`   | 0x0F0F0F0F        | 00001111 00001111 00001111 00001111 |
-| `%ebx`   | 0x00FF00FF        | 00000000 11111111 00000000 11111111 |
+| `EAX`    | 0x0F0F0F0F        | 00001111 00001111 00001111 00001111 |
+| `EBX`    | 0x00FF00FF        | 00000000 11111111 00000000 11111111 |
 
 **Operación OR bit a bit (por cada byte)**
 | Byte         | `%eax` (binario) | `%ebx` (binario) | Resultado OR (binario) | Resultado OR (hex) |
@@ -2059,23 +2044,18 @@ Operación lógica bit a bit muy especial porque alterna bits y, además, tiene 
 **Ejemplo**
 
 ```asm
-# ATT&T
-movl $0xFF00FF00, %eax    # Carga 0xFF00FF00 en eax
-movl $0x0F0F0F0F, %ebx    # Carga 0x0F0F0F0F en ebx
-xorl %ebx, %eax           # Hace XOR bit a bit entre eax y ebx, resultado en eax
-
 # Intel
-mov eax, 0xFF00FF00
-mov ebx, 0x0F0F0F0F
-xor eax, ebx
+mov eax, 0xFF00FF00 # Carga 0xFF00FF00 en eax
+mov ebx, 0x0F0F0F0F # Carga 0x0F0F0F0F en ebx
+xor eax, ebx        # Hace XOR bit a bit entre eax y ebx, resultado en eax
 ```
 La instrucción `xorl %ebx, %eax` hace que `%eax` sea `%eax` XOR `%ebx`. (`eax = eax ^ ebx`).
 
 **Valores en binario (32 bits)**
 | Registro | Valor Hexadecimal | Valor binario (32 bits)             |
 | -------- | ----------------- | ----------------------------------- |
-| `%eax`   | 0xFF00FF00        | 11111111 00000000 11111111 00000000 |
-| `%ebx`   | 0x0F0F0F0F        | 00001111 00001111 00001111 00001111 |
+| `EAX`    | 0xFF00FF00        | 11111111 00000000 11111111 00000000 |
+| `EBX`    | 0x0F0F0F0F        | 00001111 00001111 00001111 00001111 |
 
 **Operación XOR bit a bit (byte por byte)**
 | Byte         | `%eax` (binario) | `%ebx` (binario) | Resultado XOR (binario) | Resultado XOR (hex) |
@@ -2126,23 +2106,20 @@ Operación lógica mas simple, invierte bits y no toca ningún flag.
 **Ejemplo**
 
 ```asm
-# AT&T
-movl $0x0F0F0F0F, %eax   # Carga un valor en eax
-notl %eax                # Aplica la negación bit a bit (NOT) sobre eax
-
 # Intel
-mov eax, 0x0F0F0F0F
-not eax
+mov eax, 0x0F0F0F0F # Carga un valor en eax
+not eax             # Aplica la negación bit a bit (NOT) sobre eax
 ```
 `notl %eax` hace un complemento a uno: cada bit de `%eax` se invierte (0 → 1, 1 → 0) (`eax = ~eax`).
 
 **Valor inicial en binario (32 bits)**
 | Registro | Valor Hexadecimal | Valor binario (32 bits)             |
 | -------- | ----------------- | ----------------------------------- |
-| `%eax`   | 0x0F0F0F0F        | 00001111 00001111 00001111 00001111 |
+| `EAX`    | 0x0F0F0F0F        | 00001111 00001111 00001111 00001111 |
 
 **Operación NOT (complemento bit a bit)**
 NOT invierte cada bit, es decir:
+
 - Los 0 pasan a 1
 - Los 1 pasan a 0
 
@@ -12163,6 +12140,8 @@ Tiene muchos sub-leaves.
 
 
 Revisar leaf restantes: RDT monitoring, extended leaves
+
+Todo: antes de pausar dedicar un capitulo al endianess y la instrucción BSWAP
 
 Todo: pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
 
