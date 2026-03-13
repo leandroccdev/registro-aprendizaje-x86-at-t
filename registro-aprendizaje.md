@@ -1912,6 +1912,12 @@ Operación lógica bit a bit que se usa para enmascarar bits, limpiar valores y 
 
 **Sintaxis:** `and destino, fuente`
 
+**Operaciones permitidas**
+
+- Registro a registro en 8, 16, 32 y 64 bits.
+- Registro y memoria.
+- Registro e inmediato con literales de hasta 32 bits. Es decir que `AND` no soporta inmediatos de 64 bits. Para usar máscaras mayores a 32 bits, éstas deben ser cargadas en registros de 64 bits.
+
 **Ejemplo**
 
 ```asm
@@ -1921,15 +1927,13 @@ mov eax, 0xF0F0F0F0  # Carga el valor 0xF0F0F0F0 en eax
 mov eabx, 0x0FF00FF0 # Carga el valor 0x0FF00FF0 en ebx
 and eax, ebx         # Realiza AND bit a bit entre eax y ebx, resultado queda en eax
 ```
-**Explicación**
-- `andl %ebx, %eax` significa: `eax = eax & ebx` (bit a bit)
-- El sufijo l indica operación de 32 bits (long).
+**Explicación:** `and eax, ebx` significa: `eax = eax & ebx` (bit a bit)
 
 **Valores en binario (32 bits)**
 | Registro | Valor Hexadecimal | Valor binario (32 bits)             |
 | -------- | ----------------- | ----------------------------------- |
-| `%eax`   | 0xF0F0F0F0        | 11110000 11110000 11110000 11110000 |
-| `%ebx`   | 0x0FF00FF0        | 00001111 11110000 00001111 11110000 |
+| `EAX`    | 0xF0F0F0F0        | 11110000 11110000 11110000 11110000 |
+| `EBX`    | 0x0FF00FF0        | 00001111 11110000 00001111 11110000 |
 
 **Operación AND bit a bit (byte por byte)**
 | Byte         | `%eax`   | `%ebx`   | Resultado AND | Resultado AND (hex) |
@@ -1948,7 +1952,7 @@ Concatenando bytes (de MSB a LSB)
 O sea: `0x00F000F0`
 Entonces, después del `andl %ebx, %eax`, `%eax` queda con el valor: `eax = 0x00F000F0`
 
-#### Flags afectados por AND
+**Flags afectados por AND**
 
 - ZF (Zero Flag):
 Se pone a 1 si el resultado es cero (todos los bits del resultado son 0).
@@ -1972,6 +1976,79 @@ Siempre se limpia (OF = 0) después de un `and`. (Puesto que `and` no genera ove
 | PF   | 1 si paridad bits es par |
 | CF   | Siempre 0                |
 | OF   | Siempre 0                |
+
+**Extensión automática de inmediatos de 32 bits a 64 bits**
+
+Cuando se realiza una operación `AND` entre un registro y un inmediato de 32 bits, el CPU extiende en automático el inmediato a 64 bits con ceros a la izquierda.
+
+**Ejemplo**
+
+```
+0x0000FFFF -> 0x000000000000FFFF
+Luego se realiza la operación
+RAX = RAX AND 0x000000000000FFFF
+Resultado: RAX = 0x0000000000005678
+```
+
+**Nota:** Solo los 32 bits bajos del inmediato son codificados en la instrucción, pero la operación funciona sobre todo el registro de 64 bits, de la siguiente manera:
+
+```asm
+# Intel
+movabs rax, 0x123456789ABCDEF0
+# RAX = 0x12345678 9ABCDEF0
+and rax, 0x0000FFFF
+```
+
+Como la instrucción `AND r64, imm32` solo puede almacenar un inmediato de 32 bits en la codificación de la instrucción, el inmediato codificado en bytes `0x0000FFFF` solo codifica los bits bajos, el CPU la cero-extiende a la izquierda y ocurre lo siguiente:
+
+```
+RAX = 0x123456789ABCDEF0
+AND   0x000000000000FFFF
+-----------------------
+     0x000000000000DEF0
+```
+
+Todo el registro se mantiene de 64 bits, pero solo los 16 bits bajos sobreviven (por la máscara 0xFFFF) debido a ésta limitancia.
+
+**Ejemplo 2**
+
+```asm
+# Intel
+movabs rax, 0x123456789ABCDEF0 # Carga inmediato de 64 bits en registro
+and rax, 0xFFFFFFFF            # Máscara de 32 bits
+```
+
+El inmediato de 32 bits se cero-extiende a 64 bits y se realiza el `AND`.
+
+```
+Cero-extensión del inmediato de 32 bits a 64 bits
+0xFFFFFFFF -> 0x00000000FFFFFFFF
+
+RAX = 0x123456789ABCDEF0
+AND 0x00000000FFFFFFFF
+-----------------------
+RAX = 0x000000009ABCDEF0
+```
+
+Como se observa, la máscara actúa sobre todo el registro y la mitad alta del `RAX` se pierde.
+
+**¿Por qué ocurre esta limitancia?**
+
+No es un defecto, al contrario, es totalmente intencional. Para mantener las instrucciones lo más cortas posible, Intel decidió que muchas instrucciones solo admiten inmediatos de 32 bits, incluso si el registro destino es de 64 bits. Esto permite que la mayoría de operaciones sobre 64 bits funcionen con un literal pequeño, sin tener que codificar 64 bits completos, lo que ahorra espacio en memoria y en caché de instrucciones.
+Cuando se amplió a 64 bits, se quería mantener compatibilidad y eficiencia. Muchas instrucciones solo se extendieron para trabajar con 64 bits, pero usando literales de 32 bits. Para literales mas grandes, se requiere movabs. Esto evita tener que codificar 8 bytes de inmediato en todas las instrucciones, lo que haría el código mucho más pesado.
+
+**Alternativa**
+
+Si aún así se quiere aplicar una máscara de 64 bits, ésta primero debe cargarse en un registro del mismo tamaño.
+
+```asm
+# Intel
+movabs rax, 0x123456789abcdef0
+movabs rbx, 0x00000000FFFF0000
+and rax, rbx
+```
+
+De ésta manera se puede evitar la limitación del inmediato de 32 bits.
 
 ## Instrucción `OR`
 
@@ -2012,7 +2089,7 @@ Esto es `0x0FFF0FFF`
 
 Entonces, tras el `orl %ebx, %eax`: `eax = 0x0FFF0FFF`
 
-#### Flags afectados por OR
+**Flags afectados por OR**
 
 - ZF (Zero Flag):
 Se pone a 1 si el resultado es cero (todos los bits del resultado son 0).
@@ -2073,8 +2150,7 @@ Concatenando bytes (MSB a LSB):
 O sea: `0xF00FF00F`
 Entonces, después de `xorl %ebx, %eax`: `eax = 0xF00FF00F`
 
-
-#### Flags afectados por XOR
+**Flags afectados por XOR**
 
 - ZF (Zero Flag):
 Se pone a 1 si el resultado es cero (todos los bits son 0).
@@ -2135,7 +2211,7 @@ Concatenando bytes (MSB a LSB): ```11110000 11110000 11110000 11110000```
 Que en hexadecimal es: `0xF0F0F0F0`
 Entonces, después de ejecutar `notl %eax`, el valor de `%eax` será: `eax = 0xF0F0F0F0`
 
-#### Flags afectados por NOT
+**Flags afectados por NOT**
 
 - `not` es una operación de complemento bit a bit (bitwise NOT), que invierte todos los bits del operando.
 
@@ -11410,7 +11486,7 @@ Un CPU moderno puede tener entre 40 a 60 leaves diferentes.
 | `0x80000002–4` | Nombre del CPU        |
 | `0x80000008`   | Tamaño de direcciones |
 
-#### **Leaf 1: Tabla de características del CPU**
+#### Leaf 1: Tabla de características del CPU
 
 ```asm
 # Intel
@@ -11462,7 +11538,7 @@ cpuid
 | 29   | F16C       | Conversión float16         |
 | 30   | RDRAND     | Random number instruction  |
 
-#### **Leaf 2: Códigos de descriptores de caché y TLB **
+#### Leaf 2: Códigos de descriptores de caché y TLB 
 
 Este leaf es especial, no usa bits como los otros leaves, en cambio devuelve bytes que son códigos de descriptores de caché y TLB (Translation Lookaside Buffer).
 
@@ -11538,7 +11614,7 @@ En CPUs modernos se usa leaf 4 para información detallada de caché porque entr
 | 0x86 | L2 cache: 512KB, 4-way                                   |
 | 0x87 | L2 cache: 1MB, 8-way                                     |
 
-#### **Leaf 3: Processor Serial Number**
+#### Leaf 3: Processor Serial Number
 
 Está dedicado al **Processor Serial Number (PSN)**.
 
@@ -11591,7 +11667,7 @@ Además antes se debería verificar el flag del bit 18, si dicho bit es cero, en
 CPUID(1).EDX bit 18 = PSN
 ```
 
-#### **Leaf 4: Deterministic Cache Parameters Leaf**
+#### Leaf 4: Deterministic Cache Parameters Leaf
 
 Es uno de los más importantes porque permite enumerar las cachés del procesador de forma estructurada. Intel lo llama **Deterministic Cache Parameters Leaf**.
 A diferencia del leaf 2 (que usa descriptores viejos), el leaf 4 describe exactamente cada caché.
@@ -11710,7 +11786,7 @@ cache_size =
 
 Muchos detectores de sandbox / vm usan el leaf 4 porque las VMs suelen tener topologías de caché irreales, tamaños inconsistentes y falta de niveles. Se usa mucho en malware para detectar si la muestra está siendo ejecutada en virtualización. De esta manera, los autores de malware intentan proteger su trabajo.
 
-#### **Leaf 5: soporte del procesador para `MONITOR/MWAIT`**
+#### Leaf 5: soporte del procesador para `MONITOR/MWAIT`
 
 Describe el soporte del procesador para **Monitor / MWAIT**.
 
@@ -11769,7 +11845,7 @@ Cada campo indica cuántos subestados existen. Esto está relacionado con la ges
 
 Como muchos hypervisores deshabilitan `MONITOR/WAIT` debido a lo complicado que resulta emularlos, y porque puede afectar al scheduling del host, `CPUID(5)` a veces revela si se está en una VM o en hardware real.
 
-#### **Leaf 6: Características de gestión de enegía y control térmico del procesador.**
+#### Leaf 6: Características de gestión de enegía y control térmico del procesador.
 
 Se usa para consultar catacterísticas de gestión de energía y control térmico del procesador. Intel lo llama normalmente **Thermal and Power Management**.
 
@@ -11861,7 +11937,7 @@ leaf 6 -> thermal features
 
 Y si algo no cuadra, probablemente la muestra se está ejecutando en una VM.
 
-#### **Leaf 7: Extensiones modernas**
+#### Leaf 7: Extensiones modernas
 
 Es uno de los mas importantes en CPUs modernas, porque expone características extendidas del procesador que no cabían en el leaf 1 original. Se le llama normalmente: **Structured Extended Feature Flags Enumeration**. Además tiene sub-leaves (niveles internos). 
 
@@ -11978,7 +12054,7 @@ Se usa mas para características modernas.
 
 Las VMs muchas veces no exponen AVX512, ocultan SGX, SMEP/SMAP y/o simplifican características. Por eso muchos chequeos anti VM usan leaf 7.
 
-#### **Leaf 8: No existe**
+#### Leaf 8: No existe
 
 No existe en Intel dentro del espacio normal de CPUID. Dicho espacio está dividido en rangos:
 
@@ -12012,7 +12088,7 @@ Normalmente ocurrirá una de dos cosas:
 
 - En algunas generaciones nuevas puede existir leaf 8, pero no está documentado públicamente como un leaf estándar clásico. 
 
-#### **Leaf 0xB: Topología del procesador**
+#### Leaf 0xB: Topología del procesador
 
 Permite descubrir la topología real del proceasdor, es decir: cuántos thread SMT, cores y lógical processors. Intel lo llama **Extended Topology Enumeration**. Reemplaza mecanismos antiguos como leaf 1 + APIC ID parsing.
 
@@ -12115,7 +12191,7 @@ CPUID(0xB,0)
 si type != 1 → VM sospechosa
 ```
 
-#### **Leaf 0xD - Estado extendido del procesador**
+#### Leaf 0xD - Estado extendido del procesador
 
 Describe el estado extendido del procesador que puede guardarse o restaurarse con las instrucciones `XSAVE/XRSTOR`.
 
@@ -12280,7 +12356,7 @@ for (int i = 0; ; i++) {
 
 Devuelve exactamente cuántos subleaves existen y su tamaño.
 
-#### **Leaf 0xF y 0x10: RDT (Resource Director Technology) **
+#### Leaf 0xF y 0x10: RDT (Resource Director Technology) 
 
 Intel introdujo RDT para monitorizar cómose usa la caché de último nivel (LLC) y le memory bandwidth por cada core o thread. Y para limitar el uso de recursos (QoS). Es útil en servidores, hypervisores y contenedores.
 Se compone de dos grupos de leaves:
@@ -12288,7 +12364,7 @@ Se compone de dos grupos de leaves:
 - Leaf `0xF` - Monitoring
 - Leaf `ox10` - Allocation
 
-##### **Leaf 0xF: Monitoring**
+##### Leaf 0xF: Monitoring
 
 El **leaf `0xF`** de `CPUID` se usa para **Time Stamp Counter (TSC) / deterministic cache monitoring / Resource Director Technology (RDT) – Memory Bandwidth Allocation y Cache Allocation** en CPUs Intel modernas.
 Cada leaf de CPUID puede tener **subleaves**, que se indexan vía el registro `ECX`.
@@ -12376,7 +12452,7 @@ EDX = 0x0000000F  ; cores 0-3 soportan monitoreo
 
 Significa que se pueden monitorear hasta 1023 bytes de uso de caché L3. Que hay cuatro contadores de hardware disponibles, y que los primero cuatro cores soportan esta función.
 
-##### **Leaf 0x10: Allocation**
+##### Leaf 0x10: Allocation
 
 Sirve para limitar el uso de recursos, no solo para medirlo. Permite consultar la capacidad máxima de la caché que se puede asignar a un core o thread, mediante CLOS (Class of Service).
 
@@ -12468,7 +12544,7 @@ Cada “way” = una ranura para un bloque de memoria dentro de cada set.
 
 **Nota:** Cuando se dice `EAX = 0x3F` (6 bits de máscara), significa que la caché tiene hasta 64 ways (2^6 = 64) que se pueden asignar o controlar con CAT (Cache Allocation Technology). Por ej. se podría limitar un proceso a solo usar 4 ways, así el resto se reserva para otros procesos. 
 
-#### **Leaves extendidos**
+#### Leaves extendidos
 
 Los leaves estándar del 0x0 al 0xD (normalmente) dan información básica del procesador: marca, modelo, familia, características como SSE, AVX, etc. Los leaves extendidos son un rango de leaves con números más grandes (>= 0x80000000) que AMD y algunos Intel usan para dar información adicional que no entra en los leaves estándar. Por ejemplo:
 
@@ -12627,8 +12703,6 @@ int main() {
 **Salida:** `Antes: 0x12345678, Después: 0x78563412`
 
 Todo: retomar las instrucciones de extensión de el final
-
-Todo: antes de pausar dedicar un capitulo al endianess y la instrucción BSWAP
 
 Todo: pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
 
