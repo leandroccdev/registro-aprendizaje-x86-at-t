@@ -202,7 +202,7 @@ Permite ejecutar código de 16/32 bits en un sistema de 64 bits.
 - Windows NT/XP/7/10/11 y Linux modernos: usan modo protegido o long mode
 - Sistemas de 64 bits modernos: usan modo long x86-64
 
-## Tamaño de datos comunes en x86
+## Tamaño de datos comunes en x86-64
 
 | Nombre   | Tamaño (bits) | Tamaño (bytes) | Descripción                                        |
 | --------- | ------------- | -------------- | -------------------------------------------------- |
@@ -1081,30 +1081,31 @@ Nótece que se ha usado el término escala o factor para mejorar la explicación
 La estructura básica de un programa en ensablador es como la siguiente:
 
 ```asm
-# Comentario para sintaxis AT&T
+.intel_syntax noprefix
 # Comentario para sintaxis Intel
-# AT&T
+
 .section .data
-     mensaje .asciz "hola mundo\n" # Cadena terminada en NULL
+mensaje: .asciz "hola mundo\n"      # Cadena terminada en NULL
 
 .section .bss
-     buffer: .skip 64 # Reserva 64 bytes sin inicializar
+buffer: .skip 64                   # Reserva 64 bytes sin inicializar
 
 .section .text
-     .glob _start # Punto de entrada del programa
+.global _start                     # Punto de entrada del programa
 
 _start:
-     # write(fd=1, buf=message, count=10)
-     movl $4, %eax # syscall número 4 = sys_write
-     movl $1, %ebx # fd = 1 (stdout)
-     movl $mensaje, %ecx # puntero al mensaje
-     movl $10, %edx # número de bytesa escribir
-     int $0x80 # llamada al sistema
 
-     # exit(status=0)
-     movl $1, %eax # syscall número 1 = sys_exit
-     xorl %ebx, $ebx # exit code = 0
-     int $0x80 # llamada al sistema
+    # write(fd=1, buf=mensaje, count=10)
+    mov eax, 4                     # syscall número 4 = sys_write
+    mov ebx, 1                     # fd = 1 (stdout)
+    mov ecx, mensaje               # puntero al mensaje
+    mov edx, 10                    # número de bytes a escribir
+    int 0x80                       # llamada al sistema
+
+    # exit(status=0)
+    mov eax, 1                     # syscall número 1 = sys_exit
+    xor ebx, ebx                   # exit code = 0
+    int 0x80                       # llamada al sistema
 ```
 
 #### Sección .data
