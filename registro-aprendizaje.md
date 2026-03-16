@@ -5,6 +5,7 @@ La presente es una guía que voy elaborando en el tiempo. Me baso en todos los r
 No pretende ser una guía manual para aprender x86, mas bien es una forma de documentación de mi aprendizaje.
 
 **Propósito**
+
 - Asimilar conocimientos durante la creación.
 - Ser una ayuda de memoria a modo de torpedo de consula rápida.
 - Organizar el conocimiento en de una menera en lo pueda entender mas fácilmente a como lo explican los expertos.
@@ -420,7 +421,7 @@ CH: 1111 1111 0000 0000
 DH: 1111 1111 0000 0000
 ```
 
-Los registros -L encienden los bits del 0 al 
+Los registros -L encienden los bits del 0 al 7
 ```
 AL: 0000 0000 1111 1111
 BL: 0000 0000 1111 1111
@@ -12610,6 +12611,192 @@ int main() {
 - **Compatibilidad:** No todos los leaves extendidos existen en todos los CPUs. Por eso primero siempre se le pregunta a `0x80000000`.
 - **Diferencias Intel/AMD:** Intel tiene algunos leaves extendidos que solo sirven para funciones internas como VMX/EPT, mientras que AMD usa otros para información de cores y cachés más detallada.
 
+### Instrucción `XGETBV` (eXtended GET Base Vector)
+
+Es una operación que permite leer el contenido de un registro extendido de estado del procesador, conocido como *Extended Control Register* (XCR). Fue introducida por Intel con la extensión `XSAVE` para gestionar el estado extendido de registros SIMD y AVX.
+Se usa para consultar qué características de estado extendido están habilitadas en el procesador y en el SO. Por ej. al leer `XCR0`, un programa puede determinar si los registros AVX, SSE, o opmask (AVX-512) están disponibles. La instrucción coloca el valor leído en `EDX:EAX`, devolviendo un mapa de bits de capacidades activas. 
+
+**Relación con `XSAVE/XSETBV`**
+
+El mecanismo administra el guardado y restauración del estado extendido del CPU. Mientras que `XSETBV` escribe e un registro `XCR`, `XGETBV` lo lee. Juntas permiten que el SO habilite o deshabilite partes del contexto de ejecución avanzado, optimizando el manejo de registros vectoriales y de punto flotante.
+
+**Seguridad y compatibilidad**
+
+Debido a que accede a registros de control, `XGETBV` solo puede ejecutarse en modo privilegiado. En entornos de usuario, su ejecución genera una excepción #GP (General Protection Fault, ocurre cuando un programa intenta realizar una operación que viola las reglas de protección del CPU). Para detectar soporte de esta instrucción, se consulta el bit `ECX[26]` del resultado de `CPUID` con `EAX=1`.
+
+**Sintaxis:** `XGETBV`
+
+No tiene operandos explícitos, usa registros implícitos.
+
+**Registros usados**
+
+- `ECX `(entrada): Índice del registro XCR a leer. Normalmente `ECX = 0 → XCR0`.
+- `EDX:EAX` (salida): El valor leído se devuelve usando `EDX:EAX`. Es decir: `64 bits = (EDX << 32) | EAX`.
+
+**Ejemplo**
+
+```asm
+# Intel
+mov ecx, 0
+xgetbv
+
+# Resultado
+# EAX = bits 31..0
+# EDX = bits 63..32
+shl rdx, 32
+or rax, rdx
+# RAX = XCR0 completo
+```
+
+Para obtener el valor completo en C:
+
+```C
+uint64_t xcr0 = ((uint64_t)edx << 32) | eax;
+```
+
+**Significado de los bits de `XCR0`**
+
+`XCR0` indica qué estados extendidos están habilitados por el OS.
+
+```
+// Bits típicos
+bit 0  x87 FPU state
+bit 1  SSE state
+bit 2  AVX (YMM registers)
+bit 3  MPX BNDREGS
+bit 4  MPX BNDCSR
+bit 5  AVX-512 opmask
+bit 6  AVX-512 ZMM_hi256
+bit 7  AVX-512 hi16_ZMM
+bit 9  PKRU
+```
+
+**Ejemplo:** `XCR0 = 0b111` significa:
+
+``` 
+x87 enabled
+SSE enabled
+AVX enabled
+```
+
+**Caso típico: detección de soporte AVX**
+
+Muchos programas suelen hacer lo siguiente:
+
+1. Verificar CPU: `CPUID.(EAX=1):ECX.AVX[bit 28]`
+
+2. Verificar soporte OS
+
+   ```asm
+   mov ecx, 0
+   xgetbv
+   ```
+
+3. Comprobar `(XCR0 & 0x6) == 0x6` (porque AVX necesita `bit1 = SSE` y `bit2 = AVX`).
+
+**Restricciones**
+
+La instrucción puede generar **#UD (invalid opcode)** sí el CPU no soporta `XSAVE` o `CR4.OSXSAVE = 0`. El SO debe habilitar `CR4.OSXSAVE = 1`, de lo contrario `XGETBV` lanzara **#UD**.
+
+### Instrucción XSETBV (eXtended SET Base Vector)
+
+Operación privilegiada utilizada para escribir el registro extendido de estado de control (XCR0) del CPU. Dicho registro determina qué conjuntos de registros extendidos (como AVX, AVX-512 o MPX) están habilitados, para su uso por el SO.
+Solo puede ser usada por el kernel.
+Le permite al SO configurar las extensiones de estado del procesador que pueden usarse en contextos de ejecución de usuario. Cada bit en XCR0 habilita un conjunto de registros extendidos, como los usados por SSE, AVX, AVX-512 o AMX. Se usa típicamente durante la iniciación del SO para preparar el entorno de ejecución antes de habilitar el uso de estas características avanzadas.
+
+**Requisitos**
+
+Solo puedo ejecutarse si el bit `CR4.OSXSAVE` está establecido y la CPU soporta la instrucción `XSAVE`. Si se ejecuta en un nivel de privilegio distinto de cero, o sin soporte adecuado, provoca una excepción general de protección (#GP). Además los valores escritos deben ser coherentes con las capacidades reportadas por el procesador mediante `CPUID`.
+
+**Sintaxis:** `XSETBV`
+
+No tiene operandos explícitos.
+
+**Registros usados**
+
+- `ECX` (entrada): índice del XCR. Normalmente `ECX = 0 → XCR0`.
+- `EDX:EAX` (entrada): combinados como `64 bits = (EDX << 32) | EAX`.
+
+**Ejemplo**
+
+Escribe un nuevo valor en `XCR0`.
+
+```asm
+# Intel
+mov ecx, 0        # seleccionar XCR0
+mov eax, value_lo
+mov edx, value_hi
+xsetbv
+```
+
+Habilita los registros de estado extendido necesarios para AVX y SSE.
+
+```asm 
+# Intel
+mov ecx, 0   # Selecciona XCR0
+xor edx, edx
+mov eax, 7   # Habilita XMM (bit 1) y YMM (bit 2)
+xsetbv       # Escribir el nuevo valor en XCR0
+```
+
+**Bits de XCR0**
+
+XCR0 controla qué estados están habilitados.
+
+```
+bit 0  x87 FPU
+bit 1  SSE
+bit 2  AVX
+bit 3  MPX BNDREGS
+bit 4  MPX BNDCSR
+bit 5  AVX512 opmask
+bit 6  AVX512 ZMM_hi256
+bit 7  AVX512 hi16_ZMM
+bit 9  PKRU
+```
+
+**Ejemplo:** `XCR0 = 0b111` significa: x87, SSE y AVX habilitados.
+
+**Restricciones importantes al escribir `XCR0`**
+
+1. `bit0 (x87)`: siempre debe ser 1, de lo contrario se lanza #GP.
+2. `bit2` requiere `bit1` (AVX requiere SSE): si no, se lanza #GP.
+3. AVX-512 requiere varios bits, por ej: `bit5`, `bit6` y `bit7` deben activarse juntos.
+
+**Uso real en el kernel**
+
+Durante el boot, el kernel hace algo como lo siguiente, habilitando x87, SSE y AVX. Luego las aplicaciones pueden usar AVX.
+
+```asm
+# Intel
+mov ecx, 0
+mov eax, 7
+xor edx, edx
+xsetbv
+```
+
+Un ejemplo mas completo:
+
+```asm
+# Intel
+mov eax, cr4
+or eax, (1 << 18)   ; CR4.OSXSAVE
+mov cr4, eax
+
+mov ecx, 0
+mov eax, 7
+xor edx, edx
+xsetbv
+```
+
+**¿Qué sucede si no se habilita `XCR0`?**
+
+Si una aplicación ejecuta `vmovaps ymm0, ymm1` y AVX no está habilitado, #UD es lanzada porque el estado `YMM` no está permitido.
+
+### Instrucción `RDTSC` (Read Time-Stamp Counter)
+
+
+
 ## Endianess
 
 El endianess describe el orden en que los bytes se almacenan en memoria para representar valores multibyte (como `int`, `long`, `float` por ej.). Hay dos tipos principales:
@@ -12714,7 +12901,7 @@ todo: abordar SSE / AVX
 - un programa que responda a las teclas
 - otro que lea por teclado
 
-
+todo: investigar __rdtscp x86intrin.h
 
 todo: abordar el uso de fpu x87 (fdiv, fdivp, etc)
 
@@ -12722,8 +12909,6 @@ todo: antes de abordar las extensiones, abordar una zona de consulta de caracter
 
 Explicación rápida de cada una:
 
-- **XGETBV** → Lee el registro extendido XCR0 para verificar soporte de registros YMM/ZMM
-- **XSETBV** → Escribe en XCR0 (normalmente usado por el SO)
 - **RDTSC** → Lee el Time Stamp Counter
 - **RDTSCP** → Igual que RDTSC pero serializado, devuelve además el ID de procesador
 - **RDMSR / WRMSR** → Leer/escribir Model-Specific Registers
