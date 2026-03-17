@@ -12795,7 +12795,403 @@ Si una aplicación ejecuta `vmovaps ymm0, ymm1` y AVX no está habilitado, #UD e
 
 ### Instrucción `RDTSC` (Read Time-Stamp Counter)
 
+Lee el contador de marca de tiempo (Time-Stamp Counter o TSC) del CPU. Proporciona una medida precisa del número de ciclos de reloj transcurridos desde que la CPU se encendió o se reinició. Cuenta con la variante `RDTSCP`.
+Se introdujo con el Intel Pentium en 1993. funciona en modo usuario y modo kernel. Entre sus usos comunes se encuentran: benchmarking y sincronización de alto rendimiento.
 
+**¿Cómo funciona?**
+
+`RDTSC` devuelve el contenido del registro `TSC` que se incrementa automáticamente con cada ciclo de reloj de la CPU. El valor se coloca en los registros `EDX:EAX` (Parte alta : Parte baja). Su ejecución es muy rápida y permite medir intervalos de tiempo con alta resolución, aunque la precisión depende de la frecuencia estable del reloj del procesador.
+
+**Usos y limitaciones**
+
+Es ampliamente usada en mediciones de rendimiento, instrumentación de código y sincronización de procesos. Sin embargo, debido a variaciones de frecuencia, migración entre núcleos y virtualización, los resultados pueden ser inconsistentes. Para obtener medidas confiables, se recomienda emplear mecanismos de sincronización como `CPUID` antes o después de `RDTSC` para serializar la ejecución.
+
+**Latencia:** `~20-40 ciclos`
+
+**Sintaxis:** `RDTSC`
+
+No tiene operandos.
+
+**Registros usados**
+
+El valor es devuelto en dos registros: `EDX:EAX`. Luego se debe componer con `TSC = (EDX << 32) | EAX `para generar el resultado de 64 bits.
+
+```asm
+# Intel
+rdtsc
+
+# Resultado
+# EAX: parte baja
+# EDX: parte alta
+```
+
+**Ejemplo: reconstrucción explícita manual**
+
+```asm
+# Intel
+rdtsc
+shl rdx, 32
+or rax, rdx
+
+# RAX: valor completo del TSC
+```
+
+**Ejemplo: típico benchmark**
+
+```asm
+# Intel
+# Se asume de antemano que la medición cabe en 32 bits, por lo que se usa solo EAX en su versión de 64 bits.
+rdtsc
+mov r8, rax
+# Código a medir
+rdtsc
+sub rax, r8
+
+# Resultado
+# RAX = ciclos consumidos
+```
+
+**Nota:** Siempre se debe reconstruir el valor de 64 bits manualmente.
+
+```asm
+# Intel
+rdtsc
+shl rdx, 32
+or rax, rdx
+mov r8, rax
+
+# código a medir
+
+rdtsc
+shl rdx, 32
+or rax, rdx
+sub rax, r8
+
+# Resultado: Ciclos consumidos (64 bits)
+```
+
+**Problema con OoO (Out-of-Order Execution)**
+
+Dado que `RDTSC` no es serializable, las CPUs modernas usan ejecución fuera de orden (OoO). Esto significa que el procesador puede reordenar instrucciones alrededor de `RDTSC`.
+
+```
+rdtsc
+instrucción
+rdtsc
+```
+
+Esto podría ejecutarse como:
+
+```
+rdtsc
+rdtsc
+instrucción
+```
+
+Rompiendo así la medición.
+
+**Solución:** Para medir correctamente se usa una instrucción serializante antes o después. La técnica clásica usa `CPUID ` porque ésta es una instrucción serializante, lo que le impide al CPU usar OoO para ganar rendimiento.
+
+**Ejemplo**
+
+```asm
+# Intel
+couid
+rdtsc
+# Y al final
+rdtscp
+cpuid
+```
+
+**¿Qué hace `CPUID`**?
+
+Obliga al procesador a:
+
+1. Terminar todas las instrucciones anteriores.
+2. Vaciar el pipeline.
+3. Ejecutar `CPUID`.
+4. Recién después ejecutar lo siguiente.
+
+Debido a esto, es que es usado como barrera fuerte.
+
+También se puede usar la barrera de memoria `LFENCE`, para evitar que el CPU reordene instrucciones antes de leer el contador de ciclos de la siguiente manera:
+
+```asm
+# Intel
+# Inicio de la medición
+lfence
+rdtsc
+shl rdx, 32
+or rax, rdx
+mov r8, rax # Guarda la medición
+
+# Código a medir
+
+# Fin de la medición
+lfence
+rdtsc
+shl rdx, 32
+or rax, rdx
+
+# Calcula los ciclos consumidos
+sub rax, r8
+```
+
+**Uso en C**
+
+```C
+#include <x86intrin.h>
+
+unsigned long long t = __rdtsc();
+```
+
+**Problemas de usar `RDTSC`**
+
+- **Migración de core:** Si el thread cambia de CPU, `TSC` podría no estar sincronizado (en CPUs antiguas).
+- **Virtualización:** Algunas VMs pueden modificar el `TSC`.
+- **Turbo Boost:** Si el `TSC` no es constante, los ciclos no reflejan tiempo real. 
+
+**Dato curioso**
+
+En CPUs modernas el `TSC` ya no mide ciclos reales de ejecución. Mide ciclos del clock base del paquete de CPU, lo que permite: sincronizar núcleos, tener un reloj estable y evitar variaciones por turbo.
+
+**¿Cómo saber si el `TSC` es confiable?**
+
+Se consulta con `CPUID`. Existen dos flags importantes: `constant_tsc` y `nonstop_tsc`. Indican que no cambia con power states, y que no se detiene en sleep (respectivamente).
+
+### Instrucción `RDTSCP` (Read Time-Stamp Counter and Processor ID)
+
+Es una extensión de la instrucción `RDTSC`, diseñada para ofrecer lecturas más ordenadas del contador y soportar sistemas multinúcleo de manera más segura.
+Se introdujo como una extensión en CPUs x86 de manos de AMD. Hizo su aparición en las arquitecturas AMD K10 e Intel Nehalem.
+Su latencia aproximada es de `~30-50` ciclos. Es mas lenta que `RDTSC` porque tiene propiedades de ordenamiento.
+
+**Funcionamiento**
+
+La instrucción `RDTSCP` lee el contador de ciclos de reloj del procesador `TSC`, que incrementa de manera continua desde el arranque del sistema. A diferencia de `RDTSC`, `RDTSCP` garantiza que todas las instrucciones anteriores en el flujo se completen antes de su ejecución, proporcionando una medición temporal consistente incluso en entornos de ejecución fuera de orden o con múltiples núcleos.
+
+**Usos**
+En programación de bajo nivel, `RDTSCP` se emplea para realizar perfiles de rendimiento, sincronización precisa y control de temporización en aplicaciones donde eltiempo de ejecución exacto de las isntrucciones importa. Su valor `ECX` adicional permite identificar el procesador o núcleo donde se ejecuta la medicicón, algo útil en sistemas multiprocesador.
+
+**Consideraciones de seguridad y portabilidad**
+Aunque `RDTSCP` ofrece mayor precisión, puede ser restringida en ciertos entornos por razones de seguridad, ya que su acceso directo al reloj del CPU puede ser explotado en ataques de canal lateral. Además, no todos los procesadores más antiguos la soportan, por lo que el software debe verificar su disponibilidad mediante la instrucción `CPUID` antes de usarla.
+
+**Sintaxis:** `RDTSCP`
+
+No tiene operandos. Lee:
+
+1. **Time Stamp counter (`TSC`)** (contador de ciclos).
+2. **IA32_TSC_AUX** (identificador de CPU/thread).
+
+El resultado se devuelve en tres registros:
+
+- **`EDX:EAX`:** Valor del `TSC` (64 bits).
+
+  Composición del timestamp: `TSC = (EDX << 32) | EAX`
+
+- **`ECX`:** IA32_TSC_AUX
+
+**IA32_TSC_AUX**
+
+Contiene un valor configurado por el kernel que normalmente identifica:
+
+- CPU core
+- NUMA node
+- logical processor
+
+En Linux suele contener algo como: `(core_id | socked_id << bits)`. Esto permite detectar si el hilo cambió de CPU durante la medición.
+
+**Ejemplo**
+
+```asm
+# Intel
+rdtscp
+
+shl rdx, 32
+or rax, rdx
+
+# RAX: timestamp
+# RCX: cpu id
+```
+
+**Diferencia con `RDTSC`**
+
+Mientras que `RDTSC` no serializa, `RDTSCP` serializa parcialmente. Garantiza que todas las instrucciones anteriores hayan terminado antes de leer el contador. Pero no evita que instrucciones posteriores se adelanten.
+
+Para serializar correctamente se sigue utilizando la solución clásica llamando a `CPUID`.
+
+```asm
+# Intel
+cpuid
+rdtsc
+
+# Código a medir
+rdtscp
+cpuid
+```
+
+**Nota:** `CPUID` actúa como barrera de serialización completa.
+
+**¿Cómo detectar si `RDTSCP` está disponible en el CPU?**
+
+Se detecta con `CPUID`: `CPUID.(EAX=80000001h):EDX[27]`, si el bit es 1, la instrucción es soportada.
+
+**Uso en C**
+
+```C
+#include <x86intrin.h>
+
+unsigned int aux;
+unsigned long long t = __rdtscp(&aux);
+// t es el timestamp
+// aux es el cpu id
+```
+
+**Usos**
+
+`RDTSCP` se usa en el kernel de linux, runtimes de alto rendimiento, motores de bases de datos, librerías criptográficas, frameworks de benchmarking, etc.
+
+**Ejemplo completo**
+
+```asm
+# Intel
+xor eax, eax
+cpuid
+
+rdtsc
+shl rdx, 32
+or rax, rdx
+mov r8, rax
+
+; código a medir
+
+rdtscp
+shl rdx, 32
+or rax, rdx
+sub rax, r8
+
+cpuid
+```
+
+
+
+## Ciclos de CPU
+
+Un ciclo es un *tic* del reloj del procesador. Si un CPU funciona a `3GHz` significa que realiza `3,000,000,000` ciclos por segundo, es decir `3 × 10⁹` ciclos por segundo.
+
+**Convertir ciclos a tiempo**
+
+La fórmula básica es: `tiempo = ciclos / frecuencia`.
+
+**Ejemplo**
+
+```
+3000 ciclos en un CPU de 3 GHz
+tiempo = 3000 / 3,000,000,000
+tiempo = 0.000001 s (1 microsegundo o 1μs)
+```
+
+**Convertir tiempo a ciclos**
+
+Es la operación inversa: `ciclos = tiempo × frecuencia`
+
+***Ejemplo***
+
+```
+1μs = 1 × 10⁻⁶s
+En un CPU de 3GHz
+ciclos = 1e⁻⁶ × 3e⁹ (notación científica, no confundir e con la constante e).
+ciclos = 3000
+```
+
+**Algunas equivalencias**
+
+Es útil memorizarlas para no calcular todo cada vez.
+
+| frecuencia | ciclos por microsegundo |
+| ---------- | ----------------------- |
+| 1 GHz      | 1000                    |
+| 2 GHz      | 2000                    |
+| 3 GHz      | 3000                    |
+| 4 GHz      | 4000                    |
+
+Entonces: `1 µs en CPU 3GHz ≈ 3000 ciclos`.
+
+**Escalas de tiempo**
+
+| Unidad       | Símbolo | Equivalencia |
+| ------------ | ------- | ------------ |
+| milisegundo  | ms      | 10⁻³ s       |
+| microsegundo | μs      | 10⁻⁶ s       |
+| nanosegundo  | ns      | 10⁻⁹ s       |
+| picosegundo  | ps      | 10⁻¹² s      |
+
+**Ejemplo real con `RDTSC`**
+
+Se leen 150 ciclos con RDTSC en un CPU de 3GHz.
+
+```
+tiempo = 150 / 3,000,000,000
+tiempo = 5e⁻⁸s
+tiempo = 0,00000005s (50 ns -> nano segundo)
+```
+
+**Nota:** Se sabe que son **50 ns** porque 5 × 10⁻⁸ segundos puede reescribirse ajustando la potencia de 10 como 50 × 10⁻⁹. Dado que 10⁻⁹ segundos corresponde a **1 nanosegundo**, el resultado equivale a **50 ns**.
+
+**Escalas típicas de latencias en CPU**
+
+Es un aproximado, pero sirve para desarrollar la intuición.
+
+| operación | ciclos  |
+| --------- | ------- |
+| registro  | 1       |
+| L1 cache  | 3–5     |
+| L2 cache  | 10–15   |
+| L3 cache  | 30–60   |
+| RAM       | 100–300 |
+
+Entonces si se miden 220 ciclos, probablemente fue de un acceso a RAM.
+
+**El problema de la variación de frecuencia en los cores**
+
+En CPUs antiguas, `RDTSC` contaba ciclos reales del core. Entonces TSC incrementaba a la frecuencia actual del CPU. Ejemplo:
+
+| estado CPU | frecuencia | incremento TSC |
+| ---------- | ---------- | -------------- |
+| idle       | 1 GHz      | 1e9 / segundo  |
+| turbo      | 3 GHz      | 3e9 / segundo  |
+
+Como resultado los tiempos cambiaban cuando cambiaba la frecuencia. Esto rompía benchmarks, temporizadores del sistema y schedulers del kernel.
+Como solución se introdujo en CPUs modernos `Invariant TSC`. El contador incrementa a una frecuencia fija, independiente del core. Ejemplo:
+
+```
+Base: 3.0GHz
+Turbo: 4.5GHz
+Frecuencia del TSC: 3.0GHz constante
+```
+
+**¿Qué mide `RDTSC` realmente?**
+
+Mide ticks de un reloj constante del procesador, no los ciclos reales ejecutados. Por ejemplo:
+
+| core freq | tiempo real | TSC       |
+| --------- | ----------- | --------- |
+| 1 GHz     | 1 s         | 3e9 ticks |
+| 4 GHz     | 1 s         | 3e9 ticks |
+
+**¿Cómo saber si un CPU tiene `Invariant TSC`?**
+
+Se consulta con `CPUID` el leaf `CPUID.80000007H`, el `EDX bit 8`. Si está en 1 lo tiene (linux lo muestra como `constant_tsc` y `noinstop_tsc`).
+
+**El problema con múltiples cores**
+
+Antiguamente cada core tenía su propio `TSC`, entonces:
+
+```
+core 0 -> 100000
+core 1 -> 99800
+```
+
+Si el thread migraba entre cores se podía obtener tiempo negativo.
 
 ## Endianess
 
@@ -12892,6 +13288,8 @@ int main() {
 
 Todo: retomar las instrucciones de extensión de el final
 
+todo: abordar herramienta perf de linux.
+
 Todo: pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
 
 todo: abordar SSE / AVX
@@ -12905,12 +13303,10 @@ todo: investigar __rdtscp x86intrin.h
 
 todo: abordar el uso de fpu x87 (fdiv, fdivp, etc)
 
-todo: antes de abordar las extensiones, abordar una zona de consulta de caracteristicas al cpu con las siguientes instrucciones:  XGETBV, XSETBV, RDTSC, RDTSCP, RDMSR, WRMSR, RDRAND, RDSEED
+todo: antes de abordar las extensiones, abordar una zona de consulta de caracteristicas al cpu con las siguientes instrucciones: , RDMSR, WRMSR, RDRAND, RDSEED, RDPMC
 
 Explicación rápida de cada una:
 
-- **RDTSC** → Lee el Time Stamp Counter
-- **RDTSCP** → Igual que RDTSC pero serializado, devuelve además el ID de procesador
 - **RDMSR / WRMSR** → Leer/escribir Model-Specific Registers
 - **IN / OUT** → Leer/escribir puertos de hardware (información indirecta sobre CPU)
 - **RDRAND / RDSEED** → Instrucciones de generación de números aleatorios del CPU
