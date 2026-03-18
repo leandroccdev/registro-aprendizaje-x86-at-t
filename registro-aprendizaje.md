@@ -13795,12 +13795,296 @@ int main() {
 
 **Nota:** Muchos sistemas mezclan `RDSEED` con otras fuentes de entropía, como por ejemplo ruido de tiempo o movimientos del ratón, para mejorar la robustez.
 
-## SSE (Single Instruction, Multiple Data)
+## SSE (Streaming SIMD Extensions)
+
+Es un conjunto de instrucciones que permite al procesador realizar operaciones vectoriales sobre múltiples datos en paralelo, usando un solo opcode, aprovechando el paralelismo a nivel de datos (Single Instruction, Multiple Data o SIMD).
+Introduce registros de 128 bits (`XMM0` al `XMM15`) que pueden contener enteros o números flotantes en paralelo. Por ejemplo, un registro SSE puede almacenar cuatro floats de 32 bits o dos doubles de 64 bits, permitiendo que una instrucción de suma agregue simultáneamente esos valores sin necesidad de procesarlos uno a uno.
+
+Esto es especialmente útil en operaciones repetitivas sobre grandes bloques de datos como: gráficos ,audio, procesamiento de señales o cálculos científicos. SSE también incluye instrucciones para carga, almacenamiento, conversión y comparación de vectores, facilitando un flujo de trabajo eficiente sobre datos alineados o no alineados.
+
+En términos derendimiento, SSE acelera cálculos sin necesidad de cambiar la arquitectura base de la CPU, simplemente explotando el paralelismo dentro de registros existentes. Posteriormente, AVX y AVX-512 extendieron este concepto a registros de 256 y 512 bits, pero el fundamento de SSE sigue siendo la vectorización SIMD en 128 bits.
+
+**Historia**
+
+Cada versión fue apareciendo cuando Intel detectaba nuevas necesidades de rendimiento en multimedia, gráficos y cálculos científicos.
+
+1. **SSE (1999, Pentium III)**
+
+   La primera versión apareció con el Pentium III. Su objetivo era acelerar cálculos en punto flotante, sobre todo para gráficos 3D y audio. Introdujo registros `XMM` de 128 bits, permitiendo operaciones en paralelo con floats de 32 bits.
+
+2. **SSE2 (2001, Pentium 4)**
+
+   Con el Pentium 4, SSE2 amplió la familia: ahora soportaba enteros de 128 bits y doubles de 64 bits, cerrando una limitación importante de SSE original. Esto permitió vectorizar más tipos de cálculos, incluidos algoritmos científicos y criptografía.
+
+3. **SSE3 (2006, Prescott, Pentium 4)**
+
+   SSE3 no aumentó el tamaño de los registros, pero introdujo instrucciones más especializadas para fusiones y operaciones horizontales, por ej: sumar elementos dentro de un mismo registro. Esto mejoró algoritmos de audio y multimedia.
+
+4. **SSSE (2006, Core 2)**
+
+   A veces llamada *SSSE suplementaria*, añadió 16 nuevas instrucciones, enfocadas en operaciones aritméticas rápidas y manipulación de bytes dentro de registros. Esto aceleró procesamiento de texto, vídeo y codificación/decodificación de datos.
+
+5. **SSE4 (2007-2008, Penryn / Nehalem)**
+
+   Se dividió en SSE4.1 y SSE4.2:
+
+   - **SSE4.1 (2007):** Añade 47 instrucciones nuevas, útiles para multimedia y gráficos.
+   - **SSE4.2 (2008):** Añade 7 instrucciones adicionales, especialmente útiles para búsqueda de cadenas y procesamiento de texto, como aceleración de funciones de comparación y búsqueda.
+
+Cada iteración de SSE mantenía compatibilidad con las anteriores, ampliando capacidades sin romper el software existente. Posteriormente, Intel desarrolló AVX y AVX-512, que siguieron la misma idea ed paralelismo pero con registros más grandes y mayor ancho de banda.
+
+**Resumen**
+
+| Versión    | Año  | CPU/Arquitectura     | Características clave                                                     |
+| ---------- | ---- | -------------------- | ------------------------------------------------------------------------- |
+| **SSE**    | 1999 | Pentium III          | Registros XMM 128-bit, floats de 32 bits, operaciones vectoriales básicas |
+| **SSE2**   | 2001 | Pentium 4            | Enteros 128-bit, doubles 64-bit, más tipos de datos vectorizados          |
+| **SSE3**   | 2004 | Prescott (Pentium 4) | Nuevas instrucciones horizontales y fusiones de datos                     |
+| **SSSE3**  | 2006 | Core 2               | 16 instrucciones adicionales para aritmética y manipulación de bytes      |
+| **SSE4.1** | 2007 | Penryn               | 47 instrucciones nuevas, multimedia y gráficos                            |
+| **SSE4.2** | 2008 | Nehalem              | 7 instrucciones nuevas, búsqueda y procesamiento de texto                 |
+
+### Estándar IEEE-754
+
+Es el estándar de IEEE para aritmética en punto flotante, se estableció en 1985. La norma abordó muchos problemas encontrados en las diversas implementaciones de punto flotante que hacían difíciles de usar de forma fiable y portátil. Muchas unidades de coma flotante de hardware lo utilizan. La versión actual es la 754-2008.
+
+[Link a wikipedia](https://es.wikipedia.org/wiki/IEEE_754).
+
+**Números flotantes**
+
+El estándar define como representar los números reales en binario, cómo manejar ceros, infinitos y errores de redondeo. Cada número en punto flotante se divide en tres partes:
+
+1. **Signo (S):** Un solo bit que indica si el número es positivo (`0`) o negativo (`1`).
+2. **Exponente (E):** Un grupo de bits que indica la *escala* del número. El estándar usa un **bias**, un valor fijo que se suma para representar exponentes negativos y positivos sin usar signo separado.
+3. **Mantisa / Fracción (M):** Los bits que representan el valor significativo del número. En binario, es como los dígitos después del punto decimal, pero en base 2.
+
+Dependiendo del formato:
+
+| Formato    | Tamaño total | Bits exponente | Bits mantisa | Rango aproximado        |
+| ---------- | ------------ | -------------- | ------------ | ----------------------- |
+| **float**  | 32 bits      | 8              | 23           | ~1.4×10⁻⁴⁵ a 3.4×10³⁸   |
+| **double** | 64 bits      | 11             | 52           | ~4.9×10⁻³²⁴ a 1.8×10³⁰⁸ |
+
+La fórmula general para reconstruir el valor es: **(-1) <sup>s</sup> × 1.M × 2 <sup>E-bias</sup>**
+
+Valores del `bias`:
+
+- En **floats** es: 127.
+- En **double** es: 1023.
+
+Por ejemplo, un float con signo `0` (positivo), exponente `130` y mantisa `0b01000000000000000000000` se interpreta como:
+
+(-1)<sup>0</sup> × 1.10<sub>2</sub> × 2<sup>130-127</sup> = 1.25 × 2<sup>3</sup> = 10 
+
+El estándar también define valores especiales:
+
+- Cero positivo y negativo: `+0`, `-0`.
+- Infinitos: `+∞`, `-∞`.
+- `NaN` (Not a Number): para operaciones indefinidas como `0/0`.
+
+Entender esto es crucial porque SSE y otros conjuntos de instrucciones vectoriales operan directamente sobre estos bits, respetando el redondeo y las excepciones definidas por IEEE-754. Adquirir práctica con el permite a la larga, predecir los resultados, optimizar cálculos y depurar errores numéricos con precisión.
+
+**El propósito del bias**
+
+Es un valor que se suma al exponente real para almacenarlo como un número sin signo. Su propósito es simplificar el manejo de exponentes negativos y positivos usando solo *bits positivos* en el campo del exponente.
+
+**Técnicamente**
+
+El **exponente real** puede ser negativo o positivo, por ejemplo: en 2<sup>-3</sup> o 2<sup>5</sup>. Como los bits del exponente en el estándar son sin signo, no se pueden almacenar directamente números negativos. Entonces, se define un bias (un número fijo) que se suma al exponen real antes de almacenarlo: E<sub>almacenado</sub> = E<sub>real</sub> + bias.
+
+Para un float de 32 bits, el bias es 127, ejemplo: si el exponente real es `3`, se almacena `3 + 127 = 130`. En cambio si el exponente real es `-3`, se alamcena `-3 + 127 = 124`.
+Para un double de 64 bits, el bias es 1023.
+Al leer el número, para reconstruirlo se utiliza la siguiente fórmula: E<sub>real</sub> = E<sub>almacenado</sub> - bias.
+
+En otras palabras, el bias *desplaza* el rango de exponentes de modo que todos puedan representarse como números positivos, evitando tener que usar un bit de signo separado para el exponente.
+
+**¿Qué es el exponente real y cómo se calcula?**
+
+El exponente real es la potencia de 2 necesaria para colocar la coma binaria justo después del primer 1.
+
+El estándar requiere que los números normales estén en la forma: 1.mantisa × 2<sup>exponente real</sup>. Para `1010.01` el resultado es: 1010.01<sub>2</sub> = 1.01001<sub>2</sub> × 2<sup>3</sup>.
+
+- 1.01001 es la mantisa normalizada. El 1 antes del punto no se almacena, es implícito.
+- 3 es el exponente real.
+
+**Colocando la coma binaria después del primer 1**
+
+El número `1010.01` en binario:
+
+```
+1   0   1   0   . 0  1
+↑
+primer 1
+```
+
+Para normalizarlo, se quiere que el primer 1 quede justo antes del punto binario. Para eso se mueve la coma 3 lugares a la izquierda:
+
+```
+1010.01 → 1.01001 × 2^3
+```
+
+Ahora se tiene `1.01001` y el primer 1 esta a la izquierda del punto. Luego se cuenta cuántas posiciones se movió la coma y eso da el exponente real.
+
+Si fuera un número pequeño, por ejemplo: `0.101` la coma se movería un lugar a la derecha dando como resultado 1.01 × 2<sup>-1</sup>, dando como resultado un exponente real de -1.
+
+Rango de exponentes para **float (32 bits, bias = 127)**
+
+| Exponente real (E_real) | E_almacenado = E_real + 127 | Comentario                          |
+| ----------------------- | --------------------------- | ----------------------------------- |
+| -126                    | 1                           | Exponente más pequeño normal        |
+| -3                      | 124                         | Ejemplo negativo                    |
+| 0                       | 127                         | Exponente “cero”                    |
+| 3                       | 130                         | Ejemplo positivo                    |
+| 127                     | 254                         | Exponente más grande normal         |
+| Especial                | 0 / 255                     | 0 → subnormales/cero, 255 → Inf/NaN |
+
+**Nota:** El rango de exponentes normales para float va de -126 a +127. El valor almacenado 0 se usa para subnormales o cero, y 255 para infinitos o `NaN`. 
+
+**Valor subnormal**
+
+Es un número que es muy cercano a cero y que no puede representarse con el formato normal porque el exponente real estaría por debajo del rango permitido. Mas detalladamente:
+
+1. **Números normales:** Se representan con un exponente entre 1 y 254 (para float de 32 bits después de aplicar el bias). Tienen una mantisa normalizada, es decir, hay un 1 implícito antes del punto binario: valor = (-1)<sup>signo</sup> × 1.mantisa × 2<sup>(exponente - 127)</sup>. Esto asegura máxima precisión para números *no demasiado pequeños*.
+2. **Números subnormales (denormales):** Se usan cuando el exponente real sería menor que -126. Su exponente almacenado es 0. La mantisa ya no tiene el 1 implícito, entonces: valor = (-1)<sup>signo</sup> × 0.mantisa × 2<sup>(-126)</sup>. Esto permite representar valores más pequeños que el mínimo normal, aunque con menos precisión.
+   Sin números subnormales, cualquier número demasiado pequeño simplemente sería redondeado a cero, lo que causaría un **underflow abrupto**. Con subnormales, hay un **underflow gradual**, mejorando la estabilidad numérica en calculos que involucran valores muy pequeños.
+
+Rangos de exponentes para **double (64 bits, bias = 1023)**
+
+| Exponente real (E_real) | E_almacenado = E_real + 1023 | Comentario                           |
+| ----------------------- | ---------------------------- | ------------------------------------ |
+| -1022                   | 1                            | Exponente más pequeño normal         |
+| -3                      | 1020                         | Ejemplo negativo                     |
+| 0                       | 1023                         | Exponente “cero”                     |
+| 3                       | 1026                         | Ejemplo positivo                     |
+| 1023                    | 2046                         | Exponente más grande normal          |
+| Especial                | 0 / 2047                     | 0 → subnormales/cero, 2047 → Inf/NaN |
+
+En ambas tablas se aprecia claramente cómo el bias desplaza los exponentes reales para que siempre sean positivos, y al mismo tiempo se reservan valores extremos para ceros, subnormales e infinitos/NaN.
+
+**Ejemplos (floats 32 bits, bias = 127)**
+
+1. Número a convertir: +10.25
+
+    1. Convertir a binario: 10.25<sub>10</sub> = 1010.01<sup>2</sup>
+    2. Normalizar:  1.01001<sub>2</sub> × 2<sup>3</sup>
+       - Mantisa: `01001000000000000000000` (23 bits)
+       - Exponente real: 3
+       - Exponente almacenado: `3 + 127 = 130` → `10000010`
+    3. Signo: `0` (positivo)
+
+    Representación IEEE-754:
+
+    ```
+    Signo | Exponente | Mantisa
+    0     | 10000010  | 01001000000000000000000
+    ```
+
+2. Número a convertir: -0,15623
+
+    1. Convertir a binario: 0.00101<sub>2</sub>
+
+    2. Normalizar: 1.01<sub>2</sub> × 2<sup>-3</sup>
+       - Mantisa: `01000000000000000000000` (23 bits)
+       - Exponente real: -3
+       - Exponente almacenado: `-3 + 127 = 124` → `01111100`
+    3. Signo: `1` (negativo)
+
+    Representación IEEE-754
+
+    ```
+    Signo | Exponente | Mantisa
+    1     | 01111100  | 01000000000000000000000
+    ```
+
+**Ejemplos (double 64 bits, bias = 1023)**
+
+1. Número a convertir: +25.625
+
+   1. Convertir a binario: 11001.101<sub>2</sub>
+   2. Normalizar: 1.1001101<sup>2 </sup> × 2<sup>4</sup>
+      - Mantisa: `1001101000000000000000000000000000000000000000000000` (52 bits)
+      - Exponente real: 4
+      - Exponente almacenado: `4 + 1023 = 1027` → `10000000011`
+   3. Signo: `0` (positivo)
+
+   Representación IEEE-754
+
+   ```
+   Signo | Exponente     | Mantisa
+   0     | 10000000011   | 1001101000000000000000000000000000000000000000000000
+   ```
+
+2. Número a convertir: -0.1
+
+   1. Convertir a binario (aprox. infinito periódico): 0.1<sub>10</sub> ≈ 0.0001100110011…<sub>2</sub>
+
+   2. Normalizar: 1.1001100110011…<sub>2</sub> × 2<sup>-4</sup>
+
+      - Mantisa: Primeros 52 bits: `1001100110011001100110011001100110011001100110011001`
+      - Exponente real: -4
+      - Exponente almacenado: `-4 + 1023 = 1019` → `01111111011`
+
+   3. Signo: `1` (negativo)
+
+      Representación IEEE-754
+
+      ```
+      Signo | Exponente     | Mantisa
+      1     | 01111111011   | 1001100110011001100110011001100110011001100110011001
+      ```
+
+**¿Qué números decimales se representan exactamente en binario?**
+
+Solo los números que son sumas de potencias de 2 se representan exactamente. Como ya se vió, la mantisa solo puede contener bits ceros o unos, esto significa que lo que se almacena son sumas de potencias de 2.
+
+**Ejemplo**
+
+Si la mantisa es `01001`
+
+1.01001<sub>2</sub> = 1 + 0 ⋅ 2<sup>-1</sup> + 1 ⋅ 2<sup>-2</sup> + 0 ⋅ 2<sup>-4</sup> + 1 ⋅ 2<sup>-5</sup> = 1 + 0.25 + 0.03125 = 1.28125
+
+1.01001 es un número binario decimal:
+
+- La parte entera `1` representa la posición 2<sup>0</sup>.
+- La parte fraccionaria `.01001` representa las posiciones: 2<sup>-1</sup>, 2<sup>-2</sup>, 2<sup>-3</sup>, 2<sup>-4</sup>, 2<sup>-5</sup>
+
+Así que: 1.01001<sub>2</sub> = 1 ⋅ 2<sup>0</sup> + 0 ⋅ 2<sup>-1</sup> + 0 ⋅ 2<sup>-2</sup> + 0 ⋅ 2<sup>-3</sup> + 0 ⋅ 2<sup>-4</sup> + 0 ⋅ 2<sup>-5</sup>
+
+Se calcula cada término
+
+1 ⋅ 2<sup>0</sup> = 1
+0 ⋅ 2<sup>-1</sup> = 0
+0 ⋅ 2<sup>-2</sup> = 1 ⋅ <sup>1</sup><sub>4</sub> = 0.25
+0 ⋅ 2<sup>-3</sup> = 0
+0 ⋅ 2<sup>-4</sup> = 0
+0 ⋅ 2<sup>-5</sup> = 1 ⋅ <sup>1</sup><sub>32</sub> = 0.03125
+
+Se suman los valores
+
+1 + 0 + 0.25 + 0 + 0 + 0.03125 = 1.28125
+
+**¿Cuando sí es exacto?**
+
+Cuando el número puede escribirse como una suma finita de potencias de 2 (fracciones binarias finitas), se representa exactamente.
+
+Por eso los decimales como 0.1 o 0.2 que no son sumas finitas de potencias de 2 se representan con una aproximación:
+
+- 0.1 en binario = `0.00011001100110011…` (repetitivo infinito)
+- 0.2 en binario = `0.001100110011…` (repetitivo infinito)
+
+El estándar solo puede almacenar un número finito de bits (23 para float32), así que estas fracciones se aproximan, nunca son exactas.
+
+Entonces cualquier número que sea una suma finita de potencias de 2 se representa exactamente:
+
+- 1/2 = 0.5 → 0.1<sub>2</sub>
+- 1/4 = 0.25 → 0.01<sub>2</sub>
+- 3/4 = 0.75 → 0.11<sub>2</sub>
+- 10.25 = 1010.01<sub>2</sub>
 
 
+------
 
-
-todo: abordar SSE / AVX
+todo: abordar AVX
 
  todo: hacer algunos programas
 
