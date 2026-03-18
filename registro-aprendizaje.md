@@ -3710,7 +3710,7 @@ Realiza multiplicación con signo. Según la forma usada, el resultado completo 
 
 **Flags del CPU**
 
-`CF` y `OF` se activan si el resultado no cabe en el tamaño del operando destino.. Es decir, cuando hay truncamiento del resultado.
+`CF` y `OF` se activan si el resultado no cabe en el tamaño del operando destino. Es decir, cuando hay truncamiento del resultado.
 En la forma de un operando, esto ocurre cuando la parte alta del resultado no es extensión del signo de la parte baja. En las formas de dos y tres operandos, ocurre cuando el resultado es truncado.
 
 **Sintaxis:** 
@@ -3780,6 +3780,152 @@ imul ax, bx, -3 # ax = (int16)bx * (int16)-3
 ```
 
 En éste caso el resultado cabe en 16 bits, de lo contrario se hubiera truncado.
+
+**Ejemplo (32 bits con 1 operando)**
+
+```asm
+# Intel
+# Multiplica EAX por un valor y guarda el resultado en EDX:EAX
+mov eax, 5        # EAX = 5
+imul dword [num]  # multiplicamos EAX * num
+# resultado: 5 * num → EAX (parte baja), EDX (parte alta)
+```
+
+**Ejemplo (32 bits con 2 operandos)**
+
+```asm
+# Intel
+mov eax, 7
+mov ebx, 3
+imul eax, ebx # eax = eax * ebx
+```
+
+**Ejemplo (32 bits con 3 operandos)**
+
+```asm
+# Intel
+mov ecx, 4
+imul eax, ecx, 10 # eax = ecx * 10
+```
+
+**Resumen**
+
+| Operandos | Sintaxis              | Resultado           |
+| --------- | --------------------- | ------------------- |
+| 1         | `imul src`            | EAX * src → EDX:EAX |
+| 2         | `imul dest, src`      | dest * src → dest   |
+| 3         | `imul dest, src, imm` | src * imm → dest    |
+
+**Ejemplo (32 bits usando `EAX:EDX`)**
+
+```asm
+# Intel
+.intel_syntax noprefix
+.section .data
+num1 dd 3000000000   # 3,000,000,000
+num2 dd 4            # multiplicador
+
+.section .text
+.global _start
+_start:
+    mov eax, [num1]       # EAX = num1
+    imul dword ptr [num2] # EAX * num2 → resultado completo en EDX:EAX
+
+    # Ahora:
+    # EAX = parte baja (low 32 bits)
+    # EDX = parte alta (high 32 bits)
+
+    # Salida limpia (Linux syscall)
+    mov eax, 1  # sys_exit
+    int 0x80
+```
+
+**Ejemplo (64 bits 1 operando con resultado de 128 bits en `RDX:RAX`)**
+
+```asm
+# Intel
+.intel_syntax noprefix
+.section .data
+num1 dq 5000000000      # 5,000,000,000
+num2 dq 8               # multiplicador
+
+.section .text
+.global _start
+_start:
+    mov rax, [num1]        # RAX = num1
+    imul qword ptr [num2]  # RAX * num2 → resultado completo en RDX:RAX
+
+    # RAX = parte baja (low 64 bits)
+    # RDX = parte alta (high 64 bits)
+
+    # Salida limpia
+    mov eax, 60   # sys_exit
+    xor edi, edi  # status = 0
+    syscall
+```
+
+**Ejemplo (64 bits 2 operandos)**
+
+```asm
+# Intel
+.intel_syntax noprefix
+.section .data
+val1 dq 7
+val2 dq 3
+
+.section .text
+.global _start
+_start:
+    mov rax, [val1]
+    imul rax, qword ptr [val2]   # RAX = RAX * val2
+
+    # Resultado simple de 64 bits en RAX
+    mov eax, 60   # sys_exit
+    xor edi, edi
+    syscall
+```
+
+**Ejemplo (64 bits con 3 operandos)**
+
+```asm
+# Intel
+.intel_syntax noprefix
+.section .data
+val3 dq 4
+
+.section .text
+.global _start
+_start:
+    imul rax, qword ptr [val3], 10   # RAX = val3 * 10
+
+    # Resultado simple de 64 bits en RAX
+    mov eax, 60
+    xor edi, edi
+    syscall
+```
+
+**Ejemplo (64 bits con resultado de 128 bits en `RDX:RAX`)**
+
+```asm
+# Intel
+.intel_syntax noprefix
+.section .data
+a dq 0xFFFFFFFFFFFFFFFF   # 64-bit max
+b dq 2
+
+.section .text
+.global _start
+_start:
+    mov rax, [a]         # RAX = a
+    imul qword ptr [b]   # RAX * b → 128-bit resultado en RDX:RAX
+
+    # RAX = low 64 bits
+    # RDX = high 64 bits
+
+    mov eax, 60
+    xor edi, edi
+    syscall
+```
 
 **Usos comunes**
 
@@ -13428,6 +13574,17 @@ int main() {
 ```
 
 **Salida:** `Antes: 0x12345678, Después: 0x78563412`
+
+## Números aleatorios generados por hardware
+
+### Instrucción `RDRAND` (Read Random Number)
+
+Genera un número aleatorio directamente desde hardware, usando un generador de números aleatorios integrado en el CPU (de Intel y también soportado por AMD).
+No es pseudoaleatorio como `rand()` en C, es una aleatoriedad basada en hardware. Esto significa que los números aleatorios no son generados por un algoritmo de software, sino que provienen de fenómenos físicos reales dentro del hardware del computador. Se utiliza el ruido térmico en circuitos electrónicos, variaciones eléctricas impredecibles, tiempos de osciladores internos (jitter), etc. Dichos fenómenos son intrínsecamente impredecibles, por lo que generan lo que se llama verdadera aleatoriedad. Luego el número pasa por un DRBG (Deterministic Random Bit Generator).
+
+**Sintaxis:** `RDRAND dest`
+
+
 
 Todo: retomar las instrucciones de extensión de el final
 
