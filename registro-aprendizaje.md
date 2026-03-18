@@ -13413,6 +13413,76 @@ int main() {
 
 **Nota:** Dependiendo del OS, algunos contadores solo pueden leerse en modo kernel (ring 0), no en modo usuario.
 
+**Contadores PMC**
+
+Basada en Intel Core i-series.
+
+| **Contador**        | **Nombre / Tipo**        | **Uso / Evento típico**                                      | **Modo accesible**                |
+| ------------------- | ------------------------ | ------------------------------------------------------------ | --------------------------------- |
+| **PMC0**            | Hardware Event Counter 0 | Contador genérico de eventos (ej: instrucciones ejecutadas, ciclos de CPU, cache misses) | Ring 0 / User mode (si CR4.PCE=1) |
+| **PMC1**            | Hardware Event Counter 1 | Igual que PMC0, permite medir otro evento diferente          | Ring 0 / User mode                |
+| **PMC2**            | Hardware Event Counter 2 | Igual                                                        | Ring 0 / User mode                |
+| **PMC3**            | Hardware Event Counter 3 | Igual                                                        | Ring 0 / User mode                |
+| **IA32_FIXED_CTR0** | Fixed Counter 0          | Cuenta **CPU cycles**                                        | User/Kernel                       |
+| **IA32_FIXED_CTR1** | Fixed Counter 1          | Cuenta **instructions retired** (instrucciones completadas)  | User/Kernel                       |
+| **IA32_FIXED_CTR2** | Fixed Counter 2          | Cuenta **reference cycles** (ciclos de referencia, independientemente de turbo) | User/Kernel                       |
+
+**Notas:**
+
+- Los contadores `PMCx` del 0 al 3 normalmente son programables, pueden ser configurados para contar eventos específicos de hardware mediante los registros. IA32_PERFEVTSELx.
+- Los contadores con el infijo \_FIXED_ vienen fijos en la CPU, miden ciclos de CPU, instrucciones ejecutadas y ciclos de referencia. Se acceden con `RDPMC` con valores en `ECX`:
+  - `ECX = 0`: IA32_FIXED_CTR0.
+  - `ECX = 1`: IA32_FIXED_CTR1.
+  - `ECX = 2`: IA32_FIXED_CTR2.
+
+### **Registros `IA32_PERFEVTSELx`**
+
+Son registros de control de los Performance Monitoring Counters (PMC). Su función es configurar qué evento de hardware cuenta cada PMC programable. Por ej: se le puede indicar a PMC0 que cuente instrucciones completadas, o a PMC1 que cuente misses de caché L1.
+Cada CPU Intel tiene generalmente cuatro contadores programables (PMC0 al 3), y por lo tanto hay cuatro registros IA32_PERFEVTSEL0 al 3.
+
+**Formato del registro**
+
+Cada registro IA32_PERFEVTSELx tiene varios campos importantes:
+
+| Bits  | Nombre           | Función                                                      |
+| ----- | ---------------- | ------------------------------------------------------------ |
+| 0–7   | **Event Select** | Código del evento a contar (ej: 0x3C = CPU cycles)           |
+| 8–15  | **UMask**        | Máscara para afinar el evento (ej: filtrar solo ciertos tipos de ciclos o instrucciones) |
+| 16    | **USR**          | Contar en **user mode** si está en 1                         |
+| 17    | **OS**           | Contar en **kernel mode** si está en 1                       |
+| 18    | **Edge**         | Activar conteo por flancos del evento (opcional)             |
+| 19    | **PC**           | Pin Control, generalmente 0                                  |
+| 20    | **Int**          | Activar interrupción al desbordar contador                   |
+| 21    | **AnyThread**    | Contar para cualquier thread del core                        |
+| 22–31 | Reservado        | Normalmente 0                                                |
+
+Con esto, se puede definir con precisión qué evento, en qué modo y con qué condiciones se cuenta.
+
+**Acceso**
+
+Como son registros MSRs, se usan las instrucciones `RDMSR` y `WRMSR` en ring 0 (modo kernel). Cada registro tiene un número de dirección MSR:
+
+| Registro         | MSR Address |
+| ---------------- | ----------- |
+| IA32_PERFEVTSEL0 | 0x186       |
+| IA32_PERFEVTSEL1 | 0x187       |
+| IA32_PERFEVTSEL2 | 0x188       |
+| IA32_PERFEVTSEL3 | 0x189       |
+
+**Ejemplo (modo kernel)**
+
+```asm
+# Intel
+# Configurar PMC0 para contar instrucciones retiradas (event select 0xC0)
+mov ecx, 0x186       # IA32_PERFEVTSEL0
+mov eax, 0x4300C0    # bits: USR=1, OS=1, event=0xC0
+mov edx, 0x0         # high 32 bits
+wrmsr                # escribe el MSR
+
+# EAX:EDX contiene el valor a escribir.
+# Luego RDPMC con ECX=0 leerá el contador configurado en PMC0.
+```
+
 ## Ciclos de CPU
 
 Un ciclo es un *tic* del reloj del procesador. Si un CPU funciona a `3GHz` significa que realiza `3,000,000,000` ciclos por segundo, es decir `3 × 10⁹` ciclos por segundo.
