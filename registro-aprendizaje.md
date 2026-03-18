@@ -13072,7 +13072,150 @@ sub rax, r8
 cpuid
 ```
 
+### Instrucción `RDMSR` (Read Model-Specific Register)
 
+Lee registros especiales del procesador llamados Model-Specific Registers (MSR). Es una instrucción privilegiada que solo se puede ejecutar en ring 0 (kernel mode). Cuando se ejecuta en userland, la excepción #GP (General Protection Fault) es lanzada.
+
+**¿Qué son los registros MSR?**
+
+Los MSR son registros internos del CPU que controlan cosas como: configuración del sistema, features del procesador, manejo de energía, syscalls, debug/performance, etc. No son registros normales, sino más bien registros ocultos accesibles solo con instrucciones especiales.
+
+**Sintaxis:** `RDMSR`
+
+No tiene operandos explícitos, pero usa registros específicos:
+
+- **`ECX` (entrada):** Contiene el índice del MSR que se quiere leer.
+- **`EDX:EAD` (salida)**: Contiene el valor de 64 bits del MSR.
+
+**Ejemplo**
+
+```asm
+# Intel
+mov ecx, 0xC0000080 # IA32_EFER (MSR importante en x86-64)
+rdmsr               # Lee MSR
+
+# Resultado
+# EAX: 32 bits bajos
+# EDX: 32 bits altos
+```
+
+**Dato interesante**
+
+Muchos exploits y rootkits usan MSRs. Se pueden manipular cosas críticas con `WRMSR`. `RDMSR` sirve para reconocimiento del estado del CPU.
+
+### Rangos de MSR
+
+No existe una tabla completa y universal de todos los MSR, dependen del fabricante y del modelo de CPU.
+Intel tiene sus propios MSR, AMD tiene otros, e incluso entre generaciones cambian. Lo que si se tiene es un rango estándar y algunos MSR conocidos e importantes.
+
+**Rangos**
+
+| Rango                     | Descripción                           |
+| ------------------------- | ------------------------------------- |
+| `0x00000000 – 0x00001FFF` | MSR estándar (Intel/AMD comunes)      |
+| `0xC0000000 – 0xC0001FFF` | MSR extendidos (muy usados en x86-64) |
+| Otros                     | Dependientes del modelo               |
+
+**Importantes**
+
+| MSR          | Nombre                    | Descripción                          |
+| ------------ | ------------------------- | ------------------------------------ |
+| `0x00000010` | `IA32_TIME_STAMP_COUNTER` | Contador de ciclos (usado con RDTSC) |
+| `0x0000001B` | `IA32_APIC_BASE`          | Dirección base del APIC              |
+| `0x0000003A` | `IA32_FEATURE_CONTROL`    | Control de features (VMX, SGX)       |
+| `0x00000048` | `IA32_SPEC_CTRL`          | Mitigaciones Spectre                 |
+| `0x00000079` | `IA32_BIOS_SIGN_ID`       | Microcode update info                |
+
+**Syscalls**
+
+| MSR          | Nombre        | Para qué sirve             |
+| ------------ | ------------- | -------------------------- |
+| `0xC0000080` | `IA32_EFER`   | Activa modo 64-bit         |
+| `0xC0000081` | `IA32_STAR`   | Segmentos para syscall     |
+| `0xC0000082` | `IA32_LSTAR`  | Dirección de `syscall`     |
+| `0xC0000083` | `IA32_CSTAR`  | syscall en compatibilidad  |
+| `0xC0000084` | `IA32_SFMASK` | Flags a limpiar en syscall |
+
+**FS/GS base (usados en Linux y Windows)**
+
+| MSR          | Nombre           | Descripción          |
+| ------------ | ---------------- | -------------------- |
+| `0xC0000100` | `FS_BASE`        | Base del segmento FS |
+| `0xC0000101` | `GS_BASE`        | Base del GS          |
+| `0xC0000102` | `KERNEL_GS_BASE` | GS del kernel        |
+
+**Nota:** En Linux `GS_BASE` guarda una dirección de memoria base asociada al segmento `GS`. El SO configura `GS_BASE` para que apunte a una estructura del hilo actual.
+
+Cuando se direcciona `GS` en realidad se usa `GS_BASE`, ej:
+
+```asm
+# Intel
+mov rax, gs:0x10
+# RAX = *(GS_BASE + 0x10)
+```
+
+En Linux `GS_BASE` es usado para TLS (thread-local storage), es decir, para la memoria propia del hilo.
+
+**Seguridad / Memoria**
+
+| MSR          | Nombre         | Descripción            |
+| ------------ | -------------- | ---------------------- |
+| `0xC0000080` | `EFER`         | NX bit, syscall enable |
+| `0x00000174` | `SYSENTER_CS`  | sysenter               |
+| `0x00000175` | `SYSENTER_ESP` | stack                  |
+| `0x00000176` | `SYSENTER_EIP` | entry point            |
+
+**Performance / debug**
+
+| MSR          | Nombre              | Descripción          |
+| ------------ | ------------------- | -------------------- |
+| `0x00000186` | `IA32_PERFEVTSEL0`  | Performance events   |
+| `0x000000C1` | `IA32_PMC0`         | Contador performance |
+| `0x0000019C` | `IA32_THERM_STATUS` | Temperatura CPU      |
+
+**¿Cómo conocer todos los MSR reales?**
+
+En Linux para leer uno se realiza con la herramienta `rdmsr` con `sudo rdmsr 0xC0000080`. Y si está permitido se puede obtener un dump con `sudo rdmsr -a`.
+
+Para usar la herramienta `rdmsr` se debe primero cargar el driver con `sudo modprobe msr`. Luego se verifica que el archivo `/dev/cpu/0/msr` existe con `ls /dev/cpu/0/msr`, y finalmente se pueden leer un registro con `sudo rdmsr 0x10`.
+
+Para saber si el driver ya está cargado, se usa `lsmod | grep msr`.
+
+En la ruta al dispositivo `0` es el número de core del procesador.
+
+**¿En donde se puede leer la lista completa?**
+
+Lo mas cercano son los documentos de los fabricantes:
+
+- Intel → *Intel SDM Vol. 4 (MSR Reference)*
+- AMD → *AMD64 Architecture Programmer’s Manual Vol. 2*
+
+### Instrucción `WRMSR` (Write Model-Specific Register)
+
+Permite escribir un valor en un MSR (Model-Specific Register). En userland #GP es lanzada (General Protection fault). Solo funciona en modo kernel en ring 0.
+
+**Sintaxis:** `WRMSR`
+
+No usa operandos explícitos, en su lugar usa registros:
+
+- **`ECX` (entrada):** Contiene el ID del MSR a modificar.
+- **`EDX:EAX` (entrada):** Contienen el valor de 64 bits a escribir. `EDX` es la parte alta y `EAX` la parte baja.
+
+**Ejemplo**
+
+```asm
+# Intel
+mov ecx, 0xC0000080   # IA32_EFER
+mov eax, 0x00000500   # valor bajo
+mov edx, 0x00000000   # valor alto
+wrmsr
+```
+
+Esto escribe el MSR `IA32_EFER`.
+
+**Riesgos:**
+
+`WDMSR` es peligroso, puede colgar el sistema, romper el kernel, cambiar el comportamiento crítico del CPU. Por eso se usa en kernels, hypervisores, drivers, etc. O desde herramientas como `wrmsr` en Linux (requiere root y el módulo msr cargado con `modprobe`).
 
 ## Ciclos de CPU
 
@@ -13303,11 +13446,10 @@ todo: investigar __rdtscp x86intrin.h
 
 todo: abordar el uso de fpu x87 (fdiv, fdivp, etc)
 
-todo: antes de abordar las extensiones, abordar una zona de consulta de caracteristicas al cpu con las siguientes instrucciones: , RDMSR, WRMSR, RDRAND, RDSEED, RDPMC
+todo: antes de abordar las extensiones, abordar una zona de consulta de caracteristicas al cpu con las siguientes instrucciones: ,  RDRAND, RDSEED, RDPMC
 
 Explicación rápida de cada una:
 
-- **RDMSR / WRMSR** → Leer/escribir Model-Specific Registers
 - **IN / OUT** → Leer/escribir puertos de hardware (información indirecta sobre CPU)
 - **RDRAND / RDSEED** → Instrucciones de generación de números aleatorios del CPU
 
