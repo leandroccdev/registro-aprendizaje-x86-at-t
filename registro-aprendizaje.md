@@ -13795,13 +13795,10 @@ int main() {
 
 **Nota:** Muchos sistemas mezclan `RDSEED` con otras fuentes de entropía, como por ejemplo ruido de tiempo o movimientos del ratón, para mejorar la robustez.
 
+## SSE (Single Instruction, Multiple Data)
 
 
-Todo: retomar las instrucciones de extensión de el final
 
-todo: abordar herramienta perf de linux.
-
-Todo: pausar para avanzar en C hasta nivelar, por lo que primero tendré que ver intrinsics y sse/avx avx2 en C antes que en asm
 
 todo: abordar SSE / AVX
 
@@ -13813,9 +13810,3 @@ todo: abordar SSE / AVX
 todo: investigar __rdtscp x86intrin.h
 
 todo: abordar el uso de fpu x87 (fdiv, fdivp, etc
-
-Explicación rápida de cada una:
-
-- **IN / OUT** → Leer/escribir puertos de hardware (información indirecta sobre CPU)
-
-****
