@@ -13371,6 +13371,48 @@ Esto escribe el MSR `IA32_EFER`.
 
 `WDMSR` es peligroso, puede colgar el sistema, romper el kernel, cambiar el comportamiento crítico del CPU. Por eso se usa en kernels, hypervisores, drivers, etc. O desde herramientas como `wrmsr` en Linux (requiere root y el módulo msr cargado con `modprobe`).
 
+### Instrucción `RDPMC` (Read Performance Monitoring Counters)
+
+Lee el Performance Monitoring Counter (PMC) específico del CPU. Estos contadores son registros especiales que miden eventos de rendimiento como: ciclos de cpu, instrucciones ejecutadas, fallos de cache, branches predichos correctamente/fallidos. Es muy útil para profiling, benchmarking y optimización de software.
+Puede requerir privilegios de kernel dependiendo del contador y la configuración de MSR.
+
+**Sintaxis:** `RDPMC`
+
+Usa registros implícitos:
+
+- `ECX`: Indica qué contador se quiere leer (`PMC Index`).
+- `EDX:EAX` (salida): Valor completo del contador.
+
+**Ejemplo**
+
+```asm
+# Intel
+mov ecx, 0  # PMC Index (contador a leer)
+# Leer el contador
+rdpmc
+# Ahora EDX:EAX contiene el valor de 64 bits
+# El resultado también se puede acceder desde registros de 64 bits desde RDX:EAX
+# Resultado: (RDX << 32) | RAX
+```
+
+**Ejemplo en C**
+
+```C
+#include <stdint.h>
+#include <x86intrin.h>
+#include <stdio.h>
+
+int main() {
+    unsigned int eax, edx;
+    unsigned int counter = 0; // primer PMC
+    __rdpmc(counter, &eax, &edx);
+    uint64_t value = ((uint64_t)edx << 32) | eax;
+    printf("PMC value: %llu\n", value);
+}
+```
+
+**Nota:** Dependiendo del OS, algunos contadores solo pueden leerse en modo kernel (ring 0), no en modo usuario.
+
 ## Ciclos de CPU
 
 Un ciclo es un *tic* del reloj del procesador. Si un CPU funciona a `3GHz` significa que realiza `3,000,000,000` ciclos por segundo, es decir `3 × 10⁹` ciclos por segundo.
