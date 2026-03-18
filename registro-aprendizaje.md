@@ -3927,6 +3927,14 @@ _start:
     syscall
 ```
 
+**Resumen**
+
+| Operandos | Sintaxis Intel GAS    | Resultado                    |
+| --------- | --------------------- | ---------------------------- |
+| 1         | `imul src`            | RAX*src → RDX:RAX (128 bits) |
+| 2         | `imul dest, src`      | dest = dest*src (64 bits)    |
+| 3         | `imul dest, src, imm` | dest = src*imm (64 bits)     |
+
 **Usos comunes**
 
 - Multiplicación con signo
@@ -13584,6 +13592,97 @@ No es pseudoaleatorio como `rand()` en C, es una aleatoriedad basada en hardware
 
 **Sintaxis:** `RDRAND dest`
 
+`dest` es un registro de 16, 32 o 64 bits. No se puede usar memoria ni registros de segmento.
+
+**Importante**
+
+Después de ejecutar `RDRAND` se debe revisar `CF` (Carry Flag):
+
+- `CF = 1`: número valido generado.
+- `CF = 0`: falló la generación (se debe reintentar).
+
+**Ejemplo**
+
+```asm
+# Intel
+retry:
+	rdrand rax
+	jc success
+	jmp retry
+success:
+	# RAX tiene un número aleatorio válido
+```
+
+**¿Por qué puede fallar?**
+
+Porque el generador interno puede no tener suficiente entropía en ese momento. No es común, pero puede pasar.
+
+**¿Para qué se usa?**
+
+- Generación de claves criptográficas.
+- Nonces.
+- Seeds para PRNGs.
+- Seguridad en general.
+
+### Instrucción `RDSEED` (Read Seed)
+
+Se usa para obtener entropía cruda, no un número aleatorio listo para uso directo. Genera un valor de entropía criptográfica de baja latencia directamente desde hardware. Dicho valor es ideal para inicializar PRNGs (Pseudo Random Number Generators) o DRBGs, pero no necesariamente para usarlo directamente como clave o nonce.
+Garantiza que cada valor sea independiente y seguro para criptografía.
+
+**Sintaxis:** `RDSEED dest`
+
+`dest` es un registro de 16, 32 o 64 bits. No puede usar memoria ni registros de segmento.
+
+**¿Cómo saber si funcionó?**
+
+Al igual que `RDRAND`, usa el flag `CF` (CF):
+
+- `CF = 1`: Semilla válidamente generada.
+- `CF = 0`: Fallo, se debe reintentar.
+
+**Ejemplo**
+
+```asm
+# Intel
+retry
+	rdseed rax
+	jc success
+	jmp retry
+success:
+	# RAX contiene la semilla válida
+```
+
+**Diferencias con `RDRAND`**
+
+| Característica            | RDRAND                             | RDSEED                                   |
+| ------------------------- | ---------------------------------- | ---------------------------------------- |
+| Propósito                 | Número aleatorio listo para usar   | Semilla de entropía cruda                |
+| Uso típico                | Claves, nonces, números aleatorios | Inicializar PRNGs/DRBGs                  |
+| Reintentos necesarios     | Poca probabilidad de fallo         | Puede necesitar más reintentos           |
+| Garantía de independencia | No necesariamente independiente    | Independiente y seguro para criptografía |
+
+**Ejemplo en C**
+
+```C
+#include <immintrin.h>
+#include <stdint.h>
+#include <stdio.h>
+
+int main() {
+    unsigned long long seed;
+    int success = _rdseed64_step(&seed);
+    if(success) {
+        printf("Semilla generada: %llu\n", seed);
+    } else {
+        printf("Fallo, reintentar\n");
+    }
+}
+```
+
+`_rdseed64_step` es el intrinsic de C que llama a `RDSEED`.
+
+**Nota:** Muchos sistemas mezclan `RDSEED` con otras fuentes de entropía, como por ejemplo ruido de tiempo o movimientos del ratón, para mejorar la robustez.
+
 
 
 Todo: retomar las instrucciones de extensión de el final
@@ -13601,13 +13700,10 @@ todo: abordar SSE / AVX
 
 todo: investigar __rdtscp x86intrin.h
 
-todo: abordar el uso de fpu x87 (fdiv, fdivp, etc)
-
-todo: antes de abordar las extensiones, abordar una zona de consulta de caracteristicas al cpu con las siguientes instrucciones: ,  RDRAND, RDSEED, RDPMC
+todo: abordar el uso de fpu x87 (fdiv, fdivp, etc
 
 Explicación rápida de cada una:
 
 - **IN / OUT** → Leer/escribir puertos de hardware (información indirecta sobre CPU)
-- **RDRAND / RDSEED** → Instrucciones de generación de números aleatorios del CPU
 
 ****
