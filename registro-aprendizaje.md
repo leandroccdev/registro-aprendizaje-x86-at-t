@@ -3734,6 +3734,12 @@ En la forma de un operando, esto ocurre cuando la parte alta del resultado no es
 Se usa un registro implícito como multiplicando (`AL`, `AX`, `EAX`, `RAX`), el resultado puede ser más grande que el registro original, en cuyo caso la parte alta del resultado va a `DX / EDX / RDX`.
 
 ```asm
+# Intel 8 bits
+mov al, 10 # al = 10
+mov bl, 4  # bl = 4
+imul bl    # ax = al * bl (40)
+# La paret alta queda en AL y la parte baja en AX
+
 # Intel 16 bits
 mov ax, -10 # ax = 1111 1111 1111 0110b (en complemento a dos)
 mov bx, 3   # bx = 0000 0000 0000 0011b
