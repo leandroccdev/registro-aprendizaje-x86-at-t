@@ -6854,6 +6854,37 @@ movsx rdx, byte ptr [rbx]  # toma 8 bits de memoria y extiende a 64 bits
 # [rbx] es la dirección de memoria de donde se lee el byte
 ```
 
+## Instrucción `MOVSXD` (MOV with Sign-Extension Doubleword)
+
+Toma un valor de 32 bits, lo interpreta como signed (con signo) y lo expande a 64 bits preservando el signo.
+La instrucción apareció porque el convertir un entero de 32 bits a 64 bits preservando el signo es en extremo común.
+
+**Sintaxis:** `movsxd r64, r/m32`
+
+**Ejemplo**
+
+```asm
+# Intel
+mov eax, 0xFFFFFFFF
+movsxd rax, eax
+# RAX = 0xFFFFFFFFFFFFFFFF
+```
+
+`0xFFFFFFFF` es en 32 bits signed `-1`, y el sign-extension rellena con unos la parte alta del registro. Si en cambio se usara `MOV` se obtendría `0x00000000FFFFFFFF` porque escribir en un registro de 32 bits automáticamente hace zero-extension hacia 64 bits.
+
+**Resumen**
+
+| instrucción       | resultado en RAX     |
+| ----------------- | -------------------- |
+| `mov eax, -1`     | `0x00000000FFFFFFFF` |
+| `movsxd rax, eax` | `0xFFFFFFFFFFFFFFFF` |
+
+**Usos**
+
+- Aritmética con signo en 64 bits.
+- Indexado de arreglos con offsets con signo.
+- Cuando los compiladores convierten `int` a `long`.
+
 ## Instrucción `SETcc` (set byte on condition)
 
 La instrucción es un mnemónico genérico que significa "set byte on condition", donde `cc` es un condicional que depende de los flags de la CPU. Si la condición se cumple, se escribe 1 en un byte de destino, de lo contrario (cuando no se cumple), se escribe 0 en dicho byte.
