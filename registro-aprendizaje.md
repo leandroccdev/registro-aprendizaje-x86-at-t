@@ -3718,16 +3718,31 @@ En la forma de un operando, esto ocurre cuando la parte alta del resultado no es
 - Un Operando `IMUL src`
   **Registros implícitos según el tamaño del operando.**
 
+  **Nota:** `IMUL` solo puede operar con registros de 8 bits en esta forma (con un operando).
+  
   | Tamaño del operando | Operando explícito | Registros implícitos usados   | Resultado |
   | ------------------- | ------------------ | ----------------------------- | --------- |
   | 8 bits              | r/m8               | **AL** × r/m8 → **AX**        | AX        |
   | 16 bits             | r/m16              | **AX** × r/m16 → **DX:AX**    | DX:AX     |
   | 32 bits             | r/m32              | **EAX** × r/m32 → **EDX:EAX** | EDX:EAX   |
   | 64 bits             | r/m64              | **RAX** × r/m64 → **RDX:RAX** | RDX:RAX   |
-
+  
 - Dos operandos `IMUL dest, src`
 
+    | Tamaño del operando | Sintaxis          | Operación   | Resultado destino |
+    | ------------------- | ----------------- | ----------- | ----------------- |
+    | 16 bits             | `imul r16, r/m16` | r16 × r/m16 | r16               |
+    | 32 bits             | `imul r32, r/m32` | r32 × r/m32 | r32               |
+    | 64 bits             | `imul r64, r/m64` | r64 × r/m64 | r64               |
+
 - Tres operandos `IMUL dest, src, inmediato`
+
+    | Tamaño del operando | Sintaxis                      | Operación         | Resultado destino |
+    | ------------------- | ----------------------------- | ----------------- | ----------------- |
+    | 16 bits             | `imul r16, r/m16, imm8/imm16` | r/m16 × inmediato | r16               |
+    | 32 bits             | `imul r32, r/m32, imm8/imm32` | r/m32 × inmediato | r32               |
+    | 64 bits             | `imul r64, r/m64, imm8/imm32` | r/m64 × inmediato | r64               |
+
 
 **Ejemplo (forma implícita con un operando)**
 
