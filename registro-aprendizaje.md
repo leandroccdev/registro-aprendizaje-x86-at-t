@@ -3771,19 +3771,37 @@ En éste caso, el registro DX es una extensión del registro AX. Por lo que `CF`
 Esta forma guarda solo la parte baja del resultado (no usa registros implícitos). Por lo que el resultado se trunca al tamaño del registro de destino.
 
 ```asm
-# Intel 8 bits
-mov al, 50 # al = 0011 0010b
-mov bl, 5  # bl = 0000 0101
-imul al, bl
-# Resultado debería ser 250 (50 * 5), pero 250 no cabe en al (8 bits), por lo que se trunca a 8 bits.
-# 250 en 16 bits: 0000 0000 1111 1010
-# 250 truncado a 8 bits: 1111 1010b
-# al es interpretado como un int8 con signo, es decir como -6
+# Intel 16 bits
+mov ax, 30000       # ax = 0111 0101 0011 0000b
+mov bx, 3           # bx = 0000 0000 0000 0011b
+
+imul ax, bx         # ax = ax * bx
+
+# Resultado matemático:
+# 30000 * 3 = 90000
+
+# 90000 en 32 bits:
+# 0000 0000 0000 0001 0101 1111 1001 0000b
+
+# Como la forma de 2 operandos trunca al tamaño destino (16 bits),
+# solo se conservan los 16 bits bajos:
+#
+# 0101 1111 1001 0000b
+
+# AX = 0x5F90
+
+# Interpretado como int16 signed:
+# 0x5F90 = 24464
+
+# El resultado real (90000) no cabe en int16 signed:
+# rango int16: -32768 a 32767
+
+# Entonces:
 # CF = 1
 # OF = 1
 ```
 
-En éste ejemplo, el truncamiento no recuerda el signo (se pierde), por lo que el resultado en 8 bits se interpreta como -6.
+En este ejemplo, el truncamiento conserva únicamente los 16 bits bajos del resultado, descartando los bits superiores. El valor restante en AX se interpreta según representación signed de 16 bits, resultando en 24464.
 
 **Ejemplo (con tres operandos)**
 
