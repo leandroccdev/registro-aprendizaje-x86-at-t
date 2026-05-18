@@ -13865,6 +13865,52 @@ int main() {
 
 **Nota:** Muchos sistemas mezclan `RDSEED` con otras fuentes de entropía, como por ejemplo ruido de tiempo o movimientos del ratón, para mejorar la robustez.
 
+## Extensiones de Seguridad: Intel CET / AMD Shadow Stack
+
+### Intel CET (Control-flow enforcement Technology)
+
+Es una extensión de seguridad de Intel diseñada para mitigar ataques de control-flow hijacking. Especialmente:
+
+- Buffer overflows con return address overwrite.
+- ROP (Return-Oriented Programming).
+- JOB (Jump-Oriented Programming).
+
+Se introdujo en CPUs Intel modernas (Ice Lake en adelante (dependiendo del feature set)).
+Tiene dos mecanismos principales:
+
+1. Shadow Stack (SS): Protege el return address de las funciones.
+   Cada `CALL` guarda el return address en un stack normal, y en un shadow stack protegido que no es modificable por escritura normal. Al ejecutar `RET`, el CPU compara el return address del stack normal y el return address del shadow stack, si no coinciden la excepción `#CP fault` (control protection exception) es lanzada.
+   Previene el ROP clásico basado en la sobreescritura de `RIP` en el stack.
+2. Indirect Branch Tracking (IBT): Protege saltos indirectos (`JMP`, `CALL`).
+   Introduce las instrucciones `ENDBR32` y `ENDBR64`. Las que marcan landing pads válidos.
+   Un landing pad es una dirección válida en la que está permitido aterrizar después de un salto indirecto. En otras palabras, `ENDBR32` o `ENDBR64` debe estar al inicio de cualquier función que sea destino válido de un: indirect call o un indirect jump.
+
+​	**¿Cómo funciona IBT?**
+
+​	Cuando está activo, el CPU ejecuta un indirect branch (por ej `JMP RAX`), y luego verifica la instrucción de destino. 	Si no es `ENDBR32` o `ENDBR64` falla lanzando `#CP fault`. De lo contrario la ejecución continúa normalmente.
+`ENDBR32` y `ENDBR64` son equivalentes a un `NOP` semántico, con el solo propósito de realizar validaciones. Su función es marcar entry points válidos y permitir indirect control-flow legítimo.
+
+**Ejemplo**
+
+```asm 
+# Intel
+func:
+  ENDBR64
+  push rbp
+  mov rbp, rsp
+```
+
+### AMD Shadow Stack
+
+Es la implementación de protección de integridad de retorno de llamadas (return address protection) dentro de las extensiones tipo CET (Control-Flow Enforcement Technology) en CPUs AMD modernas (Zen 4+).
+
+Su objetivo es evitar ataques ROP (Return-Oriented Programming), donde un atacante sobrescribe la dirección de retorno en la pila. Para esto, mantiene una segunda pila oculta. El stack normal guarda frames, variablse y return address, mientras que el shadow stack guarda solo direcciones de retorno en una región protegida.
+
+**¿Cómo funciona?**
+
+1. Cuando se ejecuta una instrucción `CALL` se guarda el return address en el stack norma y un duplicado en el shadow stack.
+2. Cuando se ejecuta una instrucción `RET`, se compara el valor del stack normal con el valor del shadow stack. Si no coinciden `#CP fail` es lanzado.
+
 ## SSE (Streaming SIMD Extensions)
 
 Es un conjunto de instrucciones que permite al procesador realizar operaciones vectoriales sobre múltiples datos en paralelo, usando un solo opcode, aprovechando el paralelismo a nivel de datos (Single Instruction, Multiple Data o SIMD).
